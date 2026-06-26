@@ -1,0 +1,427 @@
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+
+export type Database = {
+  public: {
+    Tables: {
+      profiles: {
+        Row: {
+          id: string;
+          role: "patient" | "doctor" | "admin" | "super_admin";
+          full_name: string;
+          email: string;
+          phone: string | null;
+          avatar_url: string | null;
+          city: string | null;
+          date_of_birth: string | null;
+          gender: "male" | "female" | "other" | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          role?: "patient" | "doctor" | "admin" | "super_admin";
+          full_name: string;
+          email: string;
+          phone?: string | null;
+          avatar_url?: string | null;
+          city?: string | null;
+          date_of_birth?: string | null;
+          gender?: "male" | "female" | "other" | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          role?: "patient" | "doctor" | "admin" | "super_admin";
+          full_name?: string;
+          email?: string;
+          phone?: string | null;
+          avatar_url?: string | null;
+          city?: string | null;
+          date_of_birth?: string | null;
+          gender?: "male" | "female" | "other" | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      doctor_profiles: {
+        Row: {
+          id: string;
+          user_id: string;
+          status: "pending" | "approved" | "rejected" | "suspended";
+          specialization: string;
+          sub_specialization: string | null;
+          qualification: string[];
+          experience_years: number;
+          pmdc_number: string;
+          bio: string | null;
+          consultation_fee: number;
+          follow_up_fee: number | null;
+          languages: string[];
+          cities: string[] | null;
+          hospital_affiliations: string[] | null;
+          documents: Json | null;
+          rating: number;
+          total_reviews: number;
+          total_consultations: number;
+          is_available: boolean;
+          approved_by: string | null;
+          approved_at: string | null;
+          rejection_reason: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          status?: "pending" | "approved" | "rejected" | "suspended";
+          specialization: string;
+          sub_specialization?: string | null;
+          qualification: string[];
+          experience_years: number;
+          pmdc_number: string;
+          bio?: string | null;
+          consultation_fee: number;
+          follow_up_fee?: number | null;
+          languages?: string[];
+          cities?: string[] | null;
+          hospital_affiliations?: string[] | null;
+          documents?: Json | null;
+          rating?: number;
+          total_reviews?: number;
+          total_consultations?: number;
+          is_available?: boolean;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          rejection_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          status?: "pending" | "approved" | "rejected" | "suspended";
+          specialization?: string;
+          sub_specialization?: string | null;
+          qualification?: string[];
+          experience_years?: number;
+          pmdc_number?: string;
+          bio?: string | null;
+          consultation_fee?: number;
+          follow_up_fee?: number | null;
+          languages?: string[];
+          cities?: string[] | null;
+          hospital_affiliations?: string[] | null;
+          documents?: Json | null;
+          rating?: number;
+          total_reviews?: number;
+          total_consultations?: number;
+          is_available?: boolean;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          rejection_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      appointments: {
+        Row: {
+          id: string;
+          patient_id: string;
+          doctor_id: string;
+          appointment_type: "video" | "chat" | "in_person";
+          status: "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show";
+          scheduled_at: string;
+          duration_minutes: number;
+          patient_notes: string | null;
+          doctor_notes: string | null;
+          prescription_url: string | null;
+          video_room_url: string | null;
+          consultation_fee: number;
+          cancellation_reason: string | null;
+          cancelled_by: string | null;
+          completed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          patient_id: string;
+          doctor_id: string;
+          appointment_type: "video" | "chat" | "in_person";
+          status?: "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show";
+          scheduled_at: string;
+          duration_minutes?: number;
+          patient_notes?: string | null;
+          doctor_notes?: string | null;
+          prescription_url?: string | null;
+          video_room_url?: string | null;
+          consultation_fee: number;
+          cancellation_reason?: string | null;
+          cancelled_by?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          patient_id?: string;
+          doctor_id?: string;
+          appointment_type?: "video" | "chat" | "in_person";
+          status?: "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show";
+          scheduled_at?: string;
+          duration_minutes?: number;
+          patient_notes?: string | null;
+          doctor_notes?: string | null;
+          prescription_url?: string | null;
+          video_room_url?: string | null;
+          consultation_fee?: number;
+          cancellation_reason?: string | null;
+          cancelled_by?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      payments: {
+        Row: {
+          id: string;
+          appointment_id: string;
+          patient_id: string;
+          doctor_id: string;
+          amount: number;
+          platform_fee: number;
+          doctor_earning: number;
+          payment_method: "jazzcash" | "easypaisa" | "stripe" | "bank_transfer";
+          status: "pending" | "completed" | "failed" | "refunded";
+          transaction_id: string | null;
+          gateway_response: Json | null;
+          refund_id: string | null;
+          refunded_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          appointment_id: string;
+          patient_id: string;
+          doctor_id: string;
+          amount: number;
+          platform_fee?: number;
+          doctor_earning: number;
+          payment_method: "jazzcash" | "easypaisa" | "stripe" | "bank_transfer";
+          status?: "pending" | "completed" | "failed" | "refunded";
+          transaction_id?: string | null;
+          gateway_response?: Json | null;
+          refund_id?: string | null;
+          refunded_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          appointment_id?: string;
+          patient_id?: string;
+          doctor_id?: string;
+          amount?: number;
+          platform_fee?: number;
+          doctor_earning?: number;
+          payment_method?: "jazzcash" | "easypaisa" | "stripe" | "bank_transfer";
+          status?: "pending" | "completed" | "failed" | "refunded";
+          transaction_id?: string | null;
+          gateway_response?: Json | null;
+          refund_id?: string | null;
+          refunded_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      reviews: {
+        Row: {
+          id: string;
+          appointment_id: string;
+          patient_id: string;
+          doctor_id: string;
+          rating: number;
+          comment: string | null;
+          is_visible: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          appointment_id: string;
+          patient_id: string;
+          doctor_id: string;
+          rating: number;
+          comment?: string | null;
+          is_visible?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          appointment_id?: string;
+          patient_id?: string;
+          doctor_id?: string;
+          rating?: number;
+          comment?: string | null;
+          is_visible?: boolean;
+          created_at?: string;
+        };
+      };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          message: string;
+          type: string | null;
+          is_read: boolean;
+          metadata: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title: string;
+          message: string;
+          type?: string | null;
+          is_read?: boolean;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          title?: string;
+          message?: string;
+          type?: string | null;
+          is_read?: boolean;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+      };
+      availability_slots: {
+        Row: {
+          id: string;
+          doctor_id: string;
+          day_of_week: number;
+          start_time: string;
+          end_time: string;
+          slot_duration_minutes: number;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          doctor_id: string;
+          day_of_week: number;
+          start_time: string;
+          end_time: string;
+          slot_duration_minutes?: number;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          doctor_id?: string;
+          day_of_week?: number;
+          start_time?: string;
+          end_time?: string;
+          slot_duration_minutes?: number;
+          is_active?: boolean;
+          created_at?: string;
+        };
+      };
+      admin_staff: {
+        Row: {
+          id: string;
+          user_id: string;
+          created_by: string | null;
+          permissions: Json;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          created_by?: string | null;
+          permissions: Json;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          created_by?: string | null;
+          permissions?: Json;
+          is_active?: boolean;
+          created_at?: string;
+        };
+      };
+      chat_messages: {
+        Row: {
+          id: string;
+          appointment_id: string;
+          sender_id: string;
+          message: string | null;
+          attachment_url: string | null;
+          is_read: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          appointment_id: string;
+          sender_id: string;
+          message?: string | null;
+          attachment_url?: string | null;
+          is_read?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          appointment_id?: string;
+          sender_id?: string;
+          message?: string | null;
+          attachment_url?: string | null;
+          is_read?: boolean;
+          created_at?: string;
+        };
+      };
+      platform_settings: {
+        Row: {
+          key: string;
+          value: Json;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          key: string;
+          value: Json;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          key?: string;
+          value?: Json;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+      };
+    };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: {
+      user_role: "patient" | "doctor" | "admin" | "super_admin";
+      doctor_status: "pending" | "approved" | "rejected" | "suspended";
+      appointment_status: "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show";
+      appointment_type: "video" | "chat" | "in_person";
+      payment_status: "pending" | "completed" | "failed" | "refunded";
+      payment_method: "jazzcash" | "easypaisa" | "stripe" | "bank_transfer";
+      gender: "male" | "female" | "other";
+    };
+    CompositeTypes: Record<string, never>;
+  };
+};
