@@ -1,150 +1,197 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
   Users, UserCheck, Calendar, DollarSign, Star, Activity, AlertTriangle,
-  Eye, CheckCircle2, Download, RefreshCw, ArrowUpRight,
-  ArrowDownRight, BarChart3, MessageSquare
+  CheckCircle2, RefreshCw, BarChart3, MessageSquare, XCircle, Loader2,
 } from "lucide-react";
 import {
   Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
-  Bar, BarChart, CartesianGrid
+  Bar, BarChart, CartesianGrid,
 } from "recharts";
+import { useAdmin } from "@/contexts/AdminContext";
+import {
+  approveDoctor,
+  rejectDoctor,
+  getAdminDoctors,
+  getAdminPatients,
+  getAdminAppointments,
+  getAdminPayments,
+  buildAdminStats,
+  revenueByMonth,
+  appointmentsByDay,
+  topDoctors as buildTopDoctors,
+  buildRecentActivity,
+} from "@/lib/admin/api";
+import type { AdminAppointment, AdminDoctor, AdminPayment } from "@/lib/admin/types";
+import type { Profile } from "@/types";
+
+function formatPKR(value: number) {
+  return `₨${Math.round(value).toLocaleString("en-PK")}`;
+}
+
+function formatShortPKR(value: number) {
+  if (value >= 1000) return `₨${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}k`;
+  return `₨${Math.round(value)}`;
+}
 
 export default function AdminDashboardPage() {
-  const [pendingDoctors, setPendingDoctors] = useState([
-    {
-      id: "doc-01",
-      name: "Dr. Farah Jamil",
-      specialization: "Clinical Counselor",
-      dateApplied: "June 21, 2026",
-      experience: "8 years",
-      pmdc: "PMDC-48562-C"
-    },
-    {
-      id: "doc-02",
-      name: "Dr. Haris Malik",
-      specialization: "Psychiatrist",
-      dateApplied: "June 20, 2026",
-      experience: "12 years",
-      pmdc: "PMDC-12596-P"
+  const { profile } = useAdmin();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionId, setActionId] = useState<string | null>(null);
+
+  const [doctors, setDoctors] = useState<AdminDoctor[]>([]);
+  const [patients, setPatients] = useState<Profile[]>([]);
+  const [appointments, setAppointments] = useState<AdminAppointment[]>([]);
+  const [payments, setPayments] = useState<AdminPayment[]>([]);
+
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [docs, pats, apts, pays] = await Promise.all([
+        getAdminDoctors(),
+        getAdminPatients(),
+        getAdminAppointments(),
+        getAdminPayments(),
+      ]);
+      setDoctors(docs);
+      setPatients(pats);
+      setAppointments(apts);
+      setPayments(pays);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load dashboard data");
+    } finally {
+      setIsLoading(false);
     }
-  ]);
+  }, []);
 
-  const stats = [
-    { 
-      title: "Total Revenue", 
-      value: "₨1,427,500", 
-      change: "+12.5%", 
-      icon: DollarSign, 
-      positive: true,
-      description: "Platform earnings this month"
-    },
-    { 
-      title: "Active Doctors", 
-      value: "127", 
-      change: "+8 this month", 
-      icon: UserCheck, 
-      positive: true,
-      description: "2 doctors online now"
-    },
-    { 
-      title: "Total Patients", 
-      value: "1,845", 
-      change: "+156 this month", 
-      icon: Users, 
-      positive: true,
-      description: "18 registered today"
-    },
-    { 
-      title: "Appointments Today", 
-      value: "89", 
-      change: "-3.2% vs yesterday", 
-      icon: Calendar, 
-      positive: false,
-      description: "47 completed, 42 upcoming"
-    },
-    { 
-      title: "Pending Reviews", 
-      value: "3", 
-      change: "2 new today", 
-      icon: AlertTriangle, 
-      positive: true,
-      description: "Doctor applications"
-    },
-    { 
-      title: "Avg Rating", 
-      value: "4.8", 
-      change: "+0.2 this month", 
-      icon: Star, 
-      positive: true,
-      description: "From 342 reviews"
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleApprove = async (doctorId: string) => {
+    setActionId(doctorId);
+    try {
+      await approveDoctor(doctorId, profile.id);
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to approve doctor");
+    } finally {
+      setActionId(null);
     }
-  ];
+  };
 
-  const revenueData = [
-    { month: "Jan", revenue: 45000 },
-    { month: "Feb", revenue: 52000 },
-    { month: "Mar", revenue: 48000 },
-    { month: "Apr", revenue: 61000 },
-    { month: "May", revenue: 85000 },
-    { month: "Jun", revenue: 142000 }
-  ];
+  const handleReject = async (doctorId: string) => {
+    setActionId(doctorId);
+    try {
+      await rejectDoctor(doctorId);
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reject doctor");
+    } finally {
+      setActionId(null);
+    }
+  };
 
-  const appointmentData = [
-    { day: "Mon", count: 45 },
-    { day: "Tue", count: 52 },
-    { day: "Wed", count: 48 },
-    { day: "Thu", count: 58 },
-    { day: "Fri", count: 61 },
-    { day: "Sat", count: 39 },
-    { day: "Sun", count: 28 }
-  ];
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+      </div>
+    );
+  }
 
+  const stats = buildAdminStats(doctors, patients, appointments, payments);
+  const revenueData = revenueByMonth(payments, 6);
+  const appointmentData = appointmentsByDay(appointments);
+  const pendingDoctors = doctors.filter((d) => d.status === "pending");
+  const topDocs = buildTopDoctors(doctors, payments, appointments, 4);
+  const recentActivity = buildRecentActivity(appointments, payments, patients, doctors, 5);
+  const onlineDoctors = doctors.filter((d) => d.status === "approved" && d.is_available).length;
+  const completedToday = stats.appointmentsTodayCompleted;
 
-  const recentActivity = [
-    { text: "New patient registered: Saim Salman", time: "10 min ago", type: "user" },
-    { text: "Appointment booked with Dr. Ayesha", time: "1 hour ago", type: "appointment" },
-    { text: "Payment completed - ₨3,500", time: "2 hours ago", type: "payment" },
-    { text: "Dr. Bilal completed session", time: "3 hours ago", type: "session" },
-    { text: "New review posted (5 stars)", time: "5 hours ago", type: "review" }
-  ];
-
-  const topDoctors = [
-    { name: "Dr. Ayesha Khan", consultations: 89, earnings: 267000, rating: 4.9 },
-    { name: "Dr. Bilal Ahmed", consultations: 76, earnings: 228000, rating: 4.8 },
-    { name: "Dr. Zainab Ali", consultations: 68, earnings: 204000, rating: 4.9 },
-    { name: "Dr. Hassan Raza", consultations: 62, earnings: 186000, rating: 4.7 }
+  const statCards = [
+    {
+      title: "Platform Revenue",
+      value: formatPKR(stats.monthlyPlatformRevenue),
+      change: `${formatPKR(stats.grossVolume)} gross volume`,
+      icon: DollarSign,
+      positive: true,
+      description: "Commission earned this month",
+    },
+    {
+      title: "Active Doctors",
+      value: String(stats.activeDoctors),
+      change: stats.newDoctorsThisMonth > 0 ? `+${stats.newDoctorsThisMonth} this month` : "No new joins",
+      icon: UserCheck,
+      positive: true,
+      description: `${onlineDoctors} available now`,
+    },
+    {
+      title: "Total Patients",
+      value: String(stats.totalPatients),
+      change: stats.newPatientsThisMonth > 0 ? `+${stats.newPatientsThisMonth} this month` : "No new signups",
+      icon: Users,
+      positive: true,
+      description: `${stats.totalPatients} registered`,
+    },
+    {
+      title: "Appointments Today",
+      value: String(stats.appointmentsToday),
+      change: `${stats.appointmentsTodayUpcoming} upcoming`,
+      icon: Calendar,
+      positive: true,
+      description: `${completedToday} completed today`,
+    },
+    {
+      title: "Pending Reviews",
+      value: String(stats.pendingDoctors),
+      change: stats.pendingDoctors > 0 ? "Action needed" : "All caught up",
+      icon: AlertTriangle,
+      positive: stats.pendingDoctors === 0,
+      description: "Doctor applications",
+    },
+    {
+      title: "Avg Rating",
+      value: stats.avgRating > 0 ? stats.avgRating.toFixed(1) : "—",
+      change: `${stats.totalReviews} reviews`,
+      icon: Star,
+      positive: true,
+      description: "Across rated doctors",
+    },
   ];
 
   return (
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-[1600px] mx-auto">
-      {/* Header - Mobile Optimized */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold text-slate-900">Dashboard</h1>
-          <p className="text-xs sm:text-sm text-slate-600 mt-1">Monitor your platform's performance and activity</p>
+          <p className="text-xs sm:text-sm text-slate-600 mt-1">
+            Live overview of platform performance and activity
+          </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
+          <Button variant="outline" size="sm" onClick={loadData} className="flex-1 sm:flex-none">
             <RefreshCw className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Refresh</span>
-          </Button>
-          <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
-            <Download className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Export</span>
           </Button>
         </div>
       </div>
 
-      {/* Stats Grid - Mobile Responsive */}
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       <div className="grid gap-3 sm:gap-4 grid-cols-1 xs:grid-cols-2 lg:grid-cols-3">
-        {stats.map((stat, i) => {
+        {statCards.map((stat, i) => {
           const Icon = stat.icon;
-          const TrendIcon = stat.positive ? ArrowUpRight : ArrowDownRight;
           return (
             <Card key={i} className="relative overflow-hidden hover:shadow-md transition-shadow">
               <CardContent className="p-4 sm:p-6">
@@ -153,15 +200,12 @@ export default function AdminDashboardPage() {
                     <p className="text-xs sm:text-sm font-medium text-slate-600 truncate">{stat.title}</p>
                     <div className="flex items-baseline gap-1 sm:gap-2 flex-wrap">
                       <h3 className="text-2xl sm:text-3xl font-semibold text-slate-900">{stat.value}</h3>
-                      <span className={`text-xs sm:text-sm font-medium flex items-center gap-0.5 ${stat.positive ? 'text-green-600' : 'text-red-600'}`}>
-                        <TrendIcon className="h-3 w-3" />
-                        {stat.change}
-                      </span>
                     </div>
-                    <p className="text-[10px] sm:text-xs text-slate-500 truncate">{stat.description}</p>
+                    <p className="text-[11px] sm:text-xs font-medium text-slate-500 truncate">{stat.change}</p>
+                    <p className="text-[10px] sm:text-xs text-slate-400 truncate">{stat.description}</p>
                   </div>
-                  <div className={`p-2 sm:p-3 rounded-lg ${stat.positive ? 'bg-green-50' : 'bg-red-50'} flex-shrink-0`}>
-                    <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${stat.positive ? 'text-green-600' : 'text-red-600'}`} />
+                  <div className={`p-2 sm:p-3 rounded-lg ${stat.positive ? "bg-teal-50" : "bg-amber-50"} flex-shrink-0`}>
+                    <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${stat.positive ? "text-teal-600" : "text-amber-600"}`} />
                   </div>
                 </div>
               </CardContent>
@@ -170,21 +214,21 @@ export default function AdminDashboardPage() {
         })}
       </div>
 
-      {/* Charts and Content - Mobile Optimized */}
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-7">
         <div className="lg:col-span-4 space-y-4 sm:space-y-6">
-          {/* Revenue Overview */}
           <Card>
             <CardHeader className="pb-3 sm:pb-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                   <CardTitle className="text-base sm:text-lg">Revenue Overview</CardTitle>
-                  <CardDescription className="text-xs sm:text-sm">Monthly platform earnings</CardDescription>
+                  <CardDescription className="text-xs sm:text-sm">Monthly platform commission</CardDescription>
                 </div>
-                <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  <span className="text-xs sm:text-sm">View Report</span>
-                </Button>
+                <Link href="/admin/payments">
+                  <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                    <BarChart3 className="h-4 w-4 mr-2" />
+                    <span className="text-xs sm:text-sm">View Report</span>
+                  </Button>
+                </Link>
               </div>
             </CardHeader>
             <CardContent className="px-2 sm:px-6">
@@ -193,45 +237,33 @@ export default function AdminDashboardPage() {
                   <AreaChart data={revenueData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                     <defs>
                       <linearGradient id="revenue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#0d9488" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#0d9488" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                     <XAxis dataKey="month" stroke="#94a3b8" fontSize={10} />
-                    <YAxis stroke="#94a3b8" fontSize={10} tickFormatter={(value) => `₨${value/1000}k`} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'white',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '8px',
-                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                        fontSize: '12px'
+                    <YAxis stroke="#94a3b8" fontSize={10} tickFormatter={(value) => formatShortPKR(value)} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "white",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "8px",
+                        fontSize: "12px",
                       }}
+                      formatter={(value) => [formatPKR(Number(value ?? 0)), "Commission"]}
                     />
-                    <Area 
-                      type="monotone" 
-                      dataKey="revenue" 
-                      stroke="#10b981" 
-                      strokeWidth={2}
-                      fillOpacity={1} 
-                      fill="url(#revenue)" 
-                    />
+                    <Area type="monotone" dataKey="revenue" stroke="#0d9488" strokeWidth={2} fillOpacity={1} fill="url(#revenue)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
 
-          {/* Weekly Appointments */}
           <Card>
             <CardHeader className="pb-3 sm:pb-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base sm:text-lg">Weekly Appointments</CardTitle>
-                  <CardDescription className="text-xs sm:text-sm">Daily booking trends</CardDescription>
-                </div>
-              </div>
+              <CardTitle className="text-base sm:text-lg">Weekly Appointments</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">Bookings over the last 7 days</CardDescription>
             </CardHeader>
             <CardContent className="px-2 sm:px-6">
               <div className="h-[200px] sm:h-[250px] w-full">
@@ -239,16 +271,9 @@ export default function AdminDashboardPage() {
                   <BarChart data={appointmentData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                     <XAxis dataKey="day" stroke="#94a3b8" fontSize={10} />
-                    <YAxis stroke="#94a3b8" fontSize={10} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'white',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '8px',
-                        fontSize: '12px'
-                      }}
-                    />
-                    <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    <YAxis stroke="#94a3b8" fontSize={10} allowDecimals={false} />
+                    <Tooltip contentStyle={{ backgroundColor: "white", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "12px" }} />
+                    <Bar dataKey="count" name="Appointments" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -262,34 +287,45 @@ export default function AdminDashboardPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {pendingDoctors.map((doc) => (
-                <div key={doc.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium text-sm">
-                      {doc.name.split(' ')[1]?.[0]}{doc.name.split(' ')[2]?.[0] || doc.name.split(' ')[1]?.[1]}
+                    <div className="h-10 w-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-medium text-sm">
+                      {(doc.profile?.full_name ?? "Dr")
+                        .split(" ")
+                        .map((n) => n[0])
+                        .slice(0, 2)
+                        .join("")}
                     </div>
                     <div>
-                      <p className="font-medium text-slate-900">{doc.name}</p>
+                      <p className="font-medium text-slate-900">{doc.profile?.full_name ?? "Unnamed doctor"}</p>
                       <p className="text-sm text-slate-600">{doc.specialization}</p>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
-                        <span>{doc.pmdc}</span>
+                      <div className="flex items-center gap-2 mt-1 text-xs text-slate-500 flex-wrap">
+                        <span>{doc.pmdc_number}</span>
                         <span>•</span>
-                        <span>{doc.experience}</span>
+                        <span>{doc.experience_years} yrs</span>
                         <span>•</span>
-                        <span>{doc.dateApplied}</span>
+                        <span>Applied {new Date(doc.created_at).toLocaleDateString("en-PK", { month: "short", day: "numeric" })}</span>
                       </div>
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button 
-                      size="sm" 
-                      onClick={() => setPendingDoctors(prev => prev.filter(d => d.id !== doc.id))}
-                      className="bg-green-600 hover:bg-green-700"
+                    <Button
+                      size="sm"
+                      onClick={() => handleApprove(doc.id)}
+                      disabled={actionId === doc.id}
+                      className="bg-teal-600 hover:bg-teal-700"
                     >
-                      <CheckCircle2 className="h-4 w-4 mr-1" />
+                      {actionId === doc.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
                       Approve
                     </Button>
-                    <Button size="sm" variant="outline">
-                      <Eye className="h-4 w-4" />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleReject(doc.id)}
+                      disabled={actionId === doc.id}
+                      className="border-red-200 text-red-600 hover:bg-red-50"
+                    >
+                      <XCircle className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -313,58 +349,69 @@ export default function AdminDashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {recentActivity.map((activity, i) => (
-                  <div key={i} className="flex items-start gap-3 pb-4 border-b border-slate-200 last:border-0 last:pb-0">
+                {recentActivity.map((activity) => (
+                  <div key={activity.id} className="flex items-start gap-3 pb-4 border-b border-slate-200 last:border-0 last:pb-0">
                     <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
                       <Activity className="h-4 w-4 text-slate-600" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-slate-900">{activity.text}</p>
-                      <p className="text-xs text-slate-500 mt-1">{activity.time}</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {new Date(activity.at).toLocaleDateString("en-PK", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </p>
                     </div>
                   </div>
                 ))}
+                {recentActivity.length === 0 && (
+                  <p className="text-sm text-slate-500 text-center py-6">No activity yet.</p>
+                )}
               </div>
-              <Button variant="outline" className="w-full mt-4" size="sm">
-                View All Activity
-              </Button>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
               <CardTitle>Top Performing Doctors</CardTitle>
-              <CardDescription>Highest earners this month</CardDescription>
+              <CardDescription>Highest earners</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {topDoctors.map((doctor, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
+                {topDocs.map((doctor, i) => (
+                  <div key={doctor.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-xs">
+                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-semibold text-xs">
                         #{i + 1}
                       </div>
                       <div>
                         <p className="text-sm font-medium text-slate-900">{doctor.name}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-xs text-slate-600">{doctor.consultations} sessions</span>
-                          <span className="text-xs text-slate-400">•</span>
-                          <span className="text-xs text-yellow-600 flex items-center gap-0.5">
-                            <Star className="h-3 w-3 fill-yellow-600" />
-                            {doctor.rating}
-                          </span>
+                          {doctor.rating > 0 && (
+                            <>
+                              <span className="text-xs text-slate-400">•</span>
+                              <span className="text-xs text-yellow-600 flex items-center gap-0.5">
+                                <Star className="h-3 w-3 fill-yellow-600" />
+                                {doctor.rating.toFixed(1)}
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-semibold text-green-600">₨{(doctor.earnings / 1000).toFixed(0)}k</p>
+                      <p className="text-sm font-semibold text-teal-600">{formatShortPKR(doctor.earnings)}</p>
                     </div>
                   </div>
                 ))}
+                {topDocs.length === 0 && (
+                  <p className="text-sm text-slate-500 text-center py-6">No doctors yet.</p>
+                )}
               </div>
-              <Button variant="outline" className="w-full mt-4" size="sm">
-                View All Doctors
-              </Button>
+              <Link href="/admin/doctors">
+                <Button variant="outline" className="w-full mt-4" size="sm">
+                  View All Doctors
+                </Button>
+              </Link>
             </CardContent>
           </Card>
 
@@ -373,10 +420,10 @@ export default function AdminDashboardPage() {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Link href="/admin/staff">
+              <Link href="/admin/doctors">
                 <Button variant="outline" className="w-full justify-start" size="sm">
-                  <Users className="h-4 w-4 mr-2" />
-                  Manage Staff
+                  <UserCheck className="h-4 w-4 mr-2" />
+                  Review Doctors
                 </Button>
               </Link>
               <Link href="/admin/reports">
@@ -385,10 +432,12 @@ export default function AdminDashboardPage() {
                   View Reports
                 </Button>
               </Link>
-              <Button variant="outline" className="w-full justify-start" size="sm">
-                <MessageSquare className="h-4 w-4 mr-2" />
-                Send Broadcast
-              </Button>
+              <Link href="/admin/appointments">
+                <Button variant="outline" className="w-full justify-start" size="sm">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Monitor Appointments
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         </div>

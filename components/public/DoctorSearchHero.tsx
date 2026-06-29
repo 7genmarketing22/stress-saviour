@@ -42,9 +42,13 @@ export function DoctorSearchHero({ doctorCount = 0, compact = false }: DoctorSea
     <div className={cn("relative", compact ? "space-y-4" : "space-y-8")}>
       {!compact && (
         <div className="space-y-4 text-center lg:text-left">
-          <p className="inline-flex items-center gap-2 rounded-full border border-teal-200/80 bg-white/70 px-4 py-1.5 text-xs font-semibold text-teal-800 shadow-sm backdrop-blur">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal-500" />
-            PMDC-verified · Secure video consultations · Urdu & English
+          <p className="inline-flex max-w-full items-center gap-2 rounded-full border border-teal-200/80 bg-white/70 px-3.5 py-1.5 text-[11px] font-semibold text-teal-800 shadow-sm backdrop-blur sm:px-4 sm:text-xs">
+            <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-teal-500" />
+            <span className="whitespace-nowrap">
+              PMDC-verified
+              <span className="hidden sm:inline"> · Secure video consultations</span>
+              <span> · Urdu &amp; English</span>
+            </span>
           </p>
           <h1 className="text-3xl font-bold leading-tight tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
             Find the Best{" "}
@@ -126,7 +130,7 @@ export function DoctorSearchHero({ doctorCount = 0, compact = false }: DoctorSea
       </div>
 
       {/* City quick links */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
           Popular:
         </span>

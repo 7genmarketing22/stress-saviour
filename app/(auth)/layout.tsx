@@ -1,6 +1,5 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Brain } from "lucide-react";
 
 export default function AuthLayout({
   children,
@@ -21,11 +20,14 @@ export default function AuthLayout({
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/25 to-slate-900/40" />
 
         <div className="relative z-10 flex h-full min-h-screen flex-col justify-between p-10 text-white">
-          <Link href="/" className="inline-flex items-center gap-2.5 font-semibold text-white w-fit">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-500 shadow-lg">
-              <Brain className="h-5 w-5" />
-            </span>
-            Stress Saviors
+          <Link href="/" className="inline-flex w-fit items-center rounded-xl bg-white/95 px-3 py-2 shadow-lg" aria-label="Stress Saviors home">
+            <Image
+              src="/stress-savious-logo.png"
+              alt="Stress Saviors"
+              width={500}
+              height={500}
+              className="h-10 w-auto"
+            />
           </Link>
 
           <div className="space-y-3 max-w-md">
@@ -48,10 +50,16 @@ export default function AuthLayout({
         <div className="flex items-center justify-between px-6 py-4 lg:justify-end">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 lg:hidden"
+            className="inline-flex items-center lg:hidden"
+            aria-label="Stress Saviors home"
           >
-            <Brain className="h-4 w-4 text-teal-600" />
-            Stress Saviors
+            <Image
+              src="/stress-savious-logo.png"
+              alt="Stress Saviors"
+              width={500}
+              height={500}
+              className="h-9 w-auto"
+            />
           </Link>
           <Link
             href="/"

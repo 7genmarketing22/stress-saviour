@@ -197,6 +197,10 @@ export type Database = {
           doctor_earning: number;
           payment_method: "jazzcash" | "easypaisa" | "stripe" | "bank_transfer";
           status: "pending" | "completed" | "failed" | "refunded";
+          payout_status: "pending" | "paid";
+          paid_at: string | null;
+          paid_by: string | null;
+          payout_reference: string | null;
           transaction_id: string | null;
           gateway_response: Json | null;
           refund_id: string | null;
@@ -214,6 +218,10 @@ export type Database = {
           doctor_earning: number;
           payment_method: "jazzcash" | "easypaisa" | "stripe" | "bank_transfer";
           status?: "pending" | "completed" | "failed" | "refunded";
+          payout_status?: "pending" | "paid";
+          paid_at?: string | null;
+          paid_by?: string | null;
+          payout_reference?: string | null;
           transaction_id?: string | null;
           gateway_response?: Json | null;
           refund_id?: string | null;
@@ -231,6 +239,10 @@ export type Database = {
           doctor_earning?: number;
           payment_method?: "jazzcash" | "easypaisa" | "stripe" | "bank_transfer";
           status?: "pending" | "completed" | "failed" | "refunded";
+          payout_status?: "pending" | "paid";
+          paid_at?: string | null;
+          paid_by?: string | null;
+          payout_reference?: string | null;
           transaction_id?: string | null;
           gateway_response?: Json | null;
           refund_id?: string | null;

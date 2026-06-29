@@ -11,11 +11,11 @@ import {
   EyeOff,
   HeartPulse,
   User,
-  Shield,
   Mail,
   Lock,
   ChevronRight,
   ArrowLeft,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -52,14 +52,17 @@ const roles: {
     description: "Manage patients & schedule",
     accent: "hover:border-cyan-600 hover:bg-cyan-50/80",
   },
-  {
-    role: "admin",
-    label: "Admin",
-    icon: Shield,
-    description: "Platform operations",
-    accent: "hover:border-slate-600 hover:bg-slate-50",
-  },
 ];
+
+// Administrator login is intentionally not listed on the public card picker.
+// It is only reachable via /login?role=admin so it isn't advertised publicly.
+const adminRoleMeta = {
+  role: "admin" as UserRole,
+  label: "Administrator",
+  icon: ShieldCheck,
+  description: "Platform administration",
+  accent: "hover:border-slate-600 hover:bg-slate-50",
+};
 
 export default function LoginPage() {
   return (
@@ -94,37 +97,76 @@ function LoginForm() {
     setError(null);
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      });
+      const { data: signInData, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email: data.email,
+          password: data.password,
+        });
 
       if (signInError) {
-        setError(signInError.message);
+        setError("Invalid email or password. Please try again.");
+        return;
+      }
+
+      // Resolve the account's real role from the database (a signed-in user can
+      // always read their own profile via RLS).
+      const userId = signInData.user?.id;
+      let actualRole: UserRole | null = null;
+      if (userId) {
+        const { data: profileRow } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", userId)
+          .maybeSingle();
+        actualRole = (profileRow as { role?: UserRole } | null)?.role ?? null;
+      }
+
+      // If we can't confirm the role, never leave a half-authenticated session.
+      if (!actualRole) {
+        await supabase.auth.signOut();
+        setError("We couldn't verify your account. Please contact support.");
+        return;
+      }
+
+      // Administrators always go to the admin portal (there is no admin card).
+      if (actualRole === "admin" || actualRole === "super_admin") {
+        router.refresh();
+        router.push("/admin/dashboard");
+        return;
+      }
+
+      // Enforce that the chosen portal matches the account's real role.
+      // This blocks signing into the wrong portal with another role's credentials.
+      if (selectedRole && actualRole !== selectedRole) {
+        await supabase.auth.signOut();
+        const roleLabel = actualRole === "doctor" ? "Doctor" : "Patient";
+        setError(
+          `These credentials belong to a ${roleLabel.toLowerCase()} account. Please go back and use the ${roleLabel} login.`
+        );
         return;
       }
 
       router.refresh();
 
-      if (redirectTo && selectedRole === "patient") {
-        router.push(redirectTo);
-      } else if (selectedRole === "patient") {
-        router.push("/patient/dashboard");
-      } else if (selectedRole === "doctor") {
+      if (actualRole === "doctor") {
         router.push("/doctor/dashboard");
-      } else if (selectedRole === "admin") {
-        router.push("/admin/dashboard");
+      } else if (redirectTo) {
+        router.push(redirectTo);
       } else {
-        router.push("/");
+        router.push("/patient/dashboard");
       }
     } catch {
-      setError("An unexpected error occurred");
+      await supabase.auth.signOut();
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const selectedRoleMeta = roles.find((r) => r.role === selectedRole);
+  const selectedRoleMeta =
+    selectedRole === "admin" || selectedRole === "super_admin"
+      ? adminRoleMeta
+      : roles.find((r) => r.role === selectedRole);
 
   if (!selectedRole) {
     return (

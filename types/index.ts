@@ -5,6 +5,7 @@ export type DoctorStatus = "pending" | "approved" | "rejected" | "suspended";
 export type AppointmentStatus = "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show";
 export type AppointmentType = "video" | "chat" | "in_person";
 export type PaymentStatus = "pending" | "completed" | "failed" | "refunded";
+export type PayoutStatus = "pending" | "paid";
 export type PaymentMethod = "jazzcash" | "easypaisa" | "stripe" | "bank_transfer";
 export type Gender = "male" | "female" | "other";
 
@@ -80,6 +81,10 @@ export interface Payment {
   doctor_earning: number;
   payment_method: PaymentMethod;
   status: PaymentStatus;
+  payout_status: PayoutStatus;
+  paid_at: string | null;
+  paid_by: string | null;
+  payout_reference: string | null;
   transaction_id: string | null;
   gateway_response: Record<string, unknown> | null;
   refund_id: string | null;

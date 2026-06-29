@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  ArrowUpRight,
   Building2,
   MessageSquare,
   Phone,
@@ -15,8 +16,9 @@ const services = [
     description: "Consult a doctor online from home",
     icon: Video,
     href: "/doctors?availableNow=true",
-    accent: "from-teal-500 to-cyan-600",
-    iconBg: "bg-teal-100 text-teal-700",
+    gradient: "from-teal-500 to-cyan-600",
+    glow: "group-hover:shadow-teal-200/60",
+    iconRing: "group-hover:ring-teal-200",
   },
   {
     title: "Book Appointment",
@@ -24,8 +26,9 @@ const services = [
     description: "Book an in-person consultation",
     icon: Building2,
     href: "/doctors",
-    accent: "from-[#1e3a5f] to-[#2d5a8a]",
-    iconBg: "bg-blue-100 text-blue-700",
+    gradient: "from-[#1e3a5f] to-[#2d5a8a]",
+    glow: "group-hover:shadow-blue-200/60",
+    iconRing: "group-hover:ring-blue-200",
   },
   {
     title: "Chat Consultation",
@@ -33,8 +36,9 @@ const services = [
     description: "Flexible async messaging support",
     icon: MessageSquare,
     href: "/doctors?specialty=Psychologist",
-    accent: "from-violet-500 to-purple-600",
-    iconBg: "bg-violet-100 text-violet-700",
+    gradient: "from-violet-500 to-purple-600",
+    glow: "group-hover:shadow-violet-200/60",
+    iconRing: "group-hover:ring-violet-200",
   },
   {
     title: "Talk to Us",
@@ -42,8 +46,9 @@ const services = [
     description: "Get help choosing the right doctor",
     icon: Phone,
     href: "/#faq",
-    accent: "from-emerald-500 to-teal-600",
-    iconBg: "bg-emerald-100 text-emerald-700",
+    gradient: "from-emerald-500 to-teal-600",
+    glow: "group-hover:shadow-emerald-200/60",
+    iconRing: "group-hover:ring-emerald-200",
   },
 ];
 
@@ -56,25 +61,45 @@ export function ServiceQuickLinks({ className }: { className?: string }) {
           <Link
             key={service.title}
             href={service.href}
-            className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-teal-200 hover:shadow-lg"
+            className={cn(
+              "group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition-all duration-300",
+              "hover:-translate-y-1 hover:border-transparent hover:shadow-xl",
+              service.glow
+            )}
           >
-            <div
-              className={cn(
-                "absolute inset-x-0 top-0 h-1 bg-gradient-to-r opacity-0 transition-opacity group-hover:opacity-100",
-                service.accent
-              )}
-            />
+            {/* Soft gradient wash on hover */}
             <span
               className={cn(
-                "flex h-12 w-12 items-center justify-center rounded-xl",
-                service.iconBg
+                "pointer-events-none absolute inset-0 bg-gradient-to-br opacity-0 transition-opacity duration-300 group-hover:opacity-[0.06]",
+                service.gradient
               )}
-            >
-              <Icon className="h-6 w-6" />
-            </span>
-            <h3 className="mt-4 font-bold text-slate-900">{service.title}</h3>
-            <p className="text-xs font-medium text-teal-700">{service.subtitle}</p>
-            <p className="mt-1 text-sm text-slate-500">{service.description}</p>
+            />
+            {/* Decorative corner blob */}
+            <span
+              className={cn(
+                "pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-gradient-to-br opacity-10 blur-xl transition-all duration-500 group-hover:scale-150 group-hover:opacity-20",
+                service.gradient
+              )}
+            />
+
+            <div className="relative flex items-start justify-between">
+              <span
+                className={cn(
+                  "flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-md ring-2 ring-transparent transition-all duration-300 group-hover:scale-110",
+                  service.gradient,
+                  service.iconRing
+                )}
+              >
+                <Icon className="h-6 w-6" />
+              </span>
+              <ArrowUpRight className="h-5 w-5 -translate-y-1 translate-x-1 text-slate-300 opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:translate-y-0 group-hover:text-slate-500 group-hover:opacity-100" />
+            </div>
+
+            <div className="relative mt-5">
+              <h3 className="font-bold text-slate-900">{service.title}</h3>
+              <p className="mt-0.5 text-xs font-semibold text-teal-700">{service.subtitle}</p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-500">{service.description}</p>
+            </div>
           </Link>
         );
       })}

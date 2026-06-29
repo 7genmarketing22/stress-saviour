@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from "recharts";
 import { useDoctor } from "@/contexts/DoctorContext";
+import { usePaymentsRealtime } from "@/lib/realtime/usePaymentsRealtime";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import {
   buildLastVisitMap,
@@ -152,12 +153,13 @@ export default function DoctorDashboardPage() {
         monthPayments.reduce((sum, p) => sum + Number(p.doctor_earning), 0)
       );
 
+      const collected = payments.filter((p) => p.status === "completed");
       setWallet({
-        disbursable: payments
-          .filter((p) => p.status === "completed")
+        disbursable: collected
+          .filter((p) => p.payout_status === "paid")
           .reduce((sum, p) => sum + Number(p.doctor_earning), 0),
-        pending: payments
-          .filter((p) => p.status === "pending")
+        pending: collected
+          .filter((p) => p.payout_status !== "paid")
           .reduce((sum, p) => sum + Number(p.doctor_earning), 0),
       });
 
@@ -217,6 +219,9 @@ export default function DoctorDashboardPage() {
   useEffect(() => {
     loadDashboardData();
   }, [doctorProfile.id, profile.id]);
+
+  // Live-sync wallet when admin settles a payout.
+  usePaymentsRealtime({ doctorId: doctorProfile.id, onChange: loadDashboardData });
 
   const todaySessions = useMemo(
     () => sessions.filter((s) => isToday(s.scheduledAt)),
@@ -730,17 +735,17 @@ export default function DoctorDashboardPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-3 text-xs bg-muted/40 p-3 rounded-xl border">
                 <div>
-                  <p className="text-muted-foreground">Disbursable</p>
-                  <p className="text-sm font-bold text-foreground mt-0.5">{formatCurrency(wallet.disbursable)}</p>
+                  <p className="text-muted-foreground">Cleared</p>
+                  <p className="text-sm font-bold text-emerald-600 mt-0.5">{formatCurrency(wallet.disbursable)}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Pending Escrow</p>
-                  <p className="text-sm font-bold text-foreground mt-0.5">{formatCurrency(wallet.pending)}</p>
+                  <p className="text-muted-foreground">Pending Settlement</p>
+                  <p className="text-sm font-bold text-amber-600 mt-0.5">{formatCurrency(wallet.pending)}</p>
                 </div>
               </div>
               <div className="text-[10px] text-muted-foreground flex justify-between">
-                <span>Next payout cycles: Semimonthly</span>
-                <span className="font-semibold text-foreground">June 30, 2026</span>
+                <span>Cleared payouts update live</span>
+                <span className="font-semibold text-foreground">Synced with admin</span>
               </div>
               <Button onClick={requestEarlyPayout} size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-4">
                 Request Early Disbursal

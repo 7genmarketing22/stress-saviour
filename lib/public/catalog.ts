@@ -21,6 +21,10 @@ export interface CatalogItem {
   icon: CatalogIconKey;
   color: string;
   bg: string;
+  /** Optional 3D/illustration image in /public. Falls back to icon when absent. */
+  image?: string;
+  /** Tailwind gradient stops for the smart border ring, e.g. "from-violet-300 to-fuchsia-200". */
+  ring?: string;
 }
 
 export const MENTAL_SYMPTOMS: CatalogItem[] = [
@@ -32,6 +36,8 @@ export const MENTAL_SYMPTOMS: CatalogItem[] = [
     icon: "cloud-rain",
     color: "text-violet-600",
     bg: "bg-violet-100",
+    image: "/anxiety_depression_medical_3d.png",
+    ring: "from-violet-300 to-fuchsia-200",
   },
   {
     id: "stress-burnout",
@@ -41,6 +47,8 @@ export const MENTAL_SYMPTOMS: CatalogItem[] = [
     icon: "flame",
     color: "text-orange-600",
     bg: "bg-orange-100",
+    image: "/stress_burnout_3d.png",
+    ring: "from-orange-300 to-amber-200",
   },
   {
     id: "sleep-issues",
@@ -50,6 +58,8 @@ export const MENTAL_SYMPTOMS: CatalogItem[] = [
     icon: "moon",
     color: "text-indigo-600",
     bg: "bg-indigo-100",
+    image: "/sleep_issues_3d.png",
+    ring: "from-indigo-300 to-blue-200",
   },
   {
     id: "panic-attacks",
@@ -59,6 +69,8 @@ export const MENTAL_SYMPTOMS: CatalogItem[] = [
     icon: "zap",
     color: "text-amber-600",
     bg: "bg-amber-100",
+    image: "/panic_attacks_3d.png",
+    ring: "from-amber-300 to-yellow-200",
   },
   {
     id: "relationship",
@@ -68,6 +80,8 @@ export const MENTAL_SYMPTOMS: CatalogItem[] = [
     icon: "users",
     color: "text-pink-600",
     bg: "bg-pink-100",
+    image: "/relationship_issues_3d.png",
+    ring: "from-pink-300 to-rose-200",
   },
   {
     id: "grief",
@@ -77,6 +91,8 @@ export const MENTAL_SYMPTOMS: CatalogItem[] = [
     icon: "heart-crack",
     color: "text-rose-600",
     bg: "bg-rose-100",
+    image: "/grief_loss_3d.png",
+    ring: "from-rose-300 to-pink-200",
   },
   {
     id: "ocd",
@@ -86,6 +102,8 @@ export const MENTAL_SYMPTOMS: CatalogItem[] = [
     icon: "refresh-cw",
     color: "text-cyan-600",
     bg: "bg-cyan-100",
+    image: "/ocd_3d.png",
+    ring: "from-cyan-300 to-teal-200",
   },
   {
     id: "adhd",
@@ -95,6 +113,8 @@ export const MENTAL_SYMPTOMS: CatalogItem[] = [
     icon: "wind",
     color: "text-sky-600",
     bg: "bg-sky-100",
+    image: "/adhd_3d.png",
+    ring: "from-sky-300 to-cyan-200",
   },
 ];
 
@@ -107,6 +127,8 @@ export const MENTAL_CONDITIONS: CatalogItem[] = [
     icon: "cloud-rain",
     color: "text-blue-600",
     bg: "bg-blue-100",
+    ring: "from-blue-300 to-indigo-200",
+    image: "/depression_medical_3d.png",
   },
   {
     id: "anxiety-disorder",
@@ -116,6 +138,8 @@ export const MENTAL_CONDITIONS: CatalogItem[] = [
     icon: "shield-alert",
     color: "text-teal-600",
     bg: "bg-teal-100",
+    ring: "from-teal-300 to-cyan-200",
+    image: "/anxiety_disorder_medical_3d.png",
   },
   {
     id: "bipolar",
@@ -125,6 +149,8 @@ export const MENTAL_CONDITIONS: CatalogItem[] = [
     icon: "sparkles",
     color: "text-purple-600",
     bg: "bg-purple-100",
+    ring: "from-purple-300 to-violet-200",
+    image: "/bipolar_disorder_medical_3d.png",
   },
   {
     id: "ptsd",
@@ -134,6 +160,8 @@ export const MENTAL_CONDITIONS: CatalogItem[] = [
     icon: "shield-alert",
     color: "text-slate-600",
     bg: "bg-slate-100",
+    ring: "from-slate-300 to-slate-200",
+    image: "/ptsd_medical_3d.png",
   },
   {
     id: "schizophrenia",
@@ -143,6 +171,8 @@ export const MENTAL_CONDITIONS: CatalogItem[] = [
     icon: "brain",
     color: "text-emerald-600",
     bg: "bg-emerald-100",
+    ring: "from-emerald-300 to-green-200",
+    image: "/schizophrenia_medical_3d.png",
   },
   {
     id: "eating-disorder",
@@ -152,6 +182,8 @@ export const MENTAL_CONDITIONS: CatalogItem[] = [
     icon: "heart-crack",
     color: "text-red-600",
     bg: "bg-red-100",
+    ring: "from-red-300 to-rose-200",
+    image: "/eating_disorders_medical_3d.png",
   },
   {
     id: "addiction",
@@ -161,6 +193,8 @@ export const MENTAL_CONDITIONS: CatalogItem[] = [
     icon: "flame",
     color: "text-orange-600",
     bg: "bg-orange-100",
+    ring: "from-orange-300 to-amber-200",
+    image: "/addiction_medical_3d.png",
   },
   {
     id: "insomnia",
@@ -170,6 +204,8 @@ export const MENTAL_CONDITIONS: CatalogItem[] = [
     icon: "moon",
     color: "text-indigo-600",
     bg: "bg-indigo-100",
+    ring: "from-indigo-300 to-blue-200",
+    image: "/insomnia_medical_3d.png",
   },
 ];
 

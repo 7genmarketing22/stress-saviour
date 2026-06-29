@@ -63,6 +63,9 @@ export interface PaymentWithPatient {
   doctor_earning: number;
   payment_method: string;
   status: string;
+  payout_status: "pending" | "paid";
+  paid_at: string | null;
+  payout_reference: string | null;
   transaction_id: string | null;
   created_at: string;
   patient: Pick<Profile, "id" | "full_name"> | null;

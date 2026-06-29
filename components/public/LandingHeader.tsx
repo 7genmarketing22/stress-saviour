@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
-import { Brain, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
@@ -19,12 +20,16 @@ export function LandingHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2.5 font-semibold text-slate-900">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-600 text-white shadow-sm">
-            <Brain className="h-5 w-5" />
-          </span>
-          <span>Stress Saviors</span>
+      <div className="mx-auto flex h-28 max-w-6xl items-center justify-between px-4 sm:px-6">
+        <Link href="/" className="flex items-center" aria-label="Stress Saviors home">
+          <Image
+            src="/stress-savious-logo.png"
+            alt="Stress Saviors"
+            width={500}
+            height={500}
+            priority
+            className="h-20 w-auto sm:h-24"
+          />
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">

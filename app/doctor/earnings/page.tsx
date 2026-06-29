@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { useDoctor } from "@/contexts/DoctorContext";
 import { getDoctorPayments } from "@/lib/doctor/api";
+import { usePaymentsRealtime } from "@/lib/realtime/usePaymentsRealtime";
 import { formatCurrency, mapAppointmentType } from "@/lib/doctor/mappers";
 
 interface PayoutRecord {
@@ -20,8 +21,9 @@ interface PayoutRecord {
   grossEarnings: number;
   platformCommission: number;
   netPaid: number;
-  status: string;
+  status: "Paid" | "Pending";
   datePaid: string;
+  reference: string;
 }
 
 export default function DoctorEarningsPage() {
@@ -36,9 +38,19 @@ export default function DoctorEarningsPage() {
 
   const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [accruedBalance, setAccruedBalance] = useState(0);
+  const [clearedTotal, setClearedTotal] = useState(0);
+  const [totalEarned, setTotalEarned] = useState(0);
   const [payouts, setPayouts] = useState<PayoutRecord[]>([]);
   const [individualTransactions, setIndividualTransactions] = useState<
-    Array<{ id: string; patientName: string; date: string; gross: number; net: number; method: string }>
+    Array<{
+      id: string;
+      patientName: string;
+      date: string;
+      gross: number;
+      net: number;
+      method: string;
+      payoutStatus: "Paid" | "Pending";
+    }>
   >([]);
   const [monthlyRevenueData, setMonthlyRevenueData] = useState<
     Array<{ name: string; gross: number; net: number }>
@@ -49,12 +61,15 @@ export default function DoctorEarningsPage() {
     setIsLoading(true);
     try {
       const payments = await getDoctorPayments(doctorProfile.id);
+      // Only collected (patient-paid) consultations count toward earnings.
       const completed = payments.filter((p) => p.status === "completed");
-      const pending = payments.filter((p) => p.status === "pending");
+      const cleared = completed.filter((p) => p.payout_status === "paid");
+      const pending = completed.filter((p) => p.payout_status !== "paid");
 
-      setAccruedBalance(
-        completed.reduce((sum, p) => sum + Number(p.doctor_earning), 0)
-      );
+      // Pending settlement = earned but not yet cleared by admin.
+      setAccruedBalance(pending.reduce((sum, p) => sum + Number(p.doctor_earning), 0));
+      setClearedTotal(cleared.reduce((sum, p) => sum + Number(p.doctor_earning), 0));
+      setTotalEarned(completed.reduce((sum, p) => sum + Number(p.doctor_earning), 0));
 
       setIndividualTransactions(
         completed.map((p) => ({
@@ -70,6 +85,7 @@ export default function DoctorEarningsPage() {
           method: p.appointment
             ? `${mapAppointmentType(p.appointment.appointment_type)} Consult`
             : "Consultation",
+          payoutStatus: p.payout_status === "paid" ? "Paid" : "Pending",
         }))
       );
 
@@ -107,7 +123,7 @@ export default function DoctorEarningsPage() {
       );
 
       setPayouts(
-        completed.slice(0, 10).map((p) => ({
+        completed.slice(0, 20).map((p) => ({
           id: p.id.slice(0, 8).toUpperCase(),
           period: new Date(p.created_at).toLocaleDateString("en-PK", {
             month: "long",
@@ -117,18 +133,17 @@ export default function DoctorEarningsPage() {
           grossEarnings: Number(p.amount),
           platformCommission: Number(p.platform_fee),
           netPaid: Number(p.doctor_earning),
-          status: p.status === "completed" ? "Disbursed" : "Processing",
-          datePaid: new Date(p.created_at).toLocaleDateString("en-PK", {
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-          }),
+          status: p.payout_status === "paid" ? "Paid" : "Pending",
+          datePaid: p.paid_at
+            ? new Date(p.paid_at).toLocaleDateString("en-PK", {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })
+            : "—",
+          reference: p.payout_reference ?? "—",
         }))
       );
-
-      if (pending.length > 0) {
-        setAccruedBalance((prev) => prev + pending.reduce((s, p) => s + Number(p.doctor_earning), 0));
-      }
     } catch {
       showToast("Failed to load earnings data.");
     } finally {
@@ -139,6 +154,9 @@ export default function DoctorEarningsPage() {
   useEffect(() => {
     loadEarnings();
   }, [doctorProfile.id, timeRange]);
+
+  // Live-sync: when the admin settles a payout, refresh instantly.
+  usePaymentsRealtime({ doctorId: doctorProfile.id, onChange: loadEarnings });
 
   const COLORS = ['#0d9488', '#14b8a6', '#2dd4bf', '#5eead4', '#99f6e4'];
 
@@ -152,22 +170,36 @@ export default function DoctorEarningsPage() {
     [individualTransactions, searchQuery]
   );
 
-  const totalGross = useMemo(
-    () => monthlyRevenueData.reduce((sum, m) => sum + m.gross, 0),
-    [monthlyRevenueData]
-  );
-  const totalNet = useMemo(
-    () => monthlyRevenueData.reduce((sum, m) => sum + m.net, 0),
-    [monthlyRevenueData]
-  );
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(""), 3000);
   };
 
-  const handleDownloadInvoice = () => {
-    showToast("Invoice export will include your live payment records.");
+  const handleDownloadInvoice = (pay: PayoutRecord) => {
+    const lines = [
+      ["Field", "Value"],
+      ["Receipt / Payout ID", pay.id],
+      ["Doctor", doctorProfile.specialization],
+      ["Earning Period", pay.period],
+      ["Gross Fee (PKR)", String(pay.grossEarnings)],
+      ["Platform Commission (PKR)", String(pay.platformCommission)],
+      ["Net Disbursement (PKR)", String(pay.netPaid)],
+      ["Status", pay.status],
+      ["Date Disbursed", pay.datePaid],
+      ["Reference", pay.reference],
+    ];
+    const csv = lines
+      .map((row) => row.map((c) => (/[",\n]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `receipt-${pay.id}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast(`Receipt ${pay.id} downloaded.`);
   };
 
   const handleRequestPayout = () => {
@@ -239,16 +271,16 @@ export default function DoctorEarningsPage() {
         <Card className="bg-gradient-to-br from-teal-500/10 to-transparent border-teal-500/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center justify-between">
-              Accrued Balance
+              Pending Settlement
               <Wallet className="h-4 w-4 text-teal-600" />
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline gap-2">
-              <p className="text-3xl font-bold text-foreground">PKR {accruedBalance.toLocaleString()}</p>
+              <p className="text-3xl font-bold text-foreground">{formatCurrency(accruedBalance)}</p>
             </div>
             <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-              <CalendarIcon className="h-3 w-3" /> Accruing for automated July 1 payout
+              <CalendarIcon className="h-3 w-3" /> Earned, awaiting admin clearance
             </p>
           </CardContent>
         </Card>
@@ -256,16 +288,16 @@ export default function DoctorEarningsPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center justify-between">
-              This Month's Net
+              Total Earned
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline gap-2">
-              <p className="text-3xl font-bold">{formatCurrency(totalNet)}</p>
+              <p className="text-3xl font-bold">{formatCurrency(totalEarned)}</p>
             </div>
-            <p className="text-xs text-emerald-600 font-medium mt-2 flex items-center gap-1">
-              <ArrowUpRight className="h-3 w-3" /> +15.1% from last month
+            <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+              <ArrowUpRight className="h-3 w-3 text-emerald-600" /> Lifetime net of commission
             </p>
           </CardContent>
         </Card>
@@ -273,14 +305,14 @@ export default function DoctorEarningsPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center justify-between">
-              Total Paid Out
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              Total Cleared
+              <TrendingUp className="h-4 w-4 text-emerald-600" />
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{formatCurrency(totalGross)}</p>
+            <p className="text-3xl font-bold">{formatCurrency(clearedTotal)}</p>
             <p className="text-xs text-muted-foreground mt-2">
-              Lifetime earnings disbursed
+              Lifetime payouts settled by admin
             </p>
           </CardContent>
         </Card>
@@ -521,7 +553,8 @@ export default function DoctorEarningsPage() {
                   <th className="px-6 py-4">Date Completed</th>
                   <th className="px-6 py-4">Consultation Mode</th>
                   <th className="px-6 py-4">Gross Fee</th>
-                  <th className="px-6 py-4 text-right">Net Fee (90%)</th>
+                  <th className="px-6 py-4">Net Fee (90%)</th>
+                  <th className="px-6 py-4 text-right">Payout</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -532,9 +565,25 @@ export default function DoctorEarningsPage() {
                     <td className="px-6 py-4 text-xs">{tx.date}</td>
                     <td className="px-6 py-4 text-xs font-semibold text-teal-600">{tx.method}</td>
                     <td className="px-6 py-4 text-xs">PKR {tx.gross.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-xs text-right font-bold text-foreground">PKR {tx.net.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-xs font-bold text-foreground">PKR {tx.net.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-right">
+                      <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                        tx.payoutStatus === "Paid"
+                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400"
+                          : "bg-amber-100 text-amber-800 dark:bg-amber-950/20 dark:text-amber-400"
+                      }`}>
+                        {tx.payoutStatus}
+                      </span>
+                    </td>
                   </tr>
                 ))}
+                {filteredTransactions.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-xs text-muted-foreground bg-muted/10">
+                      No consultations match your search.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -584,7 +633,7 @@ export default function DoctorEarningsPage() {
                     <td className="px-6 py-4 font-semibold text-emerald-600 dark:text-emerald-400">PKR {pay.netPaid.toLocaleString()}</td>
                     <td className="px-6 py-4">
                       <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                        pay.status === "Disbursed" 
+                        pay.status === "Paid" 
                           ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400"
                           : "bg-amber-100 text-amber-800 dark:bg-amber-950/20 dark:text-amber-400"
                       }`}>
@@ -594,13 +643,13 @@ export default function DoctorEarningsPage() {
                     <td className="px-6 py-4 text-xs text-muted-foreground">{pay.datePaid}</td>
                     <td className="px-6 py-4 text-right">
                       <Button 
-                        onClick={handleDownloadInvoice}
+                        onClick={() => handleDownloadInvoice(pay)}
                         variant="ghost" 
                         size="sm" 
                         className="h-8 text-teal-600 hover:text-teal-700 hover:bg-teal-500/10 gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <Download className="h-3.5 w-3.5" />
-                        <span>PDF</span>
+                        <span>Receipt</span>
                       </Button>
                     </td>
                   </tr>
