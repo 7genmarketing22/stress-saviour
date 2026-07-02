@@ -17,6 +17,7 @@ import {
   DollarSign,
   ShieldCheck,
   TrendingUp,
+  Settings,
   LogOut,
   X,
 } from "lucide-react";
@@ -57,6 +58,7 @@ export function Sidebar({ role, isOpen = false, onClose }: SidebarProps) {
       { name: "Payments", href: "/admin/payments", icon: CreditCard },
       { name: "Staff Management", href: "/admin/staff", icon: ShieldCheck },
       { name: "Reports & Analytics", href: "/admin/reports", icon: TrendingUp },
+      { name: "Settings", href: "/admin/settings", icon: Settings },
     ],
   };
 

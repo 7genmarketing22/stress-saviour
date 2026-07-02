@@ -23,7 +23,7 @@ import {
 } from "@/lib/patient/mappers";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { PaymentProofUpload } from "@/components/patient/PaymentProofUpload";
-import { PLATFORM_PAYMENT_ACCOUNTS, type BookablePaymentMethod } from "@/lib/payment/config";
+import { fetchPlatformPaymentAccounts, FALLBACK_PAYMENT_ACCOUNTS, type PaymentAccountDetails, type BookablePaymentMethod } from "@/lib/payment/config";
 
 export default function PatientAppointmentsPage() {
   const searchParams = useSearchParams();
@@ -43,6 +43,9 @@ export default function PatientAppointmentsPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadProofFile, setUploadProofFile] = useState<File | null>(null);
+  const [platformAccounts, setPlatformAccounts] = useState<PaymentAccountDetails[]>(
+    Object.values(FALLBACK_PAYMENT_ACCOUNTS)
+  );
   const itemsPerPage = 6;
 
   useEffect(() => {
@@ -61,8 +64,12 @@ export default function PatientAppointmentsPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getPatientAppointments();
+      const [data, accounts] = await Promise.all([
+        getPatientAppointments(),
+        fetchPlatformPaymentAccounts(),
+      ]);
       setAppointments(data.map(mapToPatientAppointment));
+      if (accounts.length > 0) setPlatformAccounts(accounts);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load appointments");
       setAppointments([]);
@@ -182,7 +189,12 @@ export default function PatientAppointmentsPage() {
 
   const getPaymentAccount = (method: PatientUIAppointment["paymentMethod"]) => {
     const key = (method ?? "jazzcash") as BookablePaymentMethod;
-    return PLATFORM_PAYMENT_ACCOUNTS[key] ?? PLATFORM_PAYMENT_ACCOUNTS.jazzcash;
+    return (
+      platformAccounts.find((a) => a.method === key) ??
+      platformAccounts[0] ??
+      FALLBACK_PAYMENT_ACCOUNTS[key] ??
+      FALLBACK_PAYMENT_ACCOUNTS.jazzcash
+    );
   };
 
   if (loading) {
