@@ -19,7 +19,7 @@ export function LandingHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-brand-100/80 bg-white/90 backdrop-blur-md">
       <div className="mx-auto flex h-28 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center" aria-label="Stress Saviors home">
           <Image
@@ -37,7 +37,7 @@ export function LandingHeader() {
             <Link
               key={link.href}
               href={link.href}
-              className="text-sm font-medium text-slate-600 transition-colors hover:text-teal-700"
+              className="text-sm font-medium text-brand-900 transition-colors hover:text-brand-600"
             >
               {link.label}
             </Link>
@@ -46,12 +46,12 @@ export function LandingHeader() {
 
         <div className="hidden items-center gap-3 md:flex">
           <Link href="/login">
-            <Button variant="ghost" className="font-medium text-slate-700">
+            <Button variant="ghost" className="font-medium text-brand-900">
               Login
             </Button>
           </Link>
           <Link href="/register">
-            <Button className="bg-teal-600 font-medium text-white shadow-sm hover:bg-teal-700">
+            <Button className="bg-brand-500 font-medium text-white shadow-sm hover:bg-brand-600">
               Sign Up Free
             </Button>
           </Link>
@@ -91,7 +91,7 @@ export function LandingHeader() {
               </Button>
             </Link>
             <Link href="/register" onClick={() => setMobileOpen(false)}>
-              <Button className="w-full bg-teal-600 text-white hover:bg-teal-700">
+              <Button className="w-full bg-brand-500 text-white hover:bg-brand-600">
                 Sign Up Free
               </Button>
             </Link>

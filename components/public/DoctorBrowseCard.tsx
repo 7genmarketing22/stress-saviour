@@ -15,7 +15,7 @@ interface DoctorBrowseCardProps {
 
 export function DoctorBrowseCard({ doctor, showBookButton = true, onBook }: DoctorBrowseCardProps) {
   return (
-    <Card className="flex flex-col justify-between overflow-hidden border-slate-200/80 transition-all hover:border-teal-200 hover:shadow-lg">
+    <Card className="flex flex-col justify-between overflow-hidden border-slate-200/80 transition-all hover:border-brand-100 hover:shadow-lg">
       <CardHeader className="pb-3">
         <div className="flex items-start gap-3">
           <UserAvatar
@@ -29,9 +29,9 @@ export function DoctorBrowseCard({ doctor, showBookButton = true, onBook }: Doct
               <h3 className="truncate font-bold text-base leading-none text-slate-900">
                 {doctor.name}
               </h3>
-              <CheckCircle className="h-4 w-4 shrink-0 fill-teal-500/10 text-teal-600" />
+              <CheckCircle className="h-4 w-4 shrink-0 fill-brand-400/10 text-brand-500" />
             </div>
-            <p className="mt-1 text-xs font-medium text-teal-700">{doctor.specialization}</p>
+            <p className="mt-1 text-xs font-medium text-brand-600">{doctor.specialization}</p>
             <p className="mt-0.5 line-clamp-2 text-[11px] text-slate-500">{doctor.qualification}</p>
           </div>
         </div>
@@ -75,7 +75,7 @@ export function DoctorBrowseCard({ doctor, showBookButton = true, onBook }: Doct
           {showBookButton && onBook && (
             <Button
               size="sm"
-              className="bg-teal-600 font-semibold text-white hover:bg-teal-700"
+              className="bg-brand-500 font-semibold text-white hover:bg-brand-600"
               onClick={onBook}
             >
               Book Slot

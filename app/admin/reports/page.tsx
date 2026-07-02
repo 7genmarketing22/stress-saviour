@@ -181,7 +181,7 @@ export default function AdminReportsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
       </div>
     );
   }
@@ -203,8 +203,8 @@ export default function AdminReportsPage() {
   const metrics = [
     { title: "Gross Revenue", value: shortPKR(grossVolume), icon: DollarSign, color: "bg-green-50", iconColor: "text-green-600", description: `${shortPKR(commission)} commission` },
     { title: "Total Appointments", value: String(appointments.length), icon: Calendar, color: "bg-sky-50", iconColor: "text-sky-600", description: `${completedAppointments.length} completed` },
-    { title: "Active Doctors", value: String(activeDoctors), icon: UserCheck, color: "bg-teal-50", iconColor: "text-teal-600", description: `${doctors.length} total` },
-    { title: "Total Patients", value: String(patients.length), icon: Users, color: "bg-cyan-50", iconColor: "text-cyan-600", description: "Registered users" },
+    { title: "Active Doctors", value: String(activeDoctors), icon: UserCheck, color: "bg-brand-50", iconColor: "text-brand-500", description: `${doctors.length} total` },
+    { title: "Total Patients", value: String(patients.length), icon: Users, color: "bg-cyan-50", iconColor: "text-brand-300", description: "Registered users" },
     { title: "Avg Rating", value: avgRating > 0 ? avgRating.toFixed(1) : "—", icon: Star, color: "bg-yellow-50", iconColor: "text-yellow-600", description: `${ratedDoctors.length} rated doctors` },
     { title: "Completion Rate", value: `${completionRate.toFixed(0)}%`, icon: CheckCircle, color: "bg-emerald-50", iconColor: "text-emerald-600", description: "Successful sessions" },
     { title: "Avg Session", value: `${Math.round(avgSession)} min`, icon: Clock, color: "bg-slate-50", iconColor: "text-slate-600", description: "Per consultation" },
@@ -301,7 +301,7 @@ export default function AdminReportsPage() {
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-600 transition-all duration-500"
+                            className="h-full rounded-full bg-gradient-to-r from-brand-400 to-brand-300 transition-all duration-500"
                             style={{ width: `${specializationData[0]?.volume ? (item.volume / specializationData[0].volume) * 100 : 0}%` }}
                           />
                         </div>
@@ -356,7 +356,7 @@ export default function AdminReportsPage() {
                 {topDocs.map((doctor, i) => (
                   <div key={doctor.id} className="flex items-center justify-between p-4 sm:p-6 hover:bg-slate-50 transition-colors gap-3">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-semibold text-xs sm:text-sm flex-shrink-0">
+                      <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gradient-to-br from-brand-400 to-brand-300 flex items-center justify-center text-white font-semibold text-xs sm:text-sm flex-shrink-0">
                         #{i + 1}
                       </div>
                       <div className="min-w-0 flex-1">

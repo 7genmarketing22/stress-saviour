@@ -25,7 +25,13 @@ export interface PatientUIAppointment {
   timeRange: string;
   duration: string;
   type: string;
-  status: "Confirmed" | "Pending" | "Completed" | "Cancelled" | "No Show" | "Ready";
+  status: "Confirmed" | "Pending" | "Completed" | "Cancelled" | "No Show" | "Ready" | "Awaiting Payment" | "Payment Review";
+  paymentStatus: PaymentStatus | null;
+  paymentId: string | null;
+  paymentMethod: PaymentMethod | null;
+  paymentProofUrl: string | null;
+  paymentRejectionReason: string | null;
+  isPaid: boolean;
   reason: string;
   notes: string;
   roomUrl: string;
@@ -40,8 +46,16 @@ export interface PatientUIAppointment {
 
 export function mapPatientStatus(
   status: AppointmentStatus,
-  scheduledAt: string
+  scheduledAt: string,
+  payment?: { status: PaymentStatus; proof_url: string | null; rejection_reason?: string | null } | null
 ): PatientUIAppointment["status"] {
+  if (status === "pending_payment") {
+    if (!payment) return "Awaiting Payment";
+    if (payment.status === "pending" && !payment.proof_url) return "Awaiting Payment";
+    if (payment.status === "pending" && payment.proof_url) return "Payment Review";
+    if (payment.rejection_reason) return "Awaiting Payment";
+    return "Awaiting Payment";
+  }
   if (status === "completed") return "Completed";
   if (status === "cancelled") return "Cancelled";
   if (status === "no_show") return "No Show";
@@ -58,6 +72,8 @@ export function mapToPatientAppointment(apt: AppointmentWithDoctor): PatientUIAp
   const scheduled = new Date(apt.scheduled_at);
   const doctorName = apt.doctor?.profile?.full_name ?? "Doctor";
   const review = Array.isArray(apt.review) ? apt.review[0] : apt.review;
+  const paymentList = apt.payments ?? (apt.payment ? [apt.payment] : []);
+  const payment = Array.isArray(paymentList) ? paymentList[0] : paymentList;
 
   return {
     id: apt.id,
@@ -71,7 +87,13 @@ export function mapToPatientAppointment(apt: AppointmentWithDoctor): PatientUIAp
     timeRange: formatTimeRange(apt.scheduled_at, apt.duration_minutes),
     duration: `${apt.duration_minutes} min`,
     type: mapAppointmentType(apt.appointment_type),
-    status: mapPatientStatus(apt.status, apt.scheduled_at),
+    status: mapPatientStatus(apt.status, apt.scheduled_at, payment),
+    paymentStatus: payment?.status ?? null,
+    paymentId: payment?.id ?? null,
+    paymentMethod: payment?.payment_method ?? null,
+    paymentProofUrl: payment?.proof_url ?? null,
+    paymentRejectionReason: payment?.rejection_reason ?? null,
+    isPaid: payment?.status === "completed",
     reason: apt.patient_notes?.trim() || "General consultation",
     notes: parsed.clinicalNote,
     roomUrl:
@@ -125,8 +147,13 @@ export function mapToPaymentRow(payment: PaymentWithDoctor) {
   };
 
   return {
-    id: payment.transaction_id ?? payment.id.slice(0, 8).toUpperCase(),
+    paymentId: payment.id,
+    id: payment.transaction_id ?? `TXN-${payment.id.slice(0, 8).toUpperCase()}`,
     doctorName: payment.doctor?.profile?.full_name ?? "Doctor",
+    specialization: payment.doctor?.specialization ?? "",
+    appointmentType: payment.appointment?.appointment_type
+      ? mapAppointmentType(payment.appointment.appointment_type)
+      : "Consultation",
     amount: formatCurrency(Number(payment.amount)),
     amountRaw: Number(payment.amount),
     date: formatDate(payment.created_at, {
@@ -134,11 +161,18 @@ export function mapToPaymentRow(payment: PaymentWithDoctor) {
       month: "long",
       day: "numeric",
     }),
+    createdAt: payment.created_at,
     method: methodLabels[payment.payment_method] ?? payment.payment_method,
+    rawMethod: payment.payment_method,
     status: statusLabels[payment.status] ?? payment.status,
     rawStatus: payment.status,
+    proofUrl: payment.proof_url,
+    rejectionReason: payment.rejection_reason,
+    reviewedAt: payment.reviewed_at,
   };
 }
+
+export type PatientPaymentRow = ReturnType<typeof mapToPaymentRow>;
 
 export function formatRelativeDate(date: string): string {
   if (isToday(date)) return "Today";
@@ -160,7 +194,9 @@ export function getUpcomingAppointments(appointments: PatientUIAppointment[]) {
   return appointments
     .filter(
       (apt) =>
-        ["Confirmed", "Pending", "Ready"].includes(apt.status) &&
+        (["Confirmed", "Pending", "Ready", "Payment Review"].includes(apt.status) ||
+          (apt.status === "Awaiting Payment" && apt.paymentProofUrl)) &&
+        ["scheduled", "ongoing", "pending_payment"].includes(apt.rawStatus) &&
         new Date(apt.scheduledAt).getTime() >= now - 30 * 60_000
     )
     .sort(

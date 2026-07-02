@@ -40,7 +40,7 @@ export function DoctorListCard({
   const tags = CONDITION_TAGS.slice(0, 4);
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:border-teal-200 hover:shadow-md">
+    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:border-brand-100 hover:shadow-md">
       <div className="flex flex-col gap-5 p-5 lg:flex-row lg:items-start lg:justify-between">
         {/* Left: profile */}
         <div className="flex min-w-0 flex-1 gap-4">
@@ -63,7 +63,7 @@ export function DoctorListCard({
               <div className="flex flex-wrap items-center gap-2">
                 <Link
                   href={`/doctors/${doctor.id}`}
-                  className="text-lg font-bold text-slate-900 hover:text-teal-700 hover:underline"
+                  className="text-lg font-bold text-slate-900 hover:text-brand-600 hover:underline"
                 >
                   {doctor.name}
                 </Link>
@@ -72,14 +72,14 @@ export function DoctorListCard({
                   PMDC Verified
                 </span>
               </div>
-              <p className="mt-0.5 text-sm font-semibold text-teal-700">
+              <p className="mt-0.5 text-sm font-semibold text-brand-600">
                 {doctor.specialization}
               </p>
               <p className="line-clamp-2 text-xs text-slate-500">{doctor.qualification}</p>
             </div>
 
             {doctor.rating >= 4 && doctor.reviewsCount >= 3 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2.5 py-1 text-[10px] font-bold text-teal-800">
+              <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-[10px] font-bold text-brand-700">
                 <Award className="h-3 w-3" />
                 Top Booked Doctor
               </span>
@@ -122,7 +122,7 @@ export function DoctorListCard({
             Book Video Call
           </Button>
           <Button
-            className="h-11 gap-2 rounded-xl bg-[#1e3a5f] font-semibold text-white hover:bg-[#152a45]"
+            className="h-11 gap-2 rounded-xl bg-[#102c7b] font-semibold text-white hover:bg-[#152a45]"
             onClick={onBookAppointment}
           >
             <MessageSquare className="h-4 w-4" />
@@ -133,9 +133,9 @@ export function DoctorListCard({
 
       {/* Fee cards row */}
       <div className="grid gap-3 border-t border-slate-100 bg-slate-50/50 p-4 sm:grid-cols-2">
-        <div className="flex items-center justify-between rounded-xl border border-teal-200 bg-white p-3">
+        <div className="flex items-center justify-between rounded-xl border border-brand-100 bg-white p-3">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-teal-700">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-brand-600">
               Video Consultation
             </p>
             <p className="text-lg font-bold text-slate-900">{doctor.consultationFee}</p>
@@ -143,7 +143,7 @@ export function DoctorListCard({
               {doctor.isAvailableToday ? "Available for booking" : "Check schedule"}
             </p>
           </div>
-          <span className="rounded-lg bg-teal-100 px-2 py-1 text-[10px] font-bold text-teal-800">
+          <span className="rounded-lg bg-brand-50 px-2 py-1 text-[10px] font-bold text-brand-700">
             Online
           </span>
         </div>
@@ -187,15 +187,15 @@ export function DoctorGridCard({
   onBook?: () => void;
 }) {
   return (
-    <article className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:border-teal-200 hover:shadow-lg">
+    <article className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:border-brand-100 hover:shadow-lg">
       <div className="p-5">
         <div className="flex items-start gap-3">
           <UserAvatar name={doctor.name} avatarUrl={doctor.avatarUrl} size="md" className="h-14 w-14" />
           <div className="min-w-0">
-            <Link href={`/doctors/${doctor.id}`} className="font-bold text-slate-900 hover:text-teal-700">
+            <Link href={`/doctors/${doctor.id}`} className="font-bold text-slate-900 hover:text-brand-600">
               {doctor.name}
             </Link>
-            <p className="text-xs font-semibold text-teal-700">{doctor.specialization}</p>
+            <p className="text-xs font-semibold text-brand-600">{doctor.specialization}</p>
             <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
               {doctor.rating > 0 && (
                 <span className="flex items-center gap-0.5 font-semibold text-amber-500">
@@ -219,7 +219,7 @@ export function DoctorGridCard({
         {onBook && (
           <Button
             size="sm"
-            className="flex-1 bg-teal-600 text-xs text-white hover:bg-teal-700"
+            className="flex-1 bg-brand-500 text-xs text-white hover:bg-brand-600"
             onClick={onBook}
           >
             Book Slot

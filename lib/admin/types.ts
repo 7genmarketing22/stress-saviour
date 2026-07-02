@@ -55,6 +55,7 @@ export interface AdminStats {
   totalPaidOut: number;
   activeDoctors: number;
   pendingDoctors: number;
+  pendingPatients: number;
   totalPatients: number;
   appointmentsToday: number;
   appointmentsTodayCompleted: number;

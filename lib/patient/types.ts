@@ -7,6 +7,14 @@ export interface DoctorWithProfile extends DoctorProfile {
 export interface AppointmentWithDoctor extends Appointment {
   doctor: DoctorWithProfile | null;
   review?: { rating: number; comment: string | null } | { rating: number; comment: string | null }[] | null;
+  payment?: Pick<
+    Payment,
+    "id" | "status" | "proof_url" | "payment_method" | "rejection_reason" | "amount"
+  > | null;
+  payments?: Pick<
+    Payment,
+    "id" | "status" | "proof_url" | "payment_method" | "rejection_reason" | "amount"
+  >[] | null;
 }
 
 export interface PaymentWithDoctor extends Payment {

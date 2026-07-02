@@ -2,7 +2,7 @@
 
 import { useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -23,6 +23,10 @@ import { Label } from "@/components/ui/Label";
 import { createClient } from "@/lib/supabase/client";
 import type { UserRole } from "@/types";
 import { cn } from "@/lib/utils";
+import {
+  getAccountAccess,
+  resolveDashboardPath,
+} from "@/lib/auth/account-status";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -43,14 +47,14 @@ const roles: {
     label: "Patient",
     icon: User,
     description: "Book and attend consultations",
-    accent: "hover:border-teal-500 hover:bg-teal-50/80",
+    accent: "hover:border-brand-400 hover:bg-brand-50/80",
   },
   {
     role: "doctor",
     label: "Doctor",
     icon: HeartPulse,
     description: "Manage patients & schedule",
-    accent: "hover:border-cyan-600 hover:bg-cyan-50/80",
+    accent: "hover:border-brand-300 hover:bg-cyan-50/80",
   },
 ];
 
@@ -74,6 +78,7 @@ export default function LoginPage() {
 
 function LoginForm() {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const redirectTo = searchParams.get("redirect");
   const roleParam = searchParams.get("role") as UserRole | null;
 
@@ -83,6 +88,29 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClient();
+
+  const updateRoleInUrl = (role: UserRole | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (role && role !== "admin" && role !== "super_admin") {
+      params.set("role", role);
+    } else if (role) {
+      params.set("role", role);
+    } else {
+      params.delete("role");
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
+
+  const selectRole = (role: UserRole) => {
+    setSelectedRole(role);
+    updateRoleInUrl(role);
+  };
+
+  const clearRole = () => {
+    setSelectedRole(null);
+    updateRoleInUrl(null);
+  };
 
   const {
     register,
@@ -108,25 +136,22 @@ function LoginForm() {
         return;
       }
 
-      // Resolve the account's real role from the database (a signed-in user can
-      // always read their own profile via RLS).
       const userId = signInData.user?.id;
-      let actualRole: UserRole | null = null;
-      if (userId) {
-        const { data: profileRow } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", userId)
-          .maybeSingle();
-        actualRole = (profileRow as { role?: UserRole } | null)?.role ?? null;
-      }
-
-      // If we can't confirm the role, never leave a half-authenticated session.
-      if (!actualRole) {
+      if (!userId) {
         await supabase.auth.signOut();
         setError("We couldn't verify your account. Please contact support.");
         return;
       }
+
+      const access = await getAccountAccess(supabase, userId);
+
+      if (!access.profile) {
+        await supabase.auth.signOut();
+        setError("We couldn't verify your account. Please contact support.");
+        return;
+      }
+
+      const actualRole = access.profile.role;
 
       // Administrators always go to the admin portal (there is no admin card).
       if (actualRole === "admin" || actualRole === "super_admin") {
@@ -136,13 +161,18 @@ function LoginForm() {
       }
 
       // Enforce that the chosen portal matches the account's real role.
-      // This blocks signing into the wrong portal with another role's credentials.
       if (selectedRole && actualRole !== selectedRole) {
         await supabase.auth.signOut();
         const roleLabel = actualRole === "doctor" ? "Doctor" : "Patient";
         setError(
           `These credentials belong to a ${roleLabel.toLowerCase()} account. Please go back and use the ${roleLabel} login.`
         );
+        return;
+      }
+
+      if (!access.canAccessDashboard) {
+        router.refresh();
+        router.push("/pending-review");
         return;
       }
 
@@ -153,7 +183,7 @@ function LoginForm() {
       } else if (redirectTo) {
         router.push(redirectTo);
       } else {
-        router.push("/patient/dashboard");
+        router.push(resolveDashboardPath(actualRole));
       }
     } catch {
       await supabase.auth.signOut();
@@ -187,20 +217,20 @@ function LoginForm() {
               <button
                 key={role.role}
                 type="button"
-                onClick={() => setSelectedRole(role.role)}
+                onClick={() => selectRole(role.role)}
                 className={cn(
                   "group flex w-full items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all duration-200",
                   role.accent
                 )}
               >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700 group-hover:bg-teal-100 group-hover:text-teal-700 transition-colors">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700 group-hover:bg-brand-50 group-hover:text-brand-600 transition-colors">
                   <Icon className="h-5 w-5" />
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-slate-900">{role.label}</p>
                   <p className="text-sm text-slate-500 truncate">{role.description}</p>
                 </div>
-                <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-teal-600 group-hover:translate-x-0.5 transition-all" />
+                <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-brand-500 group-hover:translate-x-0.5 transition-all" />
               </button>
             );
           })}
@@ -214,7 +244,7 @@ function LoginForm() {
                 ? `/register?redirect=${encodeURIComponent(redirectTo)}`
                 : "/register"
             }
-            className="font-medium text-teal-700 hover:underline"
+            className="font-medium text-brand-600 hover:underline"
           >
             Create an account
           </Link>
@@ -229,7 +259,7 @@ function LoginForm() {
     <div className="space-y-6">
       <button
         type="button"
-        onClick={() => setSelectedRole(null)}
+        onClick={clearRole}
         className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
@@ -238,7 +268,7 @@ function LoginForm() {
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
         <div className="mb-6 flex items-center gap-3">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-100 text-teal-700">
+          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
             <RoleIcon className="h-6 w-6" />
           </span>
           <div>
@@ -276,7 +306,7 @@ function LoginForm() {
               </Label>
               <Link
                 href="/forgot-password"
-                className="text-xs font-medium text-teal-700 hover:underline"
+                className="text-xs font-medium text-brand-600 hover:underline"
               >
                 Forgot password?
               </Link>
@@ -312,7 +342,7 @@ function LoginForm() {
 
           <Button
             type="submit"
-            className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold h-11"
+            className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold h-11"
             disabled={loading}
           >
             {loading ? "Signing in…" : "Sign in"}
@@ -325,10 +355,10 @@ function LoginForm() {
         <Link
           href={
             redirectTo
-              ? `/register?redirect=${encodeURIComponent(redirectTo)}`
-              : "/register"
+              ? `/register?role=${selectedRole ?? "patient"}&redirect=${encodeURIComponent(redirectTo)}`
+              : `/register?role=${selectedRole ?? "patient"}`
           }
-          className="font-medium text-teal-700 hover:underline"
+          className="font-medium text-brand-600 hover:underline"
         >
           Sign up
         </Link>

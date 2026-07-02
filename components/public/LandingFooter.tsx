@@ -6,7 +6,7 @@ export function LandingFooter() {
   return (
     <footer className="relative overflow-hidden border-t border-slate-200 bg-white text-slate-600">
       {/* Soft glow */}
-      <div className="pointer-events-none absolute -top-24 right-0 h-72 w-72 rounded-full bg-teal-200/30 blur-3xl" />
+      <div className="pointer-events-none absolute -top-24 right-0 h-72 w-72 rounded-full bg-brand-100/30 blur-3xl" />
 
       <div className="relative mx-auto max-w-6xl px-4 py-14 sm:px-6">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-12 lg:gap-8">
@@ -24,8 +24,8 @@ export function LandingFooter() {
               Pakistan&apos;s trusted telehealth platform for mental health. Connect with
               PMDC-verified doctors from anywhere.
             </p>
-            <span className="inline-flex items-center gap-2 rounded-full border border-teal-200/80 bg-white/70 px-3 py-1.5 text-xs font-medium text-teal-800 shadow-sm">
-              <ShieldCheck className="h-3.5 w-3.5 text-teal-600" />
+            <span className="inline-flex items-center gap-2 rounded-full border border-brand-100/80 bg-white/70 px-3 py-1.5 text-xs font-medium text-brand-700 shadow-sm">
+              <ShieldCheck className="h-3.5 w-3.5 text-brand-500" />
               Secure &amp; Confidential
             </span>
           </div>
@@ -36,17 +36,17 @@ export function LandingFooter() {
             </h4>
             <ul className="space-y-2.5 text-sm">
               <li>
-                <Link href="/doctors" className="text-slate-500 transition-colors hover:text-teal-700">
+                <Link href="/doctors" className="text-slate-500 transition-colors hover:text-brand-600">
                   Browse Doctors
                 </Link>
               </li>
               <li>
-                <Link href="/register" className="text-slate-500 transition-colors hover:text-teal-700">
+                <Link href="/register" className="text-slate-500 transition-colors hover:text-brand-600">
                   Create Account
                 </Link>
               </li>
               <li>
-                <Link href="/login" className="text-slate-500 transition-colors hover:text-teal-700">
+                <Link href="/login" className="text-slate-500 transition-colors hover:text-brand-600">
                   Patient Login
                 </Link>
               </li>
@@ -59,12 +59,12 @@ export function LandingFooter() {
             </h4>
             <ul className="space-y-2.5 text-sm">
               <li>
-                <Link href="/login" className="text-slate-500 transition-colors hover:text-teal-700">
+                <Link href="/login" className="text-slate-500 transition-colors hover:text-brand-600">
                   Doctor Login
                 </Link>
               </li>
               <li>
-                <Link href="/register?role=doctor" className="text-slate-500 transition-colors hover:text-teal-700">
+                <Link href="/register?role=doctor" className="text-slate-500 transition-colors hover:text-brand-600">
                   Join as Doctor
                 </Link>
               </li>
@@ -77,20 +77,20 @@ export function LandingFooter() {
             </h4>
             <ul className="space-y-3 text-sm">
               <li className="flex items-center gap-2.5">
-                <span className="flex h-7 w-7 items-center justify-center rounded-md border border-teal-100 bg-white shadow-sm">
-                  <Mail className="h-3.5 w-3.5 text-teal-600" />
+                <span className="flex h-7 w-7 items-center justify-center rounded-md border border-brand-50 bg-white shadow-sm">
+                  <Mail className="h-3.5 w-3.5 text-brand-500" />
                 </span>
                 <span className="text-slate-500">support@stresssaviors.pk</span>
               </li>
               <li className="flex items-center gap-2.5">
-                <span className="flex h-7 w-7 items-center justify-center rounded-md border border-teal-100 bg-white shadow-sm">
-                  <Phone className="h-3.5 w-3.5 text-teal-600" />
+                <span className="flex h-7 w-7 items-center justify-center rounded-md border border-brand-50 bg-white shadow-sm">
+                  <Phone className="h-3.5 w-3.5 text-brand-500" />
                 </span>
                 <span className="text-slate-500">+92 300 1234567</span>
               </li>
               <li className="flex items-start gap-2.5">
-                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-teal-100 bg-white shadow-sm">
-                  <MapPin className="h-3.5 w-3.5 text-teal-600" />
+                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-brand-50 bg-white shadow-sm">
+                  <MapPin className="h-3.5 w-3.5 text-brand-500" />
                 </span>
                 <span className="text-slate-500">Lahore · Karachi · Islamabad · Nationwide</span>
               </li>
@@ -100,6 +100,12 @@ export function LandingFooter() {
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-slate-200/80 pt-8 text-xs text-slate-500 sm:flex-row">
           <p>© {new Date().getFullYear()} Stress Saviors. All rights reserved.</p>
+          <Link
+            href="/login?role=admin"
+            className="text-slate-400 transition-colors hover:text-slate-600"
+          >
+            Admin Login
+          </Link>
           <p>Urdu &amp; English · Available Nationwide</p>
         </div>
       </div>

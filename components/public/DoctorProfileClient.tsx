@@ -121,7 +121,7 @@ export function DoctorProfileClient({ doctor, availabilitySlots }: DoctorProfile
       </Link>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="bg-gradient-to-r from-teal-600 to-cyan-600 px-6 py-8 sm:px-8">
+        <div className="bg-gradient-to-r from-brand-500 to-brand-300 px-6 py-8 sm:px-8">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-end">
             <UserAvatar
               name={card.name}
@@ -135,11 +135,11 @@ export function DoctorProfileClient({ doctor, availabilitySlots }: DoctorProfile
                 <h1 className="text-2xl font-bold sm:text-3xl">{card.name}</h1>
                 <CheckCircle className="h-5 w-5 fill-white/20 text-white" />
               </div>
-              <p className="mt-1 text-teal-100">{card.specialization}</p>
+              <p className="mt-1 text-brand-50">{card.specialization}</p>
               {doctor.sub_specialization && (
-                <p className="text-sm text-teal-100/80">{doctor.sub_specialization}</p>
+                <p className="text-sm text-brand-50/80">{doctor.sub_specialization}</p>
               )}
-              <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-teal-50">
+              <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-brand-50">
                 {card.rating > 0 && (
                   <span className="flex items-center gap-1 font-semibold">
                     <Star className="h-4 w-4 fill-amber-300 text-amber-300" />
@@ -154,10 +154,10 @@ export function DoctorProfileClient({ doctor, availabilitySlots }: DoctorProfile
               </div>
             </div>
             <div className="shrink-0 text-right text-white">
-              <p className="text-xs uppercase tracking-wider text-teal-100">Consultation fee</p>
+              <p className="text-xs uppercase tracking-wider text-brand-50">Consultation fee</p>
               <p className="text-3xl font-bold">{card.consultationFee}</p>
               {doctor.follow_up_fee && (
-                <p className="mt-1 text-sm text-teal-100">
+                <p className="mt-1 text-sm text-brand-50">
                   Follow-up: PKR {Number(doctor.follow_up_fee).toLocaleString()}
                 </p>
               )}
@@ -195,9 +195,9 @@ export function DoctorProfileClient({ doctor, availabilitySlots }: DoctorProfile
                   return (
                     <div
                       key={service.type}
-                      className="rounded-xl border border-slate-200 p-4 transition-colors hover:border-teal-200 hover:bg-teal-50/30"
+                      className="rounded-xl border border-slate-200 p-4 transition-colors hover:border-brand-100 hover:bg-brand-50/30"
                     >
-                      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-100 text-teal-700">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
                         <Icon className="h-5 w-5" />
                       </span>
                       <h3 className="mt-3 font-semibold text-slate-900">{service.title}</h3>
@@ -216,7 +216,7 @@ export function DoctorProfileClient({ doctor, availabilitySlots }: DoctorProfile
                 <ul className="mt-3 space-y-2">
                   {doctor.hospital_affiliations.map((h) => (
                     <li key={h} className="flex items-center gap-2 text-sm text-slate-600">
-                      <CheckCircle className="h-4 w-4 text-teal-600" />
+                      <CheckCircle className="h-4 w-4 text-brand-500" />
                       {h}
                     </li>
                   ))}
@@ -233,7 +233,7 @@ export function DoctorProfileClient({ doctor, availabilitySlots }: DoctorProfile
                 minute.
               </p>
               <Button
-                className="mt-4 w-full bg-teal-600 font-semibold text-white hover:bg-teal-700"
+                className="mt-4 w-full bg-brand-500 font-semibold text-white hover:bg-brand-600"
                 onClick={handleBookClick}
               >
                 Book a Slot
@@ -243,14 +243,14 @@ export function DoctorProfileClient({ doctor, availabilitySlots }: DoctorProfile
                   Already have an account?{" "}
                   <Link
                     href={`/login?redirect=${encodeURIComponent(`/doctors/${doctor.id}?book=true`)}&role=patient`}
-                    className="font-medium text-teal-700 hover:underline"
+                    className="font-medium text-brand-600 hover:underline"
                   >
                     Log in
                   </Link>
                   {" · "}
                   <Link
                     href={`/register?redirect=${encodeURIComponent(`/doctors/${doctor.id}?book=true`)}`}
-                    className="font-medium text-teal-700 hover:underline"
+                    className="font-medium text-brand-600 hover:underline"
                   >
                     Sign up
                   </Link>
@@ -260,7 +260,7 @@ export function DoctorProfileClient({ doctor, availabilitySlots }: DoctorProfile
 
             <div className="rounded-xl border border-slate-200 p-5">
               <h3 className="flex items-center gap-2 font-bold text-slate-900">
-                <Clock className="h-4 w-4 text-teal-600" />
+                <Clock className="h-4 w-4 text-brand-500" />
                 Weekly Schedule
               </h3>
               {Object.keys(scheduleByDay).length > 0 ? (
@@ -293,7 +293,7 @@ export function DoctorProfileClient({ doctor, availabilitySlots }: DoctorProfile
             {doctor.languages && doctor.languages.length > 0 && (
               <div className="rounded-xl border border-slate-200 p-5">
                 <h3 className="flex items-center gap-2 font-bold text-slate-900">
-                  <Languages className="h-4 w-4 text-teal-600" />
+                  <Languages className="h-4 w-4 text-brand-500" />
                   Languages
                 </h3>
                 <p className="mt-2 text-sm text-slate-600">{doctor.languages.join(", ")}</p>

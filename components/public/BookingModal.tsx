@@ -68,6 +68,7 @@ export function BookingModal({ doctor, onClose, onSuccess }: BookingModalProps) 
         appointmentType: bookType,
         patientNotes: bookNotes,
         consultationFee: doctor.consultationFeeRaw,
+        paymentMethod: "jazzcash",
       });
       onSuccess();
     } catch (err) {
@@ -128,8 +129,8 @@ export function BookingModal({ doctor, onClose, onSuccess }: BookingModalProps) 
                     onClick={() => setBookTime(time)}
                     className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                       bookTime === time
-                        ? "border-teal-600 bg-teal-600 text-white"
-                        : "border-slate-200 text-slate-700 hover:border-teal-300"
+                        ? "border-brand-500 bg-brand-500 text-white"
+                        : "border-slate-200 text-slate-700 hover:border-brand-200"
                     }`}
                   >
                     {time}
@@ -167,8 +168,8 @@ export function BookingModal({ doctor, onClose, onSuccess }: BookingModalProps) 
             />
           </div>
 
-          <p className="text-xs text-slate-500">
-            Consultation fee: <strong className="text-slate-900">{doctor.consultationFee}</strong>
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            Consultation fee: <strong>{doctor.consultationFee}</strong>. After booking, pay to the admin account and upload your payment screenshot from My Appointments to confirm.
           </p>
 
           <div className="flex gap-3 pt-2">
@@ -177,7 +178,7 @@ export function BookingModal({ doctor, onClose, onSuccess }: BookingModalProps) 
             </Button>
             <Button
               type="submit"
-              className="flex-1 bg-teal-600 text-white hover:bg-teal-700"
+              className="flex-1 bg-brand-500 text-white hover:bg-brand-600"
               disabled={booking || loadingSlots}
             >
               {booking ? "Booking…" : "Confirm Booking"}

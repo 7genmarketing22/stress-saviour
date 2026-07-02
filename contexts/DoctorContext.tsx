@@ -83,7 +83,7 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <div className="text-center space-y-2">
-          <div className="h-8 w-8 border-2 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="h-8 w-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-sm text-muted-foreground">Loading doctor portal...</p>
         </div>
       </div>
@@ -103,7 +103,7 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
               Try again
             </Button>
             <Link href="/login">
-              <Button className="bg-teal-600 hover:bg-teal-700 text-white">
+              <Button className="bg-brand-500 hover:bg-brand-600 text-white">
                 Go to login
               </Button>
             </Link>

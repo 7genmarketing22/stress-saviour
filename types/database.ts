@@ -15,6 +15,10 @@ export type Database = {
           date_of_birth: string | null;
           gender: "male" | "female" | "other" | null;
           is_active: boolean;
+          account_status: "pending" | "approved" | "rejected";
+          rejection_reason: string | null;
+          approved_by: string | null;
+          approved_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -29,6 +33,10 @@ export type Database = {
           date_of_birth?: string | null;
           gender?: "male" | "female" | "other" | null;
           is_active?: boolean;
+          account_status?: "pending" | "approved" | "rejected";
+          rejection_reason?: string | null;
+          approved_by?: string | null;
+          approved_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -43,6 +51,10 @@ export type Database = {
           date_of_birth?: string | null;
           gender?: "male" | "female" | "other" | null;
           is_active?: boolean;
+          account_status?: "pending" | "approved" | "rejected";
+          rejection_reason?: string | null;
+          approved_by?: string | null;
+          approved_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -133,7 +145,7 @@ export type Database = {
           patient_id: string;
           doctor_id: string;
           appointment_type: "video" | "chat" | "in_person";
-          status: "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show";
+          status: "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show" | "pending_payment";
           scheduled_at: string;
           duration_minutes: number;
           patient_notes: string | null;
@@ -152,7 +164,7 @@ export type Database = {
           patient_id: string;
           doctor_id: string;
           appointment_type: "video" | "chat" | "in_person";
-          status?: "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show";
+          status?: "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show" | "pending_payment";
           scheduled_at: string;
           duration_minutes?: number;
           patient_notes?: string | null;
@@ -171,7 +183,7 @@ export type Database = {
           patient_id?: string;
           doctor_id?: string;
           appointment_type?: "video" | "chat" | "in_person";
-          status?: "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show";
+          status?: "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show" | "pending_payment";
           scheduled_at?: string;
           duration_minutes?: number;
           patient_notes?: string | null;
@@ -205,6 +217,10 @@ export type Database = {
           gateway_response: Json | null;
           refund_id: string | null;
           refunded_at: string | null;
+          proof_url: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          rejection_reason: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -226,6 +242,10 @@ export type Database = {
           gateway_response?: Json | null;
           refund_id?: string | null;
           refunded_at?: string | null;
+          proof_url?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          rejection_reason?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -247,6 +267,10 @@ export type Database = {
           gateway_response?: Json | null;
           refund_id?: string | null;
           refunded_at?: string | null;
+          proof_url?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          rejection_reason?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -424,11 +448,23 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      provision_staff_member: {
+        Args: {
+          p_email: string;
+          p_password: string;
+          p_full_name: string;
+          p_phone: string;
+          p_role: Database["public"]["Enums"]["user_role"];
+          p_permissions: Json;
+        };
+        Returns: string;
+      };
+    };
     Enums: {
       user_role: "patient" | "doctor" | "admin" | "super_admin";
       doctor_status: "pending" | "approved" | "rejected" | "suspended";
-      appointment_status: "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show";
+      appointment_status: "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show" | "pending_payment";
       appointment_type: "video" | "chat" | "in_person";
       payment_status: "pending" | "completed" | "failed" | "refunded";
       payment_method: "jazzcash" | "easypaisa" | "stripe" | "bank_transfer";

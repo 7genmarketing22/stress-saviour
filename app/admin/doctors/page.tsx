@@ -134,7 +134,7 @@ export default function AdminDoctorsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
       </div>
     );
   }
@@ -167,8 +167,8 @@ export default function AdminDoctorsPage() {
                 <h3 className="text-3xl font-semibold text-slate-900 mt-2">{stats.total}</h3>
                 <p className="text-xs text-slate-500 mt-2">{stats.approved} active</p>
               </div>
-              <div className="p-3 rounded-lg bg-teal-50">
-                <Users className="h-5 w-5 text-teal-600" />
+              <div className="p-3 rounded-lg bg-brand-50">
+                <Users className="h-5 w-5 text-brand-500" />
               </div>
             </div>
           </CardContent>
@@ -263,7 +263,7 @@ export default function AdminDoctorsPage() {
               return (
                 <div key={doc.id} className="flex items-center justify-between p-6 hover:bg-slate-50 transition-colors">
                   <div className="flex items-center gap-4 flex-1">
-                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-brand-400 to-brand-300 flex items-center justify-center text-white font-semibold flex-shrink-0">
                       {initials(doc.profile?.full_name)}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -302,7 +302,7 @@ export default function AdminDoctorsPage() {
                       <>
                         <Button
                           size="sm"
-                          className="bg-teal-600 hover:bg-teal-700"
+                          className="bg-brand-500 hover:bg-brand-600"
                           disabled={actionId === doc.id}
                           onClick={() => runAction(doc.id, () => approveDoctor(doc.id, profile.id))}
                         >
@@ -336,7 +336,7 @@ export default function AdminDoctorsPage() {
                     {(doc.status === "suspended" || doc.status === "rejected") && (
                       <Button
                         size="sm"
-                        className="bg-teal-600 hover:bg-teal-700"
+                        className="bg-brand-500 hover:bg-brand-600"
                         disabled={actionId === doc.id}
                         onClick={() => runAction(doc.id, () => reinstateDoctor(doc.id, profile.id))}
                       >
@@ -365,7 +365,7 @@ export default function AdminDoctorsPage() {
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="h-16 w-16 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-semibold text-xl">
+                  <div className="h-16 w-16 rounded-full bg-brand-50 flex items-center justify-center text-brand-600 font-semibold text-xl">
                     {initials(selectedDoctor.profile?.full_name)}
                   </div>
                   <div>
@@ -444,7 +444,7 @@ export default function AdminDoctorsPage() {
                 {selectedDoctor.status === "pending" && (
                   <>
                     <Button
-                      className="flex-1 bg-teal-600 hover:bg-teal-700"
+                      className="flex-1 bg-brand-500 hover:bg-brand-600"
                       disabled={actionId === selectedDoctor.id}
                       onClick={() => runAction(selectedDoctor.id, () => approveDoctor(selectedDoctor.id, profile.id))}
                     >
@@ -475,7 +475,7 @@ export default function AdminDoctorsPage() {
                 )}
                 {(selectedDoctor.status === "suspended" || selectedDoctor.status === "rejected") && (
                   <Button
-                    className="flex-1 bg-teal-600 hover:bg-teal-700"
+                    className="flex-1 bg-brand-500 hover:bg-brand-600"
                     disabled={actionId === selectedDoctor.id}
                     onClick={() => runAction(selectedDoctor.id, () => reinstateDoctor(selectedDoctor.id, profile.id))}
                   >

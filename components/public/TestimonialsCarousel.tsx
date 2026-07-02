@@ -18,7 +18,7 @@ interface TestimonialsCarouselProps {
 }
 
 const AVATAR_COLORS = [
-  "bg-teal-100 text-teal-700",
+  "bg-brand-50 text-brand-600",
   "bg-violet-100 text-violet-700",
   "bg-amber-100 text-amber-700",
   "bg-rose-100 text-rose-700",
@@ -89,8 +89,8 @@ export function TestimonialsCarousel({
               className="shrink-0 px-3"
               style={{ width: `${100 / perView}%` }}
             >
-              <figure className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-teal-200 hover:shadow-lg">
-                <Quote className="h-7 w-7 text-teal-200" />
+              <figure className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-brand-100 hover:shadow-lg">
+                <Quote className="h-7 w-7 text-brand-100" />
                 <div className="mt-3 flex gap-0.5">
                   {Array.from({ length: t.rating }).map((_, s) => (
                     <Star key={s} className="h-4 w-4 fill-amber-400 text-amber-400" />
@@ -128,7 +128,7 @@ export function TestimonialsCarousel({
           type="button"
           onClick={prev}
           aria-label="Previous reviews"
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:border-teal-300 hover:text-teal-700"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:border-brand-200 hover:text-brand-600"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -142,7 +142,7 @@ export function TestimonialsCarousel({
               aria-label={`Go to review group ${i + 1}`}
               className={cn(
                 "h-2 rounded-full transition-all",
-                i === activeIndex ? "w-6 bg-teal-600" : "w-2 bg-slate-300 hover:bg-slate-400"
+                i === activeIndex ? "w-6 bg-brand-500" : "w-2 bg-slate-300 hover:bg-slate-400"
               )}
             />
           ))}
@@ -152,7 +152,7 @@ export function TestimonialsCarousel({
           type="button"
           onClick={next}
           aria-label="Next reviews"
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:border-teal-300 hover:text-teal-700"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:border-brand-200 hover:text-brand-600"
         >
           <ChevronRight className="h-5 w-5" />
         </button>

@@ -7,6 +7,7 @@ import type {
 } from "@/types";
 import type { Database } from "@/types/database";
 import { parseClinicalNotes } from "@/lib/doctor/notes";
+import { uploadPaymentProof } from "@/lib/storage/paymentProof";
 import type {
   AppointmentWithDoctor,
   DoctorWithProfile,
@@ -44,7 +45,16 @@ const APPOINTMENT_SELECT = `
   doctor:doctor_profiles!appointments_doctor_id_fkey (
     ${DOCTOR_SELECT}
   ),
-  review:reviews!reviews_appointment_id_fkey ( rating, comment )
+  review:reviews!reviews_appointment_id_fkey ( rating, comment ),
+  payments ( id, status, proof_url, payment_method, rejection_reason, amount )
+`;
+
+const PRESCRIPTION_APPOINTMENT_SELECT = `
+  *,
+  doctor:doctor_profiles!appointments_doctor_id_fkey (
+    id, specialization,
+    profile:profiles!doctor_profiles_user_id_fkey ( full_name )
+  )
 `;
 
 export async function getPatientContext(): Promise<PatientContextResult> {
@@ -102,6 +112,16 @@ export async function getPatientContext(): Promise<PatientContextResult> {
 export async function getPatientAppointments(): Promise<AppointmentWithDoctor[]> {
   const { data, error } = await table("appointments")
     .select(APPOINTMENT_SELECT)
+    .order("scheduled_at", { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []) as AppointmentWithDoctor[];
+}
+
+export async function getPatientPrescriptionAppointments(): Promise<AppointmentWithDoctor[]> {
+  const { data, error } = await table("appointments")
+    .select(PRESCRIPTION_APPOINTMENT_SELECT)
+    .eq("status", "completed")
     .order("scheduled_at", { ascending: false });
 
   if (error) throw error;
@@ -184,6 +204,7 @@ export async function bookAppointment(params: {
   patientNotes?: string;
   consultationFee: number;
   durationMinutes?: number;
+  paymentMethod: PaymentMethod;
 }) {
   const supabase = createClient();
   const {
@@ -196,7 +217,7 @@ export async function bookAppointment(params: {
       patient_id: user.id,
       doctor_id: params.doctorProfileId,
       appointment_type: params.appointmentType,
-      status: "scheduled",
+      status: "pending_payment",
       scheduled_at: params.scheduledAt,
       duration_minutes: params.durationMinutes ?? 30,
       patient_notes: params.patientNotes?.trim() || null,
@@ -208,27 +229,135 @@ export async function bookAppointment(params: {
   if (aptError) throw aptError;
 
   const booked = appointment as AppointmentWithDoctor;
-  const txnId = `TXN-${booked.id.slice(0, 8).toUpperCase()}`;
   const platformFee = Math.round(params.consultationFee * 0.1 * 100) / 100;
   const doctorEarning = params.consultationFee - platformFee;
 
-  const { error: payError } = await table("payments").insert({
-    appointment_id: booked.id,
-    patient_id: user.id,
-    doctor_id: params.doctorProfileId,
-    amount: params.consultationFee,
-    platform_fee: platformFee,
-    doctor_earning: doctorEarning,
-    payment_method: "jazzcash" as PaymentMethod,
-    status: "completed",
-    transaction_id: txnId,
-  } as Database["public"]["Tables"]["payments"]["Insert"]);
+  const { data: payment, error: payError } = await table("payments")
+    .insert({
+      appointment_id: booked.id,
+      patient_id: user.id,
+      doctor_id: params.doctorProfileId,
+      amount: params.consultationFee,
+      platform_fee: platformFee,
+      doctor_earning: doctorEarning,
+      payment_method: params.paymentMethod,
+      status: "pending",
+    } as Database["public"]["Tables"]["payments"]["Insert"])
+    .select("id")
+    .single();
 
   if (payError) {
-    console.error("Payment record failed:", payError);
+    await table("appointments").delete().eq("id", booked.id);
+    throw payError;
   }
 
-  return booked;
+  return { appointment: booked, paymentId: (payment as { id: string }).id };
+}
+
+async function notifyAdmins(title: string, message: string, metadata?: Record<string, unknown>) {
+  try {
+    const { data: admins } = await table("profiles")
+      .select("id")
+      .in("role", ["admin", "super_admin"]);
+    if (!admins?.length) return;
+    await table("notifications").insert(
+      (admins as { id: string }[]).map((admin) => ({
+        user_id: admin.id,
+        title,
+        message,
+        type: "payment",
+        metadata: metadata ?? null,
+      })) as Database["public"]["Tables"]["notifications"]["Insert"][]
+    );
+  } catch (err) {
+    console.warn("Admin notification skipped:", err);
+  }
+}
+
+async function notifyUser(
+  userId: string,
+  title: string,
+  message: string,
+  metadata?: Record<string, unknown>
+) {
+  try {
+    await table("notifications").insert({
+      user_id: userId,
+      title,
+      message,
+      type: "payment",
+      metadata: metadata ?? null,
+    } as Database["public"]["Tables"]["notifications"]["Insert"]);
+  } catch (err) {
+    console.warn("User notification skipped:", err);
+  }
+}
+
+export async function submitPaymentProof(paymentId: string, file: File) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not signed in");
+
+  const { data: payment, error: fetchError } = await table("payments")
+    .select("id, patient_id, status, appointment_id, amount")
+    .eq("id", paymentId)
+    .maybeSingle();
+
+  if (fetchError) throw fetchError;
+  if (!payment) throw new Error("Payment not found");
+  if ((payment as { patient_id: string }).patient_id !== user.id) {
+    throw new Error("Not authorized");
+  }
+  if ((payment as { status: string }).status !== "pending") {
+    throw new Error("This payment can no longer be updated");
+  }
+
+  const proofUrl = await uploadPaymentProof(user.id, paymentId, file);
+
+  const { error: updateError } = await table("payments")
+    .update({
+      proof_url: proofUrl,
+      rejection_reason: null,
+    } as Database["public"]["Tables"]["payments"]["Update"])
+    .eq("id", paymentId);
+
+  if (updateError) throw updateError;
+
+  const amount = Number((payment as { amount: number }).amount);
+  await notifyUser(
+    user.id,
+    "Payment proof submitted",
+    `Your payment of PKR ${Math.round(amount).toLocaleString("en-PK")} is under review. We will notify you once admin confirms your booking.`,
+    { payment_id: paymentId }
+  );
+  await notifyAdmins(
+    "Payment proof to review",
+    `A patient submitted a payment screenshot (PKR ${Math.round(amount).toLocaleString("en-PK")}). Approve to confirm the booking.`,
+    { payment_id: paymentId, appointment_id: (payment as { appointment_id: string }).appointment_id }
+  );
+
+  return proofUrl;
+}
+
+export async function getPatientPaymentById(paymentId: string): Promise<PaymentWithDoctor | null> {
+  const { data, error } = await table("payments")
+    .select(
+      `
+      *,
+      doctor:doctor_profiles!payments_doctor_id_fkey (
+        id, specialization,
+        profile:profiles!doctor_profiles_user_id_fkey ( full_name )
+      ),
+      appointment:appointments!payments_appointment_id_fkey ( appointment_type )
+    `
+    )
+    .eq("id", paymentId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data ?? null) as PaymentWithDoctor | null;
 }
 
 export async function cancelPatientAppointment(

@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, MapPin, Search, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import {
+  ALL_CITIES_LABEL,
   buildDoctorSearchUrl,
   getActiveFilterCount,
   parseDoctorSearchParams,
@@ -46,17 +47,17 @@ export function DoctorSearchFilters({ resultCount, className }: DoctorSearchFilt
       <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
         <div className="flex flex-col gap-2 lg:flex-row">
           <div className="relative lg:w-44">
-            <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-teal-600" />
+            <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-500" />
             <select
-              value={filters.city ?? "All Cities"}
+              value={filters.city ?? ALL_CITIES_LABEL}
               onChange={(e) =>
                 updateFilters({
-                  city: e.target.value === "All Cities" ? undefined : e.target.value,
+                  city: e.target.value === ALL_CITIES_LABEL ? undefined : e.target.value,
                 })
               }
               className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 text-sm font-medium"
             >
-              <option value="All Cities">All Cities</option>
+              <option value={ALL_CITIES_LABEL}>{ALL_CITIES_LABEL}</option>
               {PAKISTAN_CITIES.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -79,11 +80,11 @@ export function DoctorSearchFilters({ resultCount, className }: DoctorSearchFilt
               key={filters.q ?? "empty"}
               defaultValue={filters.q ?? ""}
               placeholder="Search by doctor name or specialty..."
-              className="h-11 w-full rounded-xl border border-slate-200 pl-10 pr-4 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+              className="h-11 w-full rounded-xl border border-slate-200 pl-10 pr-4 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-400/20"
             />
             <Button
               type="submit"
-              className="ml-2 hidden h-11 rounded-xl bg-[#1e3a5f] px-5 text-white hover:bg-[#152a45] sm:inline-flex"
+              className="ml-2 hidden h-11 rounded-xl bg-[#102c7b] px-5 text-white hover:bg-[#152a45] sm:inline-flex"
             >
               Search
             </Button>
@@ -97,7 +98,7 @@ export function DoctorSearchFilters({ resultCount, className }: DoctorSearchFilt
           <button
             type="button"
             onClick={clearAll}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 hover:underline"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"
           >
             <X className="h-3.5 w-3.5" />
             Clear Filters
@@ -147,8 +148,8 @@ export function DoctorSearchFilters({ resultCount, className }: DoctorSearchFilt
             className={cn(
               "h-9 appearance-none rounded-full border px-4 pr-8 text-xs font-semibold transition-all",
               filters.specialty
-                ? "border-teal-600 bg-teal-600 text-white"
-                : "border-slate-200 bg-white text-slate-600 hover:border-teal-300"
+                ? "border-brand-500 bg-brand-500 text-white"
+                : "border-slate-200 bg-white text-slate-600 hover:border-brand-200"
             )}
           >
             <option value="All">Specialty</option>
@@ -172,8 +173,8 @@ export function DoctorSearchFilters({ resultCount, className }: DoctorSearchFilt
             className={cn(
               "h-9 appearance-none rounded-full border px-4 pr-8 text-xs font-semibold transition-all",
               filters.minRating
-                ? "border-teal-600 bg-teal-600 text-white"
-                : "border-slate-200 bg-white text-slate-600 hover:border-teal-300"
+                ? "border-brand-500 bg-brand-500 text-white"
+                : "border-slate-200 bg-white text-slate-600 hover:border-brand-200"
             )}
           >
             <option value="">Min Rating</option>
@@ -208,8 +209,8 @@ function FilterChip({
       className={cn(
         "rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all",
         active
-          ? "border-teal-600 bg-teal-600 text-white shadow-sm"
-          : "border-slate-200 bg-white text-slate-600 hover:border-teal-300 hover:text-teal-700"
+          ? "border-brand-500 bg-brand-500 text-white shadow-sm"
+          : "border-slate-200 bg-white text-slate-600 hover:border-brand-200 hover:text-brand-600"
       )}
     >
       {children}

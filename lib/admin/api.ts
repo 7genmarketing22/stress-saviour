@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
-import type { AppointmentStatus, DoctorStatus, Profile } from "@/types";
+import type { AdminPermissions, Profile, UserRole, AppointmentStatus, DoctorStatus } from "@/types";
+import type { AdminStaffMember } from "./staff-types";
 import type { Database } from "@/types/database";
 import type {
   AdminAppointment,
@@ -133,6 +134,66 @@ export async function getAdminStaff(): Promise<Profile[]> {
   return (data ?? []) as Profile[];
 }
 
+export async function getAdminStaffDetailed(): Promise<{
+  staff: AdminStaffMember[];
+  canManage: boolean;
+}> {
+  const response = await fetch("/api/admin/staff", { method: "GET" });
+  const payload = (await response.json()) as {
+    staff?: AdminStaffMember[];
+    canManage?: boolean;
+    error?: string;
+  };
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Failed to load staff");
+  }
+  return { staff: payload.staff ?? [], canManage: Boolean(payload.canManage) };
+}
+
+export async function createAdminStaffMember(input: {
+  fullName: string;
+  email: string;
+  phone?: string;
+  password: string;
+  role: "admin" | "super_admin";
+  accessPreset: "full" | "operations" | "finance" | "support" | "custom";
+  permissions?: Partial<AdminPermissions>;
+}) {
+  const response = await fetch("/api/admin/staff", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const payload = (await response.json()) as { staff?: AdminStaffMember; error?: string };
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Failed to create staff member");
+  }
+  return payload.staff!;
+}
+
+export async function updateAdminStaffMember(
+  userId: string,
+  input: {
+    fullName?: string;
+    phone?: string | null;
+    role?: Extract<UserRole, "admin" | "super_admin">;
+    isActive?: boolean;
+    accessPreset?: "full" | "operations" | "finance" | "support" | "custom";
+    permissions?: Partial<AdminPermissions>;
+  }
+) {
+  const response = await fetch(`/api/admin/staff/${userId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const payload = (await response.json()) as { staff?: AdminStaffMember; error?: string };
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Failed to update staff member");
+  }
+  return payload.staff!;
+}
+
 export async function getAdminAppointments(): Promise<AdminAppointment[]> {
   const { data, error } = await table("appointments")
     .select(APPOINTMENT_ADMIN_SELECT)
@@ -180,14 +241,43 @@ export function approveDoctor(doctorProfileId: string, adminId: string) {
     approved_at: new Date().toISOString(),
     rejection_reason: null,
     is_available: true,
+  }).then(async (doctor) => {
+    const userId = doctor.profile?.id ?? doctor.user_id;
+    if (userId) {
+      await table("profiles")
+        .update({
+          account_status: "approved",
+          is_active: true,
+          approved_by: adminId,
+          approved_at: new Date().toISOString(),
+          rejection_reason: null,
+        } as Database["public"]["Tables"]["profiles"]["Update"])
+        .eq("id", userId);
+    }
+    return doctor;
   });
 }
 
 export function rejectDoctor(doctorProfileId: string, reason?: string) {
+  const rejectionReason =
+    reason?.trim() || "Application did not meet verification requirements.";
+
   return setDoctorStatus(doctorProfileId, {
     status: "rejected",
-    rejection_reason: reason?.trim() || "Application did not meet verification requirements.",
+    rejection_reason: rejectionReason,
     is_available: false,
+  }).then(async (doctor) => {
+    const userId = doctor.profile?.id ?? doctor.user_id;
+    if (userId) {
+      await table("profiles")
+        .update({
+          account_status: "rejected",
+          is_active: false,
+          rejection_reason: rejectionReason,
+        } as Database["public"]["Tables"]["profiles"]["Update"])
+        .eq("id", userId);
+    }
+    return doctor;
   });
 }
 
@@ -210,6 +300,44 @@ export function reinstateDoctor(doctorProfileId: string, adminId: string) {
 }
 
 // --- Patient account actions ---
+
+export async function approvePatient(userId: string, adminId: string): Promise<Profile> {
+  const { data, error } = await table("profiles")
+    .update({
+      account_status: "approved",
+      is_active: true,
+      approved_by: adminId,
+      approved_at: new Date().toISOString(),
+      rejection_reason: null,
+    } as Database["public"]["Tables"]["profiles"]["Update"])
+    .eq("id", userId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as Profile;
+}
+
+export async function rejectPatient(
+  userId: string,
+  reason?: string
+): Promise<Profile> {
+  const rejectionReason =
+    reason?.trim() || "Registration could not be verified at this time.";
+
+  const { data, error } = await table("profiles")
+    .update({
+      account_status: "rejected",
+      is_active: false,
+      rejection_reason: rejectionReason,
+    } as Database["public"]["Tables"]["profiles"]["Update"])
+    .eq("id", userId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as Profile;
+}
 
 export async function setProfileActive(userId: string, isActive: boolean): Promise<Profile> {
   const { data, error } = await table("profiles")
@@ -317,6 +445,124 @@ export async function markPaymentPending(paymentId: string): Promise<AdminPaymen
 
   if (error) throw error;
   return data as AdminPayment;
+}
+
+// --- Patient payment proof approval ---
+
+async function notifyPatientPayment(
+  patientId: string,
+  title: string,
+  message: string,
+  metadata?: Record<string, unknown>
+) {
+  try {
+    await table("notifications").insert({
+      user_id: patientId,
+      title,
+      message,
+      type: "payment",
+      metadata: metadata ?? null,
+    } as Database["public"]["Tables"]["notifications"]["Insert"]);
+  } catch (err) {
+    console.warn("Patient payment notification skipped:", err);
+  }
+}
+
+/** Approve a patient's payment proof and confirm their booking. */
+export async function approvePatientPayment(
+  paymentId: string,
+  adminId: string
+): Promise<AdminPayment> {
+  const { data: existing, error: fetchError } = await table("payments")
+    .select("id, status, proof_url, appointment_id, patient_id, amount")
+    .eq("id", paymentId)
+    .maybeSingle();
+
+  if (fetchError) throw fetchError;
+  if (!existing) throw new Error("Payment not found");
+  const row = existing as {
+    id: string;
+    status: string;
+    proof_url: string | null;
+    appointment_id: string;
+    patient_id: string;
+    amount: number;
+  };
+  if (row.status !== "pending") throw new Error("Only pending payments can be approved");
+  if (!row.proof_url) throw new Error("No payment proof uploaded yet");
+
+  const txnId = `TXN-${row.id.slice(0, 8).toUpperCase()}`;
+  const now = new Date().toISOString();
+
+  const { data: payment, error: payError } = await table("payments")
+    .update({
+      status: "completed",
+      transaction_id: txnId,
+      reviewed_by: adminId,
+      reviewed_at: now,
+      rejection_reason: null,
+    } as Database["public"]["Tables"]["payments"]["Update"])
+    .eq("id", paymentId)
+    .select(PAYMENT_ADMIN_SELECT)
+    .single();
+
+  if (payError) throw payError;
+
+  const { error: aptError } = await table("appointments")
+    .update({ status: "scheduled" } as Database["public"]["Tables"]["appointments"]["Update"])
+    .eq("id", row.appointment_id);
+
+  if (aptError) throw aptError;
+
+  await notifyPatientPayment(
+    row.patient_id,
+    "Booking confirmed",
+    `Your payment of PKR ${Math.round(Number(row.amount)).toLocaleString("en-PK")} was approved. Your appointment is now confirmed.`,
+    { payment_id: paymentId, appointment_id: row.appointment_id }
+  );
+
+  return payment as AdminPayment;
+}
+
+/** Reject a patient's payment proof. Booking stays unconfirmed. */
+export async function rejectPatientPayment(
+  paymentId: string,
+  adminId: string,
+  reason?: string
+): Promise<AdminPayment> {
+  const { data: existing, error: fetchError } = await table("payments")
+    .select("id, status, patient_id, amount")
+    .eq("id", paymentId)
+    .maybeSingle();
+
+  if (fetchError) throw fetchError;
+  if (!existing) throw new Error("Payment not found");
+  const row = existing as { id: string; status: string; patient_id: string; amount: number };
+  if (row.status !== "pending") throw new Error("Only pending payments can be rejected");
+
+  const rejectionReason =
+    reason?.trim() || "Payment proof could not be verified. Please upload a valid screenshot.";
+
+  const { data: payment, error: payError } = await table("payments")
+    .update({
+      reviewed_by: adminId,
+      reviewed_at: new Date().toISOString(),
+      rejection_reason: rejectionReason,
+    } as Database["public"]["Tables"]["payments"]["Update"])
+    .eq("id", paymentId)
+    .select(PAYMENT_ADMIN_SELECT)
+    .single();
+
+  if (payError) throw payError;
+
+  await notifyPatientPayment(
+    row.patient_id,
+    "Payment rejected",
+    `${rejectionReason} You can re-book and submit a new payment proof.`,
+    { payment_id: paymentId }
+  );
+
+  return payment as AdminPayment;
 }
 
 /**
@@ -480,6 +726,7 @@ export function buildAdminStats(
 
   const activeDoctors = doctors.filter((d) => d.status === "approved").length;
   const pendingDoctors = doctors.filter((d) => d.status === "pending").length;
+  const pendingPatients = patients.filter((p) => p.account_status === "pending").length;
 
   const todays = appointments.filter((a) => isSameDay(new Date(a.scheduled_at), now));
   const appointmentsTodayCompleted = todays.filter((a) => a.status === "completed").length;
@@ -509,6 +756,7 @@ export function buildAdminStats(
     totalPaidOut,
     activeDoctors,
     pendingDoctors,
+    pendingPatients,
     totalPatients: patients.length,
     appointmentsToday: todays.length,
     appointmentsTodayCompleted,

@@ -193,7 +193,7 @@ export default function DoctorProfilePage() {
       {/* Toast Alert */}
       {toastMessage && (
         <div className="fixed top-20 right-4 z-50 flex items-center gap-2 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-sm font-medium border border-slate-800 animate-in slide-in-from-right duration-200">
-          <Check className="h-4 w-4 text-teal-400" />
+          <Check className="h-4 w-4 text-brand-300" />
           <span>{toastMessage}</span>
         </div>
       )}
@@ -236,7 +236,7 @@ export default function DoctorProfilePage() {
                 onClick={() => setActiveTab("profile")}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer text-left ${
                   activeTab === "profile"
-                    ? "bg-teal-500/10 text-teal-700 dark:text-teal-400"
+                    ? "bg-brand-400/10 text-brand-600 dark:text-brand-300"
                     : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                 }`}
               >
@@ -247,7 +247,7 @@ export default function DoctorProfilePage() {
                 onClick={() => setActiveTab("telehealth")}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer text-left ${
                   activeTab === "telehealth"
-                    ? "bg-teal-500/10 text-teal-700 dark:text-teal-400"
+                    ? "bg-brand-400/10 text-brand-600 dark:text-brand-300"
                     : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                 }`}
               >
@@ -258,7 +258,7 @@ export default function DoctorProfilePage() {
                 onClick={() => setActiveTab("payout")}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer text-left ${
                   activeTab === "payout"
-                    ? "bg-teal-500/10 text-teal-700 dark:text-teal-400"
+                    ? "bg-brand-400/10 text-brand-600 dark:text-brand-300"
                     : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                 }`}
               >
@@ -269,7 +269,7 @@ export default function DoctorProfilePage() {
                 onClick={() => setActiveTab("security")}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer text-left ${
                   activeTab === "security"
-                    ? "bg-teal-500/10 text-teal-700 dark:text-teal-400"
+                    ? "bg-brand-400/10 text-brand-600 dark:text-brand-300"
                     : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                 }`}
               >
@@ -304,7 +304,7 @@ export default function DoctorProfilePage() {
                           value={profileForm.fullName}
                           onChange={(e) => setProfileForm({ ...profileForm, fullName: e.target.value })}
                           required
-                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                         />
                       </div>
                     </div>
@@ -336,7 +336,7 @@ export default function DoctorProfilePage() {
                           value={profileForm.phone}
                           onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
                           required
-                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                         />
                       </div>
                     </div>
@@ -351,7 +351,7 @@ export default function DoctorProfilePage() {
                           value={profileForm.city}
                           onChange={(e) => setProfileForm({ ...profileForm, city: e.target.value })}
                           required
-                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                         />
                       </div>
                     </div>
@@ -366,7 +366,7 @@ export default function DoctorProfilePage() {
                           value={profileForm.pmdcNumber}
                           onChange={(e) => setProfileForm({ ...profileForm, pmdcNumber: e.target.value })}
                           required
-                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-mono"
+                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all font-mono"
                         />
                       </div>
                     </div>
@@ -381,7 +381,7 @@ export default function DoctorProfilePage() {
                           value={profileForm.experience}
                           onChange={(e) => setProfileForm({ ...profileForm, experience: e.target.value })}
                           required
-                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                         />
                       </div>
                     </div>
@@ -396,7 +396,7 @@ export default function DoctorProfilePage() {
                           value={profileForm.specialization}
                           onChange={(e) => setProfileForm({ ...profileForm, specialization: e.target.value })}
                           required
-                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                         />
                       </div>
                     </div>
@@ -411,7 +411,7 @@ export default function DoctorProfilePage() {
                           value={profileForm.qualification}
                           onChange={(e) => setProfileForm({ ...profileForm, qualification: e.target.value })}
                           required
-                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                         />
                       </div>
                     </div>
@@ -424,13 +424,13 @@ export default function DoctorProfilePage() {
                         onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
                         required
                         rows={4}
-                        className="w-full p-3 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all resize-none leading-relaxed"
+                        className="w-full p-3 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all resize-none leading-relaxed"
                       />
                     </div>
                   </div>
                 </CardContent>
                 <CardFooter className="border-t border-border/60 py-4 flex justify-end">
-                  <Button type="submit" disabled={isSaving} className="bg-teal-600 hover:bg-teal-700 text-white font-semibold">
+                  <Button type="submit" disabled={isSaving} className="bg-brand-500 hover:bg-brand-600 text-white font-semibold">
                     {isSaving ? "Saving Credentials..." : "Save Credentials"}
                   </Button>
                 </CardFooter>
@@ -452,7 +452,7 @@ export default function DoctorProfilePage() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <label className="text-sm font-semibold text-foreground">Consultation Fee</label>
-                    <span className="text-lg font-bold text-teal-600 dark:text-teal-400">PKR {telehealth.consultationFee.toLocaleString()}</span>
+                    <span className="text-lg font-bold text-brand-500 dark:text-brand-300">PKR {telehealth.consultationFee.toLocaleString()}</span>
                   </div>
                   
                   <input
@@ -462,7 +462,7 @@ export default function DoctorProfilePage() {
                     step="500"
                     value={telehealth.consultationFee}
                     onChange={(e) => setTelehealth({ ...telehealth, consultationFee: parseInt(e.target.value) })}
-                    className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-teal-600"
+                    className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-brand-500"
                   />
                   
                   <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-muted/40 border border-border/60 text-xs">
@@ -483,7 +483,7 @@ export default function DoctorProfilePage() {
                   <select
                     value={telehealth.sessionDuration}
                     onChange={(e) => setTelehealth({ ...telehealth, sessionDuration: parseInt(e.target.value) })}
-                    className="w-full h-10 px-3 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                   >
                     <option value={20}>20 Minutes</option>
                     <option value={30}>30 Minutes</option>
@@ -499,7 +499,7 @@ export default function DoctorProfilePage() {
                   <div className="space-y-3">
                     <label className="flex items-center justify-between p-3 rounded-xl border border-border bg-card hover:bg-muted/10 transition-colors cursor-pointer select-none">
                       <div className="flex items-center gap-3">
-                        <Clock className="h-5 w-5 text-teal-600" />
+                        <Clock className="h-5 w-5 text-brand-500" />
                         <div>
                           <p className="text-sm font-semibold">Video Consultations</p>
                           <p className="text-xs text-muted-foreground mt-0.5">Highly recommended, high fidelity therapy</p>
@@ -509,7 +509,7 @@ export default function DoctorProfilePage() {
                         type="checkbox"
                         checked={telehealth.enableVideo}
                         onChange={(e) => setTelehealth({ ...telehealth, enableVideo: e.target.checked })}
-                        className="h-4.5 w-4.5 rounded border-border text-teal-600 focus:ring-teal-500 cursor-pointer"
+                        className="h-4.5 w-4.5 rounded border-border text-brand-500 focus:ring-brand-400 cursor-pointer"
                       />
                     </label>
 
@@ -525,7 +525,7 @@ export default function DoctorProfilePage() {
                         type="checkbox"
                         checked={telehealth.enableAudio}
                         onChange={(e) => setTelehealth({ ...telehealth, enableAudio: e.target.checked })}
-                        className="h-4.5 w-4.5 rounded border-border text-teal-600 focus:ring-teal-500 cursor-pointer"
+                        className="h-4.5 w-4.5 rounded border-border text-brand-500 focus:ring-brand-400 cursor-pointer"
                       />
                     </label>
 
@@ -541,7 +541,7 @@ export default function DoctorProfilePage() {
                         type="checkbox"
                         checked={telehealth.enableChat}
                         onChange={(e) => setTelehealth({ ...telehealth, enableChat: e.target.checked })}
-                        className="h-4.5 w-4.5 rounded border-border text-teal-600 focus:ring-teal-500 cursor-pointer"
+                        className="h-4.5 w-4.5 rounded border-border text-brand-500 focus:ring-brand-400 cursor-pointer"
                       />
                     </label>
                   </div>
@@ -557,12 +557,12 @@ export default function DoctorProfilePage() {
                     type="checkbox"
                     checked={telehealth.autoApprove}
                     onChange={(e) => setTelehealth({ ...telehealth, autoApprove: e.target.checked })}
-                    className="h-4.5 w-4.5 rounded border-border text-teal-600 focus:ring-teal-500 cursor-pointer"
+                    className="h-4.5 w-4.5 rounded border-border text-brand-500 focus:ring-brand-400 cursor-pointer"
                   />
                 </label>
               </CardContent>
               <CardFooter className="border-t border-border/60 py-4 flex justify-end">
-                <Button onClick={handleSaveTelehealth} disabled={isSaving} className="bg-teal-600 hover:bg-teal-700 text-white font-semibold">
+                <Button onClick={handleSaveTelehealth} disabled={isSaving} className="bg-brand-500 hover:bg-brand-600 text-white font-semibold">
                   {isSaving ? "Saving practice configuration..." : "Save Telehealth Config"}
                 </Button>
               </CardFooter>
@@ -585,7 +585,7 @@ export default function DoctorProfilePage() {
                     onClick={() => setPayout({ ...payout, method: "bank" })}
                     className={`flex flex-col items-center justify-center p-4 rounded-xl border text-center cursor-pointer transition-all duration-200 ${
                       payout.method === "bank"
-                        ? "border-teal-600 bg-teal-500/5 text-teal-700 dark:text-teal-400 font-semibold"
+                        ? "border-brand-500 bg-brand-400/5 text-brand-600 dark:text-brand-300 font-semibold"
                         : "border-border hover:bg-accent text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -598,7 +598,7 @@ export default function DoctorProfilePage() {
                     onClick={() => setPayout({ ...payout, method: "easypaisa" })}
                     className={`flex flex-col items-center justify-center p-4 rounded-xl border text-center cursor-pointer transition-all duration-200 ${
                       payout.method === "easypaisa"
-                        ? "border-teal-600 bg-teal-500/5 text-teal-700 dark:text-teal-400 font-semibold"
+                        ? "border-brand-500 bg-brand-400/5 text-brand-600 dark:text-brand-300 font-semibold"
                         : "border-border hover:bg-accent text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -611,7 +611,7 @@ export default function DoctorProfilePage() {
                     onClick={() => setPayout({ ...payout, method: "jazzcash" })}
                     className={`flex flex-col items-center justify-center p-4 rounded-xl border text-center cursor-pointer transition-all duration-200 ${
                       payout.method === "jazzcash"
-                        ? "border-teal-600 bg-teal-500/5 text-teal-700 dark:text-teal-400 font-semibold"
+                        ? "border-brand-500 bg-brand-400/5 text-brand-600 dark:text-brand-300 font-semibold"
                         : "border-border hover:bg-accent text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -631,7 +631,7 @@ export default function DoctorProfilePage() {
                           value={payout.bankName}
                           onChange={(e) => setPayout({ ...payout, bankName: e.target.value })}
                           required
-                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                         />
                       </div>
                     </div>
@@ -645,7 +645,7 @@ export default function DoctorProfilePage() {
                           value={payout.iban}
                           onChange={(e) => setPayout({ ...payout, iban: e.target.value })}
                           required
-                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-mono"
+                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all font-mono"
                         />
                       </div>
                     </div>
@@ -661,14 +661,14 @@ export default function DoctorProfilePage() {
                         value={payout.walletNumber}
                         onChange={(e) => setPayout({ ...payout, walletNumber: e.target.value })}
                         required
-                        className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                        className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                       />
                     </div>
                   </div>
                 )}
               </CardContent>
               <CardFooter className="border-t border-border/60 py-4 flex justify-end">
-                <Button onClick={handleSavePayout} disabled={isSaving} className="bg-teal-600 hover:bg-teal-700 text-white font-semibold">
+                <Button onClick={handleSavePayout} disabled={isSaving} className="bg-brand-500 hover:bg-brand-600 text-white font-semibold">
                   {isSaving ? "Saving payout details..." : "Save Payout Method"}
                 </Button>
               </CardFooter>
@@ -698,7 +698,7 @@ export default function DoctorProfilePage() {
                           onChange={(e) => setSecurity({ ...security, currentPassword: e.target.value })}
                           required
                           placeholder="••••••••"
-                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                         />
                       </div>
                     </div>
@@ -714,7 +714,7 @@ export default function DoctorProfilePage() {
                           onChange={(e) => setSecurity({ ...security, newPassword: e.target.value })}
                           required
                           placeholder="••••••••"
-                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                         />
                       </div>
                     </div>
@@ -730,13 +730,13 @@ export default function DoctorProfilePage() {
                           onChange={(e) => setSecurity({ ...security, confirmPassword: e.target.value })}
                           required
                           placeholder="••••••••"
-                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                         />
                       </div>
                     </div>
                   </CardContent>
                   <CardFooter className="border-t border-border/60 py-4 flex justify-end">
-                    <Button type="submit" disabled={isSaving} className="bg-teal-600 hover:bg-teal-700 text-white font-semibold">
+                    <Button type="submit" disabled={isSaving} className="bg-brand-500 hover:bg-brand-600 text-white font-semibold">
                       {isSaving ? "Updating password..." : "Change Password"}
                     </Button>
                   </CardFooter>
@@ -753,7 +753,7 @@ export default function DoctorProfilePage() {
                   {/* Two-Factor Toggle */}
                   <label className="flex items-center justify-between p-3 rounded-xl border border-border bg-card hover:bg-muted/10 transition-colors cursor-pointer select-none">
                     <div className="flex items-center gap-3">
-                      <ShieldCheck className="h-5 w-5 text-teal-600" />
+                      <ShieldCheck className="h-5 w-5 text-brand-500" />
                       <div>
                         <p className="text-sm font-semibold">Enable Two-Factor Authentication</p>
                         <p className="text-xs text-muted-foreground mt-0.5">Require an OTP code from an authenticator app at login</p>
@@ -763,14 +763,14 @@ export default function DoctorProfilePage() {
                       type="checkbox"
                       checked={security.twoFactor}
                       onChange={(e) => setSecurity({ ...security, twoFactor: e.target.checked })}
-                      className="h-4.5 w-4.5 rounded border-border text-teal-600 focus:ring-teal-500 cursor-pointer"
+                      className="h-4.5 w-4.5 rounded border-border text-brand-500 focus:ring-brand-400 cursor-pointer"
                     />
                   </label>
 
                   {/* Email Notifications */}
                   <label className="flex items-center justify-between p-3 rounded-xl border border-border bg-card hover:bg-muted/10 transition-colors cursor-pointer select-none">
                     <div className="flex items-center gap-3">
-                      <Bell className="h-5 w-5 text-teal-600" />
+                      <Bell className="h-5 w-5 text-brand-500" />
                       <div>
                         <p className="text-sm font-semibold">Email Alerts</p>
                         <p className="text-xs text-muted-foreground mt-0.5">Receive appointment confirmations and billing summaries via email</p>
@@ -780,14 +780,14 @@ export default function DoctorProfilePage() {
                       type="checkbox"
                       checked={security.emailAlerts}
                       onChange={(e) => setSecurity({ ...security, emailAlerts: e.target.checked })}
-                      className="h-4.5 w-4.5 rounded border-border text-teal-600 focus:ring-teal-500 cursor-pointer"
+                      className="h-4.5 w-4.5 rounded border-border text-brand-500 focus:ring-brand-400 cursor-pointer"
                     />
                   </label>
 
                   {/* SMS Notifications */}
                   <label className="flex items-center justify-between p-3 rounded-xl border border-border bg-card hover:bg-muted/10 transition-colors cursor-pointer select-none">
                     <div className="flex items-center gap-3">
-                      <Bell className="h-5 w-5 text-teal-600" />
+                      <Bell className="h-5 w-5 text-brand-500" />
                       <div>
                         <p className="text-sm font-semibold">SMS Alerts</p>
                         <p className="text-xs text-muted-foreground mt-0.5">Receive immediate SMS texts when a patient joins the video consult room</p>
@@ -797,7 +797,7 @@ export default function DoctorProfilePage() {
                       type="checkbox"
                       checked={security.smsAlerts}
                       onChange={(e) => setSecurity({ ...security, smsAlerts: e.target.checked })}
-                      className="h-4.5 w-4.5 rounded border-border text-teal-600 focus:ring-teal-500 cursor-pointer"
+                      className="h-4.5 w-4.5 rounded border-border text-brand-500 focus:ring-brand-400 cursor-pointer"
                     />
                   </label>
                 </CardContent>

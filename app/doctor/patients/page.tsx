@@ -233,7 +233,7 @@ export default function DoctorPatientsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+        <div className="h-8 w-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -253,7 +253,7 @@ export default function DoctorPatientsPage() {
             Manage your patients, session notes, and prescriptions.
           </p>
         </div>
-        <Button className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white" onClick={() => setShowAddPatientModal(true)}>
+        <Button className="flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white" onClick={() => setShowAddPatientModal(true)}>
           <UserPlus className="h-4 w-4" />
           Add New Patient
         </Button>
@@ -268,7 +268,7 @@ export default function DoctorPatientsPage() {
             placeholder="Search patient by name or condition..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+            className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
           />
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -276,7 +276,7 @@ export default function DoctorPatientsPage() {
           <select
             value={patientFilter}
             onChange={(e) => setPatientFilter(e.target.value as typeof patientFilter)}
-            className="h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+            className="h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
           >
             <option value="all">All Patients</option>
             <option value="active">Active (Had sessions)</option>
@@ -293,7 +293,7 @@ export default function DoctorPatientsPage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-2 py-0.5 rounded">{pt.id}</span>
-                  <span className="text-xs text-teal-600 bg-teal-500/10 px-2 py-0.5 rounded-full font-semibold">
+                  <span className="text-xs text-brand-500 bg-brand-400/10 px-2 py-0.5 rounded-full font-semibold">
                     {pt.sessionsCompleted} Sessions
                   </span>
                 </div>
@@ -330,7 +330,7 @@ export default function DoctorPatientsPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="flex-1 flex items-center justify-center gap-1.5 text-teal-600 hover:bg-teal-500/10 hover:text-teal-600"
+                    className="flex-1 flex items-center justify-center gap-1.5 text-brand-500 hover:bg-brand-400/10 hover:text-brand-500"
                     onClick={() => openPatientModal(pt, 'sessions')}
                   >
                     <FileText className="h-3.5 w-3.5" />
@@ -385,7 +385,7 @@ export default function DoctorPatientsPage() {
             {/* Modal Header */}
             <div className="p-6 border-b border-border flex items-center justify-between sticky top-0 bg-card z-10">
               <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-lg">
+                <div className="h-12 w-12 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-lg">
                   {selectedPatient.name.split(' ').map(n => n[0]).join('')}
                 </div>
                 <div>
@@ -415,19 +415,19 @@ export default function DoctorPatientsPage() {
             <div className="flex border-b border-border px-6">
               <button
                 onClick={() => setActiveTab('overview')}
-                className={`px-4 py-3 text-sm font-medium border-b-2 transition-all ${activeTab === 'overview' ? 'border-teal-600 text-teal-600' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition-all ${activeTab === 'overview' ? 'border-brand-500 text-brand-500' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
               >
                 Overview
               </button>
               <button
                 onClick={() => setActiveTab('sessions')}
-                className={`px-4 py-3 text-sm font-medium border-b-2 transition-all ${activeTab === 'sessions' ? 'border-teal-600 text-teal-600' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition-all ${activeTab === 'sessions' ? 'border-brand-500 text-brand-500' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
               >
                 Session History ({selectedPatient.sessionHistory.length})
               </button>
               <button
                 onClick={() => setActiveTab('prescriptions')}
-                className={`px-4 py-3 text-sm font-medium border-b-2 transition-all ${activeTab === 'prescriptions' ? 'border-teal-600 text-teal-600' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition-all ${activeTab === 'prescriptions' ? 'border-brand-500 text-brand-500' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
               >
                 Prescriptions ({selectedPatient.prescriptions.length})
               </button>
@@ -440,7 +440,7 @@ export default function DoctorPatientsPage() {
                   {/* Personal Info */}
                   <div>
                     <h4 className="font-semibold mb-3 flex items-center gap-2 text-foreground">
-                      <Stethoscope className="h-4 w-4 text-teal-600" />
+                      <Stethoscope className="h-4 w-4 text-brand-500" />
                       Patient Information
                     </h4>
                     <div className="grid gap-4 sm:grid-cols-2 bg-muted/20 p-4 rounded-xl border border-border/60">
@@ -450,7 +450,7 @@ export default function DoctorPatientsPage() {
                       </div>
                       <div>
                         <p className="text-[10px] font-semibold text-muted-foreground uppercase">Primary Diagnosis</p>
-                        <p className="text-sm font-semibold text-teal-600 mt-0.5">{selectedPatient.condition}</p>
+                        <p className="text-sm font-semibold text-brand-500 mt-0.5">{selectedPatient.condition}</p>
                       </div>
                       <div>
                         <p className="text-[10px] font-semibold text-muted-foreground uppercase">Contact Details</p>
@@ -476,7 +476,7 @@ export default function DoctorPatientsPage() {
                   {/* Anxiety Tracker (GAD-7) */}
                   <div className="border-t border-border/60 pt-4">
                     <h4 className="font-semibold mb-3 flex items-center gap-2 text-foreground">
-                      <TrendingUp className="h-4 w-4 text-teal-600" />
+                      <TrendingUp className="h-4 w-4 text-brand-500" />
                       Anxiety Tracker (GAD-7 Scores)
                     </h4>
                     {selectedPatient.anxietyScores && selectedPatient.anxietyScores.length > 0 ? (
@@ -513,7 +513,7 @@ export default function DoctorPatientsPage() {
                   {/* Attached Clinical Files */}
                   <div className="border-t border-border/60 pt-4">
                     <h4 className="font-semibold mb-3 flex items-center gap-2 text-foreground">
-                       <Paperclip className="h-4 w-4 text-teal-600" />
+                       <Paperclip className="h-4 w-4 text-brand-500" />
                        Clinical Documents & Reports
                     </h4>
                     <div className="grid gap-2 sm:grid-cols-2">
@@ -530,7 +530,7 @@ export default function DoctorPatientsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 text-teal-600 hover:text-teal-700 font-semibold text-xs"
+                              className="h-7 text-brand-500 hover:text-brand-600 font-semibold text-xs"
                               onClick={() => handleViewDocument(doc)}
                             >
                               View
@@ -546,7 +546,7 @@ export default function DoctorPatientsPage() {
                         className="flex items-center justify-center p-3 rounded-xl border border-dashed border-border/80 bg-muted/5 text-xs text-muted-foreground hover:bg-muted/20 cursor-pointer"
                         onClick={() => showToast("Upload prescription files from the appointments clinical notes writer.")}
                       >
-                        <Upload className="h-4 w-4 mr-1.5 text-teal-600" />
+                        <Upload className="h-4 w-4 mr-1.5 text-brand-500" />
                         <span className="font-medium">Upload clinical file</span>
                       </div>
                     </div>
@@ -579,7 +579,7 @@ export default function DoctorPatientsPage() {
                       <Clock className="h-4 w-4" />
                       Session Notes
                     </h4>
-                    <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white" onClick={() => setShowAddSessionModal(true)}>
+                    <Button size="sm" className="bg-brand-500 hover:bg-brand-600 text-white" onClick={() => setShowAddSessionModal(true)}>
                       <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Session
                     </Button>
                   </div>
@@ -613,7 +613,7 @@ export default function DoctorPatientsPage() {
                       <FileText className="h-4 w-4" />
                       Prescription History
                     </h4>
-                    <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white" onClick={() => setShowAddPrescriptionModal(true)}>
+                    <Button size="sm" className="bg-brand-500 hover:bg-brand-600 text-white" onClick={() => setShowAddPrescriptionModal(true)}>
                       <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Prescription
                     </Button>
                   </div>
@@ -666,7 +666,7 @@ export default function DoctorPatientsPage() {
                 <input
                   type="text"
                   required
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                   value={newPatientForm.name}
                   onChange={(e) => setNewPatientForm({ ...newPatientForm, name: e.target.value })}
                   placeholder="e.g., Muhammad Ali"
@@ -679,7 +679,7 @@ export default function DoctorPatientsPage() {
                   <input
                     type="number"
                     required
-                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                     value={newPatientForm.age}
                     onChange={(e) => setNewPatientForm({ ...newPatientForm, age: e.target.value })}
                     placeholder="28"
@@ -689,7 +689,7 @@ export default function DoctorPatientsPage() {
                   <label className="text-sm font-medium text-foreground mb-1 block">Gender</label>
                   <select
                     required
-                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                     value={newPatientForm.gender}
                     onChange={(e) => setNewPatientForm({ ...newPatientForm, gender: e.target.value })}
                   >
@@ -705,7 +705,7 @@ export default function DoctorPatientsPage() {
                 <input
                   type="text"
                   required
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                   value={newPatientForm.city}
                   onChange={(e) => setNewPatientForm({ ...newPatientForm, city: e.target.value })}
                   placeholder="e.g., Lahore"
@@ -718,7 +718,7 @@ export default function DoctorPatientsPage() {
                   <input
                     type="tel"
                     required
-                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                     value={newPatientForm.phone}
                     onChange={(e) => setNewPatientForm({ ...newPatientForm, phone: e.target.value })}
                     placeholder="+92 300 1234567"
@@ -729,7 +729,7 @@ export default function DoctorPatientsPage() {
                   <input
                     type="email"
                     required
-                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                     value={newPatientForm.email}
                     onChange={(e) => setNewPatientForm({ ...newPatientForm, email: e.target.value })}
                     placeholder="email@example.com"
@@ -742,7 +742,7 @@ export default function DoctorPatientsPage() {
                 <input
                   type="text"
                   required
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                   value={newPatientForm.condition}
                   onChange={(e) => setNewPatientForm({ ...newPatientForm, condition: e.target.value })}
                   placeholder="e.g., Anxiety"
@@ -750,7 +750,7 @@ export default function DoctorPatientsPage() {
               </div>
 
               <div className="flex gap-3 pt-2">
-                <Button type="submit" className="flex-1 bg-teal-600 hover:bg-teal-700 text-white">
+                <Button type="submit" className="flex-1 bg-brand-500 hover:bg-brand-600 text-white">
                   Add Patient
                 </Button>
                 <Button type="button" variant="outline" className="flex-1" onClick={() => setShowAddPatientModal(false)}>
@@ -784,7 +784,7 @@ export default function DoctorPatientsPage() {
                 <input
                   type="text"
                   required
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                   value={editPatientForm.name}
                   onChange={(e) => setEditPatientForm({ ...editPatientForm, name: e.target.value })}
                 />
@@ -796,7 +796,7 @@ export default function DoctorPatientsPage() {
                   <input
                     type="number"
                     required
-                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                     value={editPatientForm.age}
                     onChange={(e) => setEditPatientForm({ ...editPatientForm, age: e.target.value })}
                   />
@@ -805,7 +805,7 @@ export default function DoctorPatientsPage() {
                   <label className="text-sm font-medium text-foreground mb-1 block">Gender</label>
                   <select
                     required
-                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                     value={editPatientForm.gender}
                     onChange={(e) => setEditPatientForm({ ...editPatientForm, gender: e.target.value })}
                   >
@@ -820,7 +820,7 @@ export default function DoctorPatientsPage() {
                 <input
                   type="text"
                   required
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                   value={editPatientForm.city}
                   onChange={(e) => setEditPatientForm({ ...editPatientForm, city: e.target.value })}
                 />
@@ -832,7 +832,7 @@ export default function DoctorPatientsPage() {
                   <input
                     type="tel"
                     required
-                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                     value={editPatientForm.phone}
                     onChange={(e) => setEditPatientForm({ ...editPatientForm, phone: e.target.value })}
                   />
@@ -842,7 +842,7 @@ export default function DoctorPatientsPage() {
                   <input
                     type="email"
                     required
-                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                     value={editPatientForm.email}
                     onChange={(e) => setEditPatientForm({ ...editPatientForm, email: e.target.value })}
                   />
@@ -854,14 +854,14 @@ export default function DoctorPatientsPage() {
                 <input
                   type="text"
                   required
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                   value={editPatientForm.condition}
                   onChange={(e) => setEditPatientForm({ ...editPatientForm, condition: e.target.value })}
                 />
               </div>
 
               <div className="flex gap-3 pt-2">
-                <Button type="submit" className="flex-1 bg-teal-600 hover:bg-teal-700 text-white">
+                <Button type="submit" className="flex-1 bg-brand-500 hover:bg-brand-600 text-white">
                   Save Changes
                 </Button>
                 <Button type="button" variant="outline" className="flex-1" onClick={() => setShowEditPatientModal(false)}>
@@ -896,7 +896,7 @@ export default function DoctorPatientsPage() {
                   <input
                     type="date"
                     required
-                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                     value={newSessionForm.date}
                     onChange={(e) => setNewSessionForm({ ...newSessionForm, date: e.target.value })}
                   />
@@ -905,7 +905,7 @@ export default function DoctorPatientsPage() {
                   <label className="text-sm font-medium text-foreground mb-1 block">Session Type</label>
                   <select
                     required
-                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                     value={newSessionForm.type}
                     onChange={(e) => setNewSessionForm({ ...newSessionForm, type: e.target.value })}
                   >
@@ -922,7 +922,7 @@ export default function DoctorPatientsPage() {
                 <textarea
                   required
                   rows={4}
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                   value={newSessionForm.notes}
                   onChange={(e) => setNewSessionForm({ ...newSessionForm, notes: e.target.value })}
                   placeholder="Enter detailed session notes here..."
@@ -930,7 +930,7 @@ export default function DoctorPatientsPage() {
               </div>
 
               <div className="flex gap-3 pt-2">
-                <Button type="submit" className="flex-1 bg-teal-600 hover:bg-teal-700 text-white">
+                <Button type="submit" className="flex-1 bg-brand-500 hover:bg-brand-600 text-white">
                   Add Session Note
                 </Button>
                 <Button type="button" variant="outline" className="flex-1" onClick={() => setShowAddSessionModal(false)}>
@@ -964,7 +964,7 @@ export default function DoctorPatientsPage() {
                 <input
                   type="date"
                   required
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                   value={newPrescriptionForm.date}
                   onChange={(e) => setNewPrescriptionForm({ ...newPrescriptionForm, date: e.target.value })}
                 />
@@ -975,7 +975,7 @@ export default function DoctorPatientsPage() {
                 <input
                   type="text"
                   required
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                   value={newPrescriptionForm.medication}
                   onChange={(e) => setNewPrescriptionForm({ ...newPrescriptionForm, medication: e.target.value })}
                   placeholder="e.g., Sertraline 50mg"
@@ -987,7 +987,7 @@ export default function DoctorPatientsPage() {
                 <textarea
                   required
                   rows={3}
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                   value={newPrescriptionForm.dosage}
                   onChange={(e) => setNewPrescriptionForm({ ...newPrescriptionForm, dosage: e.target.value })}
                   placeholder="e.g., Once daily with food"
@@ -995,7 +995,7 @@ export default function DoctorPatientsPage() {
               </div>
 
               <div className="flex gap-3 pt-2">
-                <Button type="submit" className="flex-1 bg-teal-600 hover:bg-teal-700 text-white">
+                <Button type="submit" className="flex-1 bg-brand-500 hover:bg-brand-600 text-white">
                   Add Prescription
                 </Button>
                 <Button type="button" variant="outline" className="flex-1" onClick={() => setShowAddPrescriptionModal(false)}>

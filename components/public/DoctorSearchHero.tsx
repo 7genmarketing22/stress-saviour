@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, MapPin, Search, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { buildDoctorSearchUrl } from "@/lib/public/doctor-filters";
+import { buildDoctorSearchUrl, ALL_CITIES_LABEL } from "@/lib/public/doctor-filters";
 import { FEATURED_SPECIALTIES } from "@/lib/public/catalog";
 import { PAKISTAN_CITIES } from "@/types";
 import { cn } from "@/lib/utils";
@@ -18,32 +18,38 @@ interface DoctorSearchHeroProps {
 
 export function DoctorSearchHero({ doctorCount = 0, compact = false }: DoctorSearchHeroProps) {
   const router = useRouter();
-  const [city, setCity] = useState("Lahore");
+  const [city, setCity] = useState(ALL_CITIES_LABEL);
   const [query, setQuery] = useState("");
   const [specialty, setSpecialty] = useState("All");
 
+  const buildUrl = (overrides?: { city?: string; q?: string; specialty?: string }) => {
+    const selectedCity = overrides?.city ?? city;
+    const selectedQuery = overrides?.q ?? query;
+    const selectedSpecialty = overrides?.specialty ?? specialty;
+
+    return buildDoctorSearchUrl({
+      q: selectedQuery,
+      city: selectedCity === ALL_CITIES_LABEL ? undefined : selectedCity,
+      specialty: selectedSpecialty === "All" ? undefined : selectedSpecialty,
+    });
+  };
+
   const handleSearch = (e?: React.FormEvent) => {
     e?.preventDefault();
-    router.push(
-      buildDoctorSearchUrl({
-        q: query,
-        city,
-        specialty: specialty === "All" ? undefined : specialty,
-      })
-    );
+    router.push(buildUrl());
   };
 
   const selectCity = (selected: string) => {
     setCity(selected);
-    router.push(buildDoctorSearchUrl({ city: selected, specialty: specialty === "All" ? undefined : specialty }));
+    router.push(buildUrl({ city: selected }));
   };
 
   return (
     <div className={cn("relative", compact ? "space-y-4" : "space-y-8")}>
       {!compact && (
         <div className="space-y-4 text-center lg:text-left">
-          <p className="inline-flex max-w-full items-center gap-2 rounded-full border border-teal-200/80 bg-white/70 px-3.5 py-1.5 text-[11px] font-semibold text-teal-800 shadow-sm backdrop-blur sm:px-4 sm:text-xs">
-            <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-teal-500" />
+          <p className="inline-flex max-w-full items-center gap-2 rounded-full border border-brand-100/80 bg-white/70 px-3.5 py-1.5 text-[11px] font-semibold text-brand-700 shadow-sm backdrop-blur sm:px-4 sm:text-xs">
+            <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-brand-400" />
             <span className="whitespace-nowrap">
               PMDC-verified
               <span className="hidden sm:inline"> · Secure video consultations</span>
@@ -52,7 +58,7 @@ export function DoctorSearchHero({ doctorCount = 0, compact = false }: DoctorSea
           </p>
           <h1 className="text-3xl font-bold leading-tight tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
             Find the Best{" "}
-            <span className="bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-brand-500 to-brand-300 bg-clip-text text-transparent">
               Mental Health Doctor
             </span>{" "}
             Near You
@@ -62,7 +68,7 @@ export function DoctorSearchHero({ doctorCount = 0, compact = false }: DoctorSea
             with licensed professionals across Pakistan.
           </p>
           {doctorCount > 0 && (
-            <p className="text-sm font-medium text-teal-700">
+            <p className="text-sm font-medium text-brand-600">
               {doctorCount}+ verified doctors available to book online
             </p>
           )}
@@ -76,12 +82,13 @@ export function DoctorSearchHero({ doctorCount = 0, compact = false }: DoctorSea
           className="flex flex-col gap-2 lg:flex-row lg:items-stretch"
         >
           <div className="relative min-w-[140px] lg:w-44">
-            <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-teal-600" />
+            <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-500" />
             <select
               value={city}
               onChange={(e) => setCity(e.target.value)}
-              className="h-12 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 text-sm font-medium text-slate-800 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+              className="h-12 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 text-sm font-medium text-slate-800 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-400/20"
             >
+              <option value={ALL_CITIES_LABEL}>{ALL_CITIES_LABEL}</option>
               {PAKISTAN_CITIES.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -98,7 +105,7 @@ export function DoctorSearchHero({ doctorCount = 0, compact = false }: DoctorSea
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by doctor name, specialty, or condition..."
-              className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+              className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-400/20"
             />
           </div>
 
@@ -107,7 +114,7 @@ export function DoctorSearchHero({ doctorCount = 0, compact = false }: DoctorSea
             <select
               value={specialty}
               onChange={(e) => setSpecialty(e.target.value)}
-              className="h-12 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 text-sm font-medium text-slate-800 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+              className="h-12 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 text-sm font-medium text-slate-800 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-400/20"
             >
               <option value="All">All Specialties</option>
               {FEATURED_SPECIALTIES.map((s) => (
@@ -121,7 +128,7 @@ export function DoctorSearchHero({ doctorCount = 0, compact = false }: DoctorSea
 
           <Button
             type="submit"
-            className="h-12 gap-2 rounded-xl bg-[#1e3a5f] px-8 text-sm font-semibold text-white hover:bg-[#152a45] lg:min-w-[120px]"
+            className="h-12 gap-2 rounded-xl bg-[#102c7b] px-8 text-sm font-semibold text-white hover:bg-[#152a45] lg:min-w-[120px]"
           >
             <Search className="h-4 w-4" />
             Search
@@ -142,8 +149,8 @@ export function DoctorSearchHero({ doctorCount = 0, compact = false }: DoctorSea
             className={cn(
               "rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all",
               city === c
-                ? "border-teal-600 bg-teal-600 text-white shadow-sm"
-                : "border-slate-200 bg-white text-slate-600 hover:border-teal-300 hover:text-teal-700"
+                ? "border-brand-500 bg-brand-500 text-white shadow-sm"
+                : "border-slate-200 bg-white text-slate-600 hover:border-brand-200 hover:text-brand-600"
             )}
           >
             {c}

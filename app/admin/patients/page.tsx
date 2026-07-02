@@ -18,11 +18,14 @@ import {
   buildPatientSummaries,
   registrationByMonth,
   setProfileActive,
+  approvePatient,
+  rejectPatient,
 } from "@/lib/admin/api";
+import { useAdmin } from "@/contexts/AdminContext";
 import type { AdminAppointment, AdminPatientSummary, AdminPayment } from "@/lib/admin/types";
 import type { Profile } from "@/types";
 
-type PatientStatus = "active" | "inactive" | "blocked";
+type PatientStatus = "active" | "inactive" | "blocked" | "pending";
 
 function formatPKR(value: number) {
   return `₨${Math.round(value).toLocaleString("en-PK")}`;
@@ -45,6 +48,7 @@ function calcAge(dob: string | null): number | null {
 }
 
 function deriveStatus(summary: AdminPatientSummary): PatientStatus {
+  if (summary.profile.account_status === "pending") return "pending";
   if (!summary.profile.is_active) return "blocked";
   if (!summary.lastActivity) return "inactive";
   const days = (Date.now() - new Date(summary.lastActivity).getTime()) / (24 * 60 * 60 * 1000);
@@ -64,6 +68,7 @@ function relativeTime(date: string | null): string {
 }
 
 export default function AdminPatientsPage() {
+  const { profile } = useAdmin();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
@@ -99,6 +104,34 @@ export default function AdminPatientsPage() {
     loadData();
   }, [loadData]);
 
+  const handleApprovePatient = async (userId: string) => {
+    setActionId(userId);
+    setError(null);
+    try {
+      await approvePatient(userId, profile.id);
+      await loadData();
+      setSelectedId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Approval failed");
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const handleRejectPatient = async (userId: string) => {
+    setActionId(userId);
+    setError(null);
+    try {
+      await rejectPatient(userId);
+      await loadData();
+      setSelectedId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Rejection failed");
+    } finally {
+      setActionId(null);
+    }
+  };
+
   const handleToggleActive = async (userId: string, makeActive: boolean) => {
     setActionId(userId);
     setError(null);
@@ -128,6 +161,7 @@ export default function AdminPatientsPage() {
 
   const counts = {
     total: summaries.length,
+    pending: summaries.filter((s) => s.profile.account_status === "pending").length,
     active: summaries.filter((s) => deriveStatus(s) === "active").length,
     inactive: summaries.filter((s) => deriveStatus(s) === "inactive").length,
     blocked: summaries.filter((s) => deriveStatus(s) === "blocked").length,
@@ -136,8 +170,18 @@ export default function AdminPatientsPage() {
   const totalRevenue = summaries.reduce((acc, s) => acc + s.totalSpent, 0);
   const newThisMonth = registrationData[registrationData.length - 1]?.count ?? 0;
 
+  const getAccountBadge = (status: Profile["account_status"]) => {
+    const badges = {
+      pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      approved: "bg-green-100 text-green-700 border-green-200",
+      rejected: "bg-red-100 text-red-700 border-red-200",
+    };
+    return badges[status];
+  };
+
   const getStatusBadge = (status: PatientStatus) => {
     const badges: Record<PatientStatus, string> = {
+      pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
       active: "bg-green-100 text-green-700 border-green-200",
       inactive: "bg-gray-100 text-gray-700 border-gray-200",
       blocked: "bg-red-100 text-red-700 border-red-200",
@@ -153,7 +197,7 @@ export default function AdminPatientsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
       </div>
     );
   }
@@ -191,8 +235,8 @@ export default function AdminPatientsPage() {
                   <span className="text-slate-500">this month</span>
                 </div>
               </div>
-              <div className="p-3 rounded-lg bg-teal-50">
-                <Users className="h-5 w-5 text-teal-600" />
+              <div className="p-3 rounded-lg bg-brand-50">
+                <Users className="h-5 w-5 text-brand-500" />
               </div>
             </div>
           </CardContent>
@@ -224,7 +268,7 @@ export default function AdminPatientsPage() {
                 </p>
               </div>
               <div className="p-3 rounded-lg bg-cyan-50">
-                <Calendar className="h-5 w-5 text-cyan-600" />
+                <Calendar className="h-5 w-5 text-brand-300" />
               </div>
             </div>
           </CardContent>
@@ -290,7 +334,7 @@ export default function AdminPatientsPage() {
                   </div>
                 </div>
                 <div className="flex gap-2 flex-wrap">
-                  {(["all", "active", "inactive", "blocked"] as const).map((status) => (
+                  {(["all", "pending", "active", "inactive", "blocked"] as const).map((status) => (
                     <Button
                       key={status}
                       size="sm"
@@ -301,7 +345,7 @@ export default function AdminPatientsPage() {
                       {status}
                       {status !== "all" && (
                         <span className="ml-1.5 px-1.5 py-0.5 text-[10px] bg-background rounded">
-                          {counts[status]}
+                          {status === "pending" ? counts.pending : counts[status]}
                         </span>
                       )}
                     </Button>
@@ -316,15 +360,20 @@ export default function AdminPatientsPage() {
                   return (
                     <div key={s.profile.id} className="flex items-center justify-between p-6 hover:bg-slate-50 transition-colors">
                       <div className="flex items-center gap-4 flex-1">
-                        <div className="h-12 w-12 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
+                        <div className="h-12 w-12 rounded-full bg-gradient-to-br from-brand-400 to-brand-300 flex items-center justify-center text-white font-semibold flex-shrink-0">
                           {initials(s.profile.full_name)}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-medium text-slate-900">{s.profile.full_name}</h3>
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusBadge(status)}`}>
-                              {status}
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${getAccountBadge(s.profile.account_status)}`}>
+                              {s.profile.account_status}
                             </span>
+                            {s.profile.account_status === "approved" && (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusBadge(status)}`}>
+                                {status}
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5 text-sm text-slate-600">
                             <Mail className="h-3 w-3" />
@@ -351,7 +400,31 @@ export default function AdminPatientsPage() {
                         <Button size="sm" variant="outline" onClick={() => setSelectedId(s.profile.id)}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {s.profile.is_active ? (
+                        {s.profile.account_status === "pending" ? (
+                          <>
+                            <Button
+                              size="sm"
+                              className="bg-brand-500 hover:bg-brand-600 text-white"
+                              disabled={actionId === s.profile.id}
+                              onClick={() => handleApprovePatient(s.profile.id)}
+                            >
+                              {actionId === s.profile.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <CheckCircle className="h-4 w-4" />
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 hover:bg-red-50"
+                              disabled={actionId === s.profile.id}
+                              onClick={() => handleRejectPatient(s.profile.id)}
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </>
+                        ) : s.profile.is_active ? (
                           <Button
                             size="sm"
                             variant="outline"
@@ -397,6 +470,15 @@ export default function AdminPatientsPage() {
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
                 <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-yellow-50">
+                    <Clock className="h-4 w-4 text-yellow-600" />
+                  </div>
+                  <p className="text-xs text-slate-600">Pending approval</p>
+                </div>
+                <p className="text-lg font-semibold text-slate-900">{counts.pending}</p>
+              </div>
+              <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
+                <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-green-50">
                     <CheckCircle className="h-4 w-4 text-green-600" />
                   </div>
@@ -438,7 +520,7 @@ export default function AdminPatientsPage() {
                   .map((s, i) => (
                     <div key={s.profile.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
                       <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-semibold text-xs">
+                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-300 flex items-center justify-center text-white font-semibold text-xs">
                           #{i + 1}
                         </div>
                         <div>
@@ -464,7 +546,7 @@ export default function AdminPatientsPage() {
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="h-16 w-16 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-semibold text-xl">
+                  <div className="h-16 w-16 rounded-full bg-gradient-to-br from-brand-400 to-brand-300 flex items-center justify-center text-white font-semibold text-xl">
                     {initials(selected.profile.full_name)}
                   </div>
                   <div>
@@ -490,7 +572,7 @@ export default function AdminPatientsPage() {
                 </div>
                 <div className="p-3 border border-slate-200 rounded-lg">
                   <div className="text-sm text-slate-600">Upcoming</div>
-                  <div className="text-2xl font-bold text-cyan-600 mt-1">{selected.upcomingAppointments}</div>
+                  <div className="text-2xl font-bold text-brand-300 mt-1">{selected.upcomingAppointments}</div>
                 </div>
                 <div className="p-3 border border-slate-200 rounded-lg">
                   <div className="text-sm text-slate-600">Total Spent</div>
@@ -546,7 +628,27 @@ export default function AdminPatientsPage() {
               </div>
 
               <div className="flex gap-2 pt-4 border-t border-slate-200">
-                {selected.profile.is_active ? (
+                {selected.profile.account_status === "pending" ? (
+                  <>
+                    <Button
+                      className="bg-brand-500 hover:bg-brand-600 text-white"
+                      disabled={actionId === selected.profile.id}
+                      onClick={() => handleApprovePatient(selected.profile.id)}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Approve Account
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="text-red-600 hover:bg-red-50"
+                      disabled={actionId === selected.profile.id}
+                      onClick={() => handleRejectPatient(selected.profile.id)}
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Reject
+                    </Button>
+                  </>
+                ) : selected.profile.is_active ? (
                   <Button
                     variant="outline"
                     className="text-red-600 hover:bg-red-50"

@@ -82,7 +82,7 @@ export function PatientProvider({ children }: { children: ReactNode }) {
               Try again
             </Button>
             <Link href="/login">
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button className="bg-brand-500 hover:bg-brand-600 text-white">
                 Go to login
               </Button>
             </Link>

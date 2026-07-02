@@ -216,7 +216,7 @@ export default function DoctorAppointmentsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+        <div className="h-8 w-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -226,7 +226,7 @@ export default function DoctorAppointmentsPage() {
       {/* Toast Alert */}
       {toastMessage && (
         <div className="fixed top-20 right-4 z-50 flex items-center gap-2 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-sm font-medium border border-slate-800 animate-in slide-in-from-right duration-200">
-          <Check className="h-4 w-4 text-teal-400" />
+          <Check className="h-4 w-4 text-brand-300" />
           <span>{toastMessage}</span>
         </div>
       )}
@@ -245,7 +245,7 @@ export default function DoctorAppointmentsPage() {
             <button
               onClick={() => setViewMode("list")}
               className={`p-1.5 rounded-md transition-all cursor-pointer ${
-                viewMode === "list" ? "bg-card text-teal-600 shadow-sm" : "text-muted-foreground hover:text-foreground"
+                viewMode === "list" ? "bg-card text-brand-500 shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <List className="h-4 w-4" />
@@ -253,14 +253,14 @@ export default function DoctorAppointmentsPage() {
             <button
               onClick={() => setViewMode("calendar")}
               className={`p-1.5 rounded-md transition-all cursor-pointer ${
-                viewMode === "calendar" ? "bg-card text-teal-600 shadow-sm" : "text-muted-foreground hover:text-foreground"
+                viewMode === "calendar" ? "bg-card text-brand-500 shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <CalendarDays className="h-4 w-4" />
             </button>
           </div>
 
-          <Button className="bg-teal-600 hover:bg-teal-700 text-white font-semibold" onClick={() => setShowBlockTimeModal(true)}>
+          <Button className="bg-brand-500 hover:bg-brand-600 text-white font-semibold" onClick={() => setShowBlockTimeModal(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Block Time
           </Button>
@@ -278,7 +278,7 @@ export default function DoctorAppointmentsPage() {
                 placeholder="Search patient, ID, or reason..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
               />
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -290,7 +290,7 @@ export default function DoctorAppointmentsPage() {
                     onClick={() => { setActiveTab(tab as any); setCurrentPage(1); }}
                     className={`px-4 py-2 text-sm font-semibold rounded-full transition-all whitespace-nowrap cursor-pointer ${
                       activeTab === tab
-                        ? "bg-teal-600 text-white shadow-sm"
+                        ? "bg-brand-500 text-white shadow-sm"
                         : "bg-muted text-muted-foreground hover:bg-muted/80"
                     }`}
                   >
@@ -309,7 +309,7 @@ export default function DoctorAppointmentsPage() {
                   <CardContent className="p-6">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                       <div className="flex items-start gap-4 flex-1">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 font-bold text-sm">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-800/30 dark:text-brand-300 font-bold text-sm">
                           {apt.patientName.split(' ').map(n => n[0]).join('')}
                         </div>
                         <div className="space-y-2 flex-1">
@@ -320,7 +320,7 @@ export default function DoctorAppointmentsPage() {
                               {apt.status}
                             </span>
                           </div>
-                          <p className="text-sm font-semibold text-teal-600 dark:text-teal-400">{apt.type} Consultation • {apt.duration}</p>
+                          <p className="text-sm font-semibold text-brand-500 dark:text-brand-300">{apt.type} Consultation • {apt.duration}</p>
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1.5">
                               <Calendar className="h-3.5 w-3.5" />
@@ -349,7 +349,7 @@ export default function DoctorAppointmentsPage() {
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
                         {["Confirmed", "Pending"].includes(apt.status) && (
                           <Button
-                            className="bg-teal-600 hover:bg-teal-700 text-white w-full sm:w-auto font-semibold"
+                            className="bg-brand-500 hover:bg-brand-600 text-white w-full sm:w-auto font-semibold"
                             onClick={() => handleJoinCall(apt)}
                           >
                             <Video className="h-4 w-4 mr-2" />
@@ -404,7 +404,7 @@ export default function DoctorAppointmentsPage() {
                                   </>
                                 )}
                                 <button
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors text-blue-600 text-left font-semibold cursor-pointer"
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors text-brand-500 text-left font-semibold cursor-pointer"
                                   onClick={() => { setSelectedAppointment(apt); setShowAddNoteModal(true); }}
                                 >
                                   <FileText className="h-4 w-4" />
@@ -478,7 +478,7 @@ export default function DoctorAppointmentsPage() {
                         onClick={() => setSelectedCalendarDate(fullDate)}
                         className={`h-8 w-8 mx-auto rounded-lg font-medium flex items-center justify-center transition-colors cursor-pointer ${
                           isSelected
-                            ? "bg-teal-600 text-white shadow-sm"
+                            ? "bg-brand-500 text-white shadow-sm"
                             : "hover:bg-muted text-foreground"
                         }`}
                       >
@@ -517,10 +517,10 @@ export default function DoctorAppointmentsPage() {
                   {appointments.filter(a => a.date === selectedCalendarDate).length > 0 ? (
                     appointments.filter(a => a.date === selectedCalendarDate).map((apt) => (
                       <div key={apt.id} className="relative group hover:bg-muted/10 p-3 rounded-lg border border-transparent hover:border-border transition-colors">
-                        <div className="absolute -left-[31px] top-4.5 h-4 w-4 rounded-full border-2 border-teal-600 bg-card" />
+                        <div className="absolute -left-[31px] top-4.5 h-4 w-4 rounded-full border-2 border-brand-500 bg-card" />
                         <div className="flex justify-between items-start">
                           <div>
-                            <p className="text-xs font-bold text-teal-600">{apt.time}</p>
+                            <p className="text-xs font-bold text-brand-500">{apt.time}</p>
                             <h4 className="font-semibold text-sm text-foreground mt-1">{apt.patientName} ({apt.type})</h4>
                             <p className="text-xs text-muted-foreground mt-0.5">Reason: {apt.reason}</p>
                           </div>
@@ -571,7 +571,7 @@ export default function DoctorAppointmentsPage() {
                   required
                   value={blockTimeForm.date}
                   onChange={(e) => setBlockTimeForm({ ...blockTimeForm, date: e.target.value })}
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400"
                 />
               </div>
 
@@ -583,7 +583,7 @@ export default function DoctorAppointmentsPage() {
                     required
                     value={blockTimeForm.timeStart}
                     onChange={(e) => setBlockTimeForm({ ...blockTimeForm, timeStart: e.target.value })}
-                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400"
                   />
                 </div>
                 <div>
@@ -593,7 +593,7 @@ export default function DoctorAppointmentsPage() {
                     required
                     value={blockTimeForm.timeEnd}
                     onChange={(e) => setBlockTimeForm({ ...blockTimeForm, timeEnd: e.target.value })}
-                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400"
                   />
                 </div>
               </div>
@@ -606,7 +606,7 @@ export default function DoctorAppointmentsPage() {
                   value={blockTimeForm.reason}
                   onChange={(e) => setBlockTimeForm({ ...blockTimeForm, reason: e.target.value })}
                   placeholder="e.g. Lunch/Break or Clinic closed"
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400"
                 />
               </div>
 
@@ -614,7 +614,7 @@ export default function DoctorAppointmentsPage() {
                 <Button type="button" variant="outline" className="flex-1" onClick={() => setShowBlockTimeModal(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" className="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-semibold">
+                <Button type="submit" className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold">
                   Block Time
                 </Button>
               </div>
@@ -683,7 +683,7 @@ export default function DoctorAppointmentsPage() {
 
               {selectedAppointment.roomUrl && ["Confirmed", "Pending"].includes(selectedAppointment.status) && (
                 <a href={selectedAppointment.roomUrl} target="_blank" rel="noreferrer" className="block w-full">
-                  <Button className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold">
+                  <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold">
                     <Video className="h-4 w-4 mr-2" />
                     Launch Telehealth Room
                   </Button>
@@ -722,7 +722,7 @@ export default function DoctorAppointmentsPage() {
                   Cancel
                 </Button>
                 <Button
-                  className="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-semibold"
+                  className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold"
                   onClick={() => {
                     handleStatusChange(selectedAppointment.id, "Confirmed");
                     setShowConfirmModal(false);
@@ -812,7 +812,7 @@ export default function DoctorAppointmentsPage() {
                   name="note"
                   rows={4}
                   defaultValue={selectedAppointment.notes}
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                   placeholder="Enter your notes here..."
                 />
               </div>
@@ -827,7 +827,7 @@ export default function DoctorAppointmentsPage() {
                 </Button>
                 <Button
                   type="submit"
-                  className="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-semibold"
+                  className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold"
                 >
                   Save Note
                 </Button>
@@ -862,7 +862,7 @@ export default function DoctorAppointmentsPage() {
                     required
                     value={newDateInput}
                     onChange={(e) => setNewDateInput(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                   />
                 </div>
                 <div>
@@ -872,7 +872,7 @@ export default function DoctorAppointmentsPage() {
                     required
                     value={newTimeInput}
                     onChange={(e) => setNewTimeInput(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                   />
                 </div>
               </div>
@@ -887,7 +887,7 @@ export default function DoctorAppointmentsPage() {
                 </Button>
                 <Button
                   type="submit"
-                  className="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-semibold"
+                  className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold"
                 >
                   Reschedule
                 </Button>

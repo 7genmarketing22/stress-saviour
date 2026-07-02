@@ -1,6 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseKey, getSupabaseUrl } from "./env";
+import {
+  evaluateAccountAccess,
+  resolveDashboardPath,
+} from "@/lib/auth/account-status";
+import type { DoctorStatus, Profile, UserRole } from "@/types";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -40,25 +45,58 @@ export async function updateSession(request: NextRequest) {
 
   // Public routes that don't require authentication
   const publicRoutes = ["/", "/doctors", "/about", "/contact"];
-  const authRoutes = ["/login", "/register", "/forgot-password"];
+  const authRoutes = ["/login", "/register", "/forgot-password", "/pending-review"];
 
-  // If user is logged in and trying to access auth routes, redirect to dashboard
-  if (user && authRoutes.some((route) => path.startsWith(route))) {
-    const { data: profile } = await supabase
+  async function loadProfile(userId: string) {
+    const { data: profileRow } = await supabase
       .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
 
-    if (profile) {
-      const dashboardMap = {
-        patient: "/patient/dashboard",
-        doctor: "/doctor/dashboard",
-        admin: "/admin/dashboard",
-        super_admin: "/admin/dashboard",
-      };
+    if (!profileRow) return evaluateAccountAccess(null);
+
+    const profile = profileRow as Profile;
+    let doctorStatus: DoctorStatus | null = null;
+
+    if (profile.role === "doctor") {
+      const { data: doctorProfile } = await supabase
+        .from("doctor_profiles")
+        .select("status")
+        .eq("user_id", userId)
+        .maybeSingle();
+      doctorStatus = (doctorProfile as { status?: DoctorStatus } | null)?.status ?? null;
+    }
+
+    return evaluateAccountAccess(profile, doctorStatus);
+  }
+
+  // Pending users may only visit pending-review (plus public pages)
+  if (user && path.startsWith("/pending-review") === false) {
+    const access = await loadProfile(user.id);
+    if (
+      access.profile &&
+      !access.canAccessDashboard &&
+      (access.pendingReview || access.rejected) &&
+      (path.startsWith("/patient") ||
+        path.startsWith("/doctor") ||
+        path.startsWith("/admin") ||
+        path === "/dashboard")
+    ) {
+      return NextResponse.redirect(new URL("/pending-review", request.url));
+    }
+  }
+
+  // If user is logged in and trying to access auth routes, redirect when approved
+  if (user && authRoutes.some((route) => path.startsWith(route))) {
+    if (path.startsWith("/pending-review")) {
+      return supabaseResponse;
+    }
+
+    const access = await loadProfile(user.id);
+    if (access.profile && access.canAccessDashboard) {
       return NextResponse.redirect(
-        new URL(dashboardMap[profile.role as keyof typeof dashboardMap], request.url)
+        new URL(resolveDashboardPath(access.profile.role as UserRole), request.url)
       );
     }
   }
@@ -74,51 +112,31 @@ export async function updateSession(request: NextRequest) {
 
   // Role-based access control
   if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+    const access = await loadProfile(user.id);
+    const profile = access.profile;
 
     if (profile) {
-      const role = profile.role;
-      const dashboardMap = {
-        patient: "/patient/dashboard",
-        doctor: "/doctor/dashboard",
-        admin: "/admin/dashboard",
-        super_admin: "/admin/dashboard",
-      };
+      const role = profile.role as UserRole;
+      const dashboardPath = resolveDashboardPath(role);
 
-      // Redirect if visiting generic /dashboard
       if (path === "/dashboard" || path === "/dashboard/") {
-        return NextResponse.redirect(
-          new URL(dashboardMap[role as keyof typeof dashboardMap], request.url)
-        );
+        return NextResponse.redirect(new URL(dashboardPath, request.url));
       }
 
-      // Restrict access to /patient/* routes
       if (path.startsWith("/patient") && role !== "patient") {
-        return NextResponse.redirect(
-          new URL(dashboardMap[role as keyof typeof dashboardMap], request.url)
-        );
+        return NextResponse.redirect(new URL(dashboardPath, request.url));
       }
 
-      // Restrict access to /doctor/* routes
       if (path.startsWith("/doctor") && role !== "doctor") {
-        return NextResponse.redirect(
-          new URL(dashboardMap[role as keyof typeof dashboardMap], request.url)
-        );
+        return NextResponse.redirect(new URL(dashboardPath, request.url));
       }
 
-      // Restrict access to /admin/* routes
       if (
         path.startsWith("/admin") &&
         role !== "admin" &&
         role !== "super_admin"
       ) {
-        return NextResponse.redirect(
-          new URL(dashboardMap[role as keyof typeof dashboardMap], request.url)
-        );
+        return NextResponse.redirect(new URL(dashboardPath, request.url));
       }
     }
   }

@@ -32,6 +32,7 @@ const STATUS_LABEL: Record<AppointmentStatus, string> = {
   completed: "Completed",
   cancelled: "Cancelled",
   no_show: "No Show",
+  pending_payment: "Awaiting Payment",
 };
 
 function statusBadgeClass(status: AppointmentStatus) {
@@ -41,6 +42,7 @@ function statusBadgeClass(status: AppointmentStatus) {
     completed: "bg-blue-100 text-blue-800",
     cancelled: "bg-red-100 text-red-800",
     no_show: "bg-gray-100 text-gray-800",
+    pending_payment: "bg-orange-100 text-orange-800",
   };
   return map[status];
 }
@@ -137,7 +139,7 @@ export default function AdminAppointmentsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
       </div>
     );
   }
@@ -168,7 +170,7 @@ export default function AdminAppointmentsPage() {
                 <h3 className="text-3xl font-semibold text-slate-900 mt-2">{counts.total}</h3>
                 <p className="text-xs text-slate-500 mt-2">All appointments</p>
               </div>
-              <div className="p-3 rounded-lg bg-teal-50"><Calendar className="h-5 w-5 text-teal-600" /></div>
+              <div className="p-3 rounded-lg bg-brand-50"><Calendar className="h-5 w-5 text-brand-500" /></div>
             </div>
           </CardContent>
         </Card>
@@ -287,7 +289,7 @@ export default function AdminAppointmentsPage() {
                       <div className={`h-12 w-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
                         apt.appointment_type === "video" ? "bg-blue-100" : apt.appointment_type === "chat" ? "bg-green-100" : "bg-purple-100"
                       }`}>
-                        {apt.appointment_type === "video" ? <Video className="h-5 w-5 text-blue-600" /> :
+                        {apt.appointment_type === "video" ? <Video className="h-5 w-5 text-brand-500" /> :
                           apt.appointment_type === "chat" ? <MessageSquare className="h-5 w-5 text-green-600" /> :
                           <User className="h-5 w-5 text-purple-600" />}
                       </div>
@@ -352,7 +354,7 @@ export default function AdminAppointmentsPage() {
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-blue-50"><Video className="h-4 w-4 text-blue-600" /></div>
+                  <div className="p-2 rounded-lg bg-brand-50"><Video className="h-4 w-4 text-brand-500" /></div>
                   <p className="text-xs text-slate-600">Video</p>
                 </div>
                 <p className="text-lg font-semibold text-slate-900">{typeCounts.video}</p>
@@ -472,7 +474,7 @@ export default function AdminAppointmentsPage() {
                   </div>
                   <div className="flex items-center justify-between p-3">
                     <p className="text-sm text-slate-600">Platform Commission (10%)</p>
-                    <p className="font-semibold text-teal-600">₨{Math.round(Number(selected.consultation_fee) * 0.1).toLocaleString("en-PK")}</p>
+                    <p className="font-semibold text-brand-500">₨{Math.round(Number(selected.consultation_fee) * 0.1).toLocaleString("en-PK")}</p>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-slate-50">
                     <p className="text-sm font-semibold text-slate-900">Doctor Earnings</p>

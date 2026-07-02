@@ -2,25 +2,31 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
   Video, Clock, Search, Calendar, User, ChevronLeft, ChevronRight,
-  XCircle, Plus, Filter, MoreHorizontal, X, Star, Loader2,
+  XCircle, Plus, Filter, MoreHorizontal, X, Star, Loader2, Upload, BadgeCheck, AlertCircle,
 } from "lucide-react";
 import {
   cancelPatientAppointment,
   getPatientAppointments,
   submitAppointmentReview,
+  submitPaymentProof,
 } from "@/lib/patient/api";
 import {
   formatDate,
+  formatCurrency,
   mapToPatientAppointment,
   type PatientUIAppointment,
 } from "@/lib/patient/mappers";
 import { UserAvatar } from "@/components/shared/UserAvatar";
+import { PaymentProofUpload } from "@/components/patient/PaymentProofUpload";
+import { PLATFORM_PAYMENT_ACCOUNTS, type BookablePaymentMethod } from "@/lib/payment/config";
 
 export default function PatientAppointmentsPage() {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<"Upcoming" | "Completed" | "Cancelled" | "All">("Upcoming");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -34,7 +40,22 @@ export default function PatientAppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadProofFile, setUploadProofFile] = useState<File | null>(null);
   const itemsPerPage = 6;
+
+  useEffect(() => {
+    if (searchParams.get("booked") === "pending") {
+      setSuccessMessage(
+        "Payment proof submitted! Please wait for admin to verify. You will receive a notification once confirmed."
+      );
+    } else if (searchParams.get("booked") === "awaiting") {
+      setSuccessMessage(
+        "Appointment booked! Open it below and add your payment screenshot when ready to request confirmation."
+      );
+    }
+  }, [searchParams]);
 
   const loadAppointments = useCallback(async () => {
     setLoading(true);
@@ -59,7 +80,7 @@ export default function PatientAppointmentsPage() {
 
     if (activeTab === "Upcoming") {
       filtered = filtered.filter((apt) =>
-        ["Confirmed", "Pending", "Ready"].includes(apt.status)
+        ["Confirmed", "Pending", "Ready", "Awaiting Payment", "Payment Review"].includes(apt.status)
       );
     } else if (activeTab === "Completed") {
       filtered = filtered.filter((apt) => apt.status === "Completed");
@@ -126,6 +147,8 @@ export default function PatientAppointmentsPage() {
       Confirmed: "bg-emerald-100 text-emerald-800",
       Ready: "bg-cyan-100 text-cyan-800",
       Pending: "bg-amber-100 text-amber-800",
+      "Awaiting Payment": "bg-orange-100 text-orange-800",
+      "Payment Review": "bg-violet-100 text-violet-800",
       Completed: "bg-blue-100 text-blue-800",
       Cancelled: "bg-red-100 text-red-800",
       "No Show": "bg-gray-100 text-gray-800",
@@ -133,10 +156,39 @@ export default function PatientAppointmentsPage() {
     return classes[status] ?? "bg-gray-100 text-gray-800";
   };
 
+  const handleUploadProof = async () => {
+    if (!selectedAppointment?.paymentId || !uploadProofFile) return;
+    setActionLoading(true);
+    setError(null);
+    try {
+      await submitPaymentProof(selectedAppointment.paymentId, uploadProofFile);
+      setShowUploadModal(false);
+      setShowDetailsModal(false);
+      setUploadProofFile(null);
+      setSuccessMessage("Payment proof uploaded. Admin will review and confirm your booking.");
+      await loadAppointments();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload payment proof");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const openUploadForAppointment = (apt: PatientUIAppointment) => {
+    setSelectedAppointment(apt);
+    setUploadProofFile(null);
+    setShowUploadModal(true);
+  };
+
+  const getPaymentAccount = (method: PatientUIAppointment["paymentMethod"]) => {
+    const key = (method ?? "jazzcash") as BookablePaymentMethod;
+    return PLATFORM_PAYMENT_ACCOUNTS[key] ?? PLATFORM_PAYMENT_ACCOUNTS.jazzcash;
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
       </div>
     );
   }
@@ -151,7 +203,7 @@ export default function PatientAppointmentsPage() {
           </p>
         </div>
         <Link href="/patient/doctors">
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+          <Button className="bg-brand-500 hover:bg-brand-600 text-white">
             <Plus className="h-4 w-4 mr-2" />
             Book New Appointment
           </Button>
@@ -161,6 +213,13 @@ export default function PatientAppointmentsPage() {
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 flex items-start gap-2">
+          <BadgeCheck className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>{successMessage}</span>
         </div>
       )}
 
@@ -184,7 +243,7 @@ export default function PatientAppointmentsPage() {
                 onClick={() => { setActiveTab(tab); setCurrentPage(1); }}
                 className={`px-4 py-2 text-sm font-medium rounded-full transition-all whitespace-nowrap ${
                   activeTab === tab
-                    ? "bg-blue-600 text-white shadow-sm"
+                    ? "bg-brand-500 text-white shadow-sm"
                     : "bg-muted text-muted-foreground hover:bg-muted/80"
                 }`}
               >
@@ -198,7 +257,7 @@ export default function PatientAppointmentsPage() {
       <div className="space-y-4">
         {currentItems.length > 0 ? (
           currentItems.map((apt) => (
-            <Card key={apt.id} className="overflow-hidden hover:shadow-md transition-all">
+            <Card key={apt.id} className="relative z-0 hover:z-20 focus-within:z-20 transition-all">
               <CardContent className="p-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                   <div className="flex items-start gap-4 flex-1">
@@ -216,6 +275,12 @@ export default function PatientAppointmentsPage() {
                         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusBadgeClass(apt.status)}`}>
                           {apt.status}
                         </span>
+                        {apt.isPaid && (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-emerald-600 text-white">
+                            <BadgeCheck className="h-3 w-3" />
+                            Paid
+                          </span>
+                        )}
                         {apt.rating ? (
                           <div className="flex items-center gap-1">
                             {[...Array(5)].map((_, i) => (
@@ -227,7 +292,7 @@ export default function PatientAppointmentsPage() {
                           </div>
                         ) : null}
                       </div>
-                      <p className="text-sm font-medium text-blue-600">
+                      <p className="text-sm font-medium text-brand-500">
                         {apt.doctorSpecialization} • {apt.type} • {apt.duration}
                       </p>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
@@ -246,13 +311,38 @@ export default function PatientAppointmentsPage() {
                           {apt.reason}
                         </p>
                       )}
+                      {apt.paymentRejectionReason && (
+                        <p className="text-xs text-red-600 flex items-start gap-1.5 mt-1">
+                          <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                          {apt.paymentRejectionReason}
+                        </p>
+                      )}
+                      {apt.status === "Payment Review" && (
+                        <p className="text-xs text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2 mt-1">
+                          Payment proof submitted. Waiting for admin approval to confirm your booking.
+                        </p>
+                      )}
+                      {apt.status === "Awaiting Payment" && (
+                        <p className="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 mt-1">
+                          Please pay the consultation fee and upload your payment screenshot to confirm this booking.
+                        </p>
+                      )}
                     </div>
                   </div>
 
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                    {["Confirmed", "Pending", "Ready"].includes(apt.status) && (
+                    {apt.status === "Awaiting Payment" && apt.paymentId && (
+                      <Button
+                        className="bg-orange-600 hover:bg-orange-700 text-white w-full sm:w-auto"
+                        onClick={() => openUploadForAppointment(apt)}
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Add Screenshot
+                      </Button>
+                    )}
+                    {apt.isPaid && ["Confirmed", "Ready"].includes(apt.status) && (
                       <a href={apt.roomUrl} target="_blank" rel="noopener noreferrer">
-                        <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto">
+                        <Button className="bg-brand-500 hover:bg-brand-600 text-white w-full sm:w-auto">
                           <Video className="h-4 w-4 mr-2" />
                           Join Consultation
                         </Button>
@@ -262,7 +352,7 @@ export default function PatientAppointmentsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => { setSelectedAppointment(apt); setShowDetailsModal(true); }}
+                        onClick={() => { setSelectedAppointment(apt); setUploadProofFile(null); setShowDetailsModal(true); }}
                       >
                         <User className="h-3.5 w-3.5 mr-1.5" />
                         Details
@@ -273,7 +363,16 @@ export default function PatientAppointmentsPage() {
                         </Button>
                         <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
                           <div className="p-2 space-y-1">
-                            {["Confirmed", "Pending", "Ready"].includes(apt.status) && (
+                            {apt.status === "Awaiting Payment" && apt.paymentId && (
+                              <button
+                                className="flex w-full items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted text-orange-600"
+                                onClick={() => openUploadForAppointment(apt)}
+                              >
+                                <Upload className="h-4 w-4" />
+                                Add Payment Screenshot
+                              </button>
+                            )}
+                            {["Confirmed", "Pending", "Ready", "Awaiting Payment", "Payment Review"].includes(apt.status) && (
                               <button
                                 className="flex w-full items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted text-red-600"
                                 onClick={() => { setSelectedAppointment(apt); setShowCancelModal(true); }}
@@ -313,7 +412,7 @@ export default function PatientAppointmentsPage() {
               {searchQuery ? "No appointments match your search." : "You have no appointments in this category."}
             </p>
             <Link href="/patient/doctors">
-              <Button className="mt-4 bg-blue-600 hover:bg-blue-700 text-white" size="sm">
+              <Button className="mt-4 bg-brand-500 hover:bg-brand-600 text-white" size="sm">
                 Browse Doctors
               </Button>
             </Link>
@@ -364,6 +463,12 @@ export default function PatientAppointmentsPage() {
                   <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold mt-2 ${getStatusBadgeClass(selectedAppointment.status)}`}>
                     {selectedAppointment.status}
                   </span>
+                  {selectedAppointment.isPaid && (
+                    <span className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold mt-2 ml-2 bg-emerald-600 text-white">
+                      <BadgeCheck className="h-3 w-3" />
+                      Paid
+                    </span>
+                  )}
                 </div>
               </div>
               <div>
@@ -373,15 +478,68 @@ export default function PatientAppointmentsPage() {
               {selectedAppointment.prescription && (
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Prescription</p>
-                  <div className="p-4 rounded-xl border bg-blue-50">
+                  <div className="p-4 rounded-xl border bg-brand-50">
                     <p className="font-medium text-blue-800">{selectedAppointment.prescription.medication}</p>
                     <p className="text-sm text-blue-700">{selectedAppointment.prescription.dosage}</p>
                   </div>
                 </div>
               )}
-              {["Confirmed", "Pending", "Ready"].includes(selectedAppointment.status) && (
+              {selectedAppointment.status === "Awaiting Payment" && selectedAppointment.paymentId && (
+                <div className="space-y-4 rounded-xl border border-orange-200 bg-orange-50/50 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-orange-900">Pay to confirm this booking</p>
+                    <p className="text-xs text-orange-800 mt-1">
+                      Transfer {formatCurrency(selectedAppointment.consultationFee)} to the admin account, then add your payment screenshot below.
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg border border-orange-200 bg-white text-sm space-y-1">
+                    <p className="font-semibold">{getPaymentAccount(selectedAppointment.paymentMethod).accountTitle}</p>
+                    <p className="font-mono">{getPaymentAccount(selectedAppointment.paymentMethod).accountNumber}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {getPaymentAccount(selectedAppointment.paymentMethod).instructions}
+                    </p>
+                  </div>
+                  {selectedAppointment.paymentRejectionReason && (
+                    <p className="text-xs text-red-600 flex items-start gap-1.5">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      {selectedAppointment.paymentRejectionReason}
+                    </p>
+                  )}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">Payment Screenshot</p>
+                    <PaymentProofUpload
+                      onFileSelect={setUploadProofFile}
+                      disabled={actionLoading}
+                      currentPreview={selectedAppointment.paymentProofUrl}
+                    />
+                  </div>
+                  <Button
+                    className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                    disabled={actionLoading || !uploadProofFile}
+                    onClick={handleUploadProof}
+                  >
+                    {actionLoading ? "Uploading..." : "Submit Screenshot for Confirmation"}
+                  </Button>
+                </div>
+              )}
+              {selectedAppointment.status === "Payment Review" && (
+                <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-900">
+                  Payment proof submitted. Waiting for admin approval to confirm your booking.
+                  {selectedAppointment.paymentProofUrl && (
+                    <div className="mt-3 rounded-lg border border-violet-200 overflow-hidden bg-white">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={selectedAppointment.paymentProofUrl}
+                        alt="Submitted payment proof"
+                        className="w-full max-h-40 object-contain"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+              {selectedAppointment.isPaid && ["Confirmed", "Ready"].includes(selectedAppointment.status) && (
                 <a href={selectedAppointment.roomUrl} target="_blank" rel="noopener noreferrer">
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                  <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white">
                     <Video className="h-4 w-4 mr-2" />
                     Join Consultation
                   </Button>
@@ -459,11 +617,51 @@ export default function PatientAppointmentsPage() {
                 <Button type="button" variant="outline" className="flex-1" onClick={() => setShowReviewModal(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white" disabled={actionLoading || newRating < 1}>
+                <Button type="submit" className="flex-1 bg-brand-500 hover:bg-brand-600 text-white" disabled={actionLoading || newRating < 1}>
                   {actionLoading ? "Submitting..." : "Submit Review"}
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showUploadModal && selectedAppointment && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-card rounded-2xl max-w-md w-full shadow-2xl">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold">Upload Payment Proof</h3>
+                <p className="text-xs text-muted-foreground">{selectedAppointment.doctorName}</p>
+              </div>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setShowUploadModal(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Pay the consultation fee to the admin account, then upload your payment screenshot. Admin will confirm your booking after review.
+              </p>
+              {selectedAppointment && (
+                <div className="p-3 rounded-lg border border-border bg-muted/30 text-sm space-y-1">
+                  <p className="font-semibold">{getPaymentAccount(selectedAppointment.paymentMethod).accountTitle}</p>
+                  <p className="font-mono">{getPaymentAccount(selectedAppointment.paymentMethod).accountNumber}</p>
+                </div>
+              )}
+              <PaymentProofUpload onFileSelect={setUploadProofFile} disabled={actionLoading} />
+              <div className="flex gap-3 pt-2">
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setShowUploadModal(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 bg-brand-500 hover:bg-brand-600 text-white"
+                  disabled={actionLoading || !uploadProofFile}
+                  onClick={handleUploadProof}
+                >
+                  {actionLoading ? "Uploading..." : "Submit for Confirmation"}
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}

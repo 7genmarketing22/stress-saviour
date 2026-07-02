@@ -183,6 +183,7 @@ export async function getDoctorAppointments(
     `
     )
     .eq("doctor_id", doctorProfileId)
+    .neq("status", "pending_payment")
     .order("scheduled_at", { ascending: true });
 
   if (error) throw error;

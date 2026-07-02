@@ -229,7 +229,7 @@ export default function DoctorSchedulePage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+        <div className="h-8 w-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -239,7 +239,7 @@ export default function DoctorSchedulePage() {
       {/* Toast Alert */}
       {toastMessage && (
         <div className="fixed top-20 right-4 z-50 flex items-center gap-2 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-sm font-medium border border-slate-800 animate-in slide-in-from-right duration-200">
-          <Check className="h-4 w-4 text-teal-400" />
+          <Check className="h-4 w-4 text-brand-300" />
           <span>{toastMessage}</span>
         </div>
       )}
@@ -269,7 +269,7 @@ export default function DoctorSchedulePage() {
                       onClick={() => toggleDay(dayIndex)}
                       className={`flex h-8 w-8 items-center justify-center rounded-lg border cursor-pointer transition-all ${
                         sch.isActive
-                          ? "bg-teal-600 border-teal-600 text-white shadow-sm"
+                          ? "bg-brand-500 border-brand-500 text-white shadow-sm"
                           : "border-border hover:border-foreground text-muted-foreground hover:bg-muted"
                       }`}
                     >
@@ -289,7 +289,7 @@ export default function DoctorSchedulePage() {
                         {sch.slots.map((slot, slotIndex) => (
                           <span
                             key={slotIndex}
-                            className="inline-flex items-center gap-1 bg-teal-500/10 text-teal-700 dark:text-teal-400 text-xs font-semibold px-2.5 py-1 rounded-md border border-teal-500/20"
+                            className="inline-flex items-center gap-1 bg-brand-400/10 text-brand-600 dark:text-brand-300 text-xs font-semibold px-2.5 py-1 rounded-md border border-brand-400/20"
                           >
                             <Clock className="h-3 w-3" />
                             {slot}
@@ -319,7 +319,7 @@ export default function DoctorSchedulePage() {
                             />
                             <Button
                               size="sm"
-                              className="h-8 px-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold"
+                              className="h-8 px-3 bg-brand-500 hover:bg-brand-600 text-white font-semibold"
                               onClick={() => addSlot(dayIndex)}
                             >
                               Add
@@ -381,7 +381,7 @@ export default function DoctorSchedulePage() {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-1.5">
-                <Settings className="h-4 w-4 text-teal-600" />
+                <Settings className="h-4 w-4 text-brand-500" />
                 <CardTitle className="text-sm font-bold">Constraints</CardTitle>
               </div>
             </CardHeader>
@@ -392,7 +392,7 @@ export default function DoctorSchedulePage() {
                 <select
                   value={configs.bufferTime}
                   onChange={(e) => setConfigs({ ...configs, bufferTime: parseInt(e.target.value) })}
-                  className="w-full h-9 px-3 rounded-lg border border-border bg-card text-xs focus:outline-none focus:ring-1 focus:ring-teal-500/20 focus:border-teal-500"
+                  className="w-full h-9 px-3 rounded-lg border border-border bg-card text-xs focus:outline-none focus:ring-1 focus:ring-brand-400/20 focus:border-brand-400"
                 >
                   <option value={0}>No Buffer</option>
                   <option value={5}>5 Minutes</option>
@@ -407,7 +407,7 @@ export default function DoctorSchedulePage() {
                 <select
                   value={configs.bookingNotice}
                   onChange={(e) => setConfigs({ ...configs, bookingNotice: parseInt(e.target.value) })}
-                  className="w-full h-9 px-3 rounded-lg border border-border bg-card text-xs focus:outline-none focus:ring-1 focus:ring-teal-500/20 focus:border-teal-500"
+                  className="w-full h-9 px-3 rounded-lg border border-border bg-card text-xs focus:outline-none focus:ring-1 focus:ring-brand-400/20 focus:border-brand-400"
                 >
                   <option value={1}>1 Hour in advance</option>
                   <option value={2}>2 Hours in advance</option>
@@ -421,7 +421,7 @@ export default function DoctorSchedulePage() {
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-muted-foreground flex justify-between">
                   <span>Max Daily Capacity</span>
-                  <span className="font-bold text-teal-600">{configs.maxPatients} Patients</span>
+                  <span className="font-bold text-brand-500">{configs.maxPatients} Patients</span>
                 </label>
                 <input
                   type="range"
@@ -430,7 +430,7 @@ export default function DoctorSchedulePage() {
                   step="1"
                   value={configs.maxPatients}
                   onChange={(e) => setConfigs({ ...configs, maxPatients: parseInt(e.target.value) })}
-                  className="w-full h-1 bg-secondary rounded-lg appearance-none cursor-pointer accent-teal-600"
+                  className="w-full h-1 bg-secondary rounded-lg appearance-none cursor-pointer accent-brand-500"
                 />
               </div>
             </CardContent>
@@ -443,7 +443,7 @@ export default function DoctorSchedulePage() {
                 <CardTitle className="text-sm font-bold">Holiday Block-outs</CardTitle>
                 <CardDescription className="text-[10px]">Override standard availability for specific dates</CardDescription>
               </div>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-teal-600" onClick={() => setShowBlockForm(!showBlockForm)}>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-brand-500" onClick={() => setShowBlockForm(!showBlockForm)}>
                 <Plus className="h-4 w-4" />
               </Button>
             </CardHeader>
@@ -471,7 +471,7 @@ export default function DoctorSchedulePage() {
                     />
                   </div>
                   <div className="flex gap-2">
-                    <Button type="submit" size="sm" className="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-semibold h-7 text-xs">
+                    <Button type="submit" size="sm" className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold h-7 text-xs">
                       Block Date
                     </Button>
                     <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowBlockForm(false)}>
@@ -510,7 +510,7 @@ export default function DoctorSchedulePage() {
 
           {/* Action Footer */}
           <div className="pt-2">
-            <Button onClick={handleSaveAll} disabled={isSaving} className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-5 gap-2 shadow-md">
+            <Button onClick={handleSaveAll} disabled={isSaving} className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-5 gap-2 shadow-md">
               <Save className="h-4.5 w-4.5" />
               <span>{isSaving ? "Saving Planner changes..." : "Save Active Planner"}</span>
             </Button>

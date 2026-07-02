@@ -86,7 +86,7 @@ export default function PatientDashboardPage() {
         ? `Next: ${formatRelativeDate(nextApt.scheduledAt)} at ${nextApt.time}`
         : "No upcoming sessions",
       icon: Calendar,
-      color: "text-blue-600 bg-blue-50",
+      color: "text-brand-500 bg-brand-50",
       href: "/patient/appointments",
     },
     {
@@ -154,7 +154,7 @@ export default function PatientDashboardPage() {
       label: "Upcoming Care",
       value: `${upcoming.length} booked`,
       percentage: Math.min(upcoming.length * 25, 100),
-      color: "bg-blue-500",
+      color: "bg-brand-500",
     },
     {
       label: "Consultation Goal",
@@ -167,14 +167,14 @@ export default function PatientDashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
       </div>
     );
   }
 
   return (
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-[1600px] mx-auto">
-      <div className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 p-5 sm:p-6 md:p-8 text-white shadow-lg">
+      <div className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-gradient-to-r from-brand-600 to-brand-400 p-5 sm:p-6 md:p-8 text-white shadow-lg">
         <div className="relative z-10 max-w-2xl space-y-2 sm:space-y-3">
           <div className="flex items-center gap-4">
             <UserAvatar
@@ -243,14 +243,14 @@ export default function PatientDashboardPage() {
             </CardHeader>
             <CardContent className="px-4 sm:px-6">
               {nextApt ? (
-                <div className="rounded-lg sm:rounded-xl border border-blue-200 bg-blue-50/50 p-4 sm:p-5 md:p-6 space-y-3 sm:space-y-4">
+                <div className="rounded-lg sm:rounded-xl border border-brand-100 bg-brand-50/50 p-4 sm:p-5 md:p-6 space-y-3 sm:space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                     <div className="flex items-center gap-3">
                       <UserAvatar
                         name={nextApt.doctorName}
                         avatarUrl={nextAptDoctorAvatar}
                         size="md"
-                        className="bg-blue-600 text-white border-blue-400/50"
+                        className="bg-brand-500 text-white border-brand-300/50"
                       />
                       <div className="min-w-0 flex-1">
                         <h4 className="font-semibold text-sm sm:text-base truncate">{nextApt.doctorName}</h4>
@@ -261,27 +261,27 @@ export default function PatientDashboardPage() {
                       {nextApt.status}
                     </span>
                   </div>
-                  <div className="grid gap-2 sm:gap-3 border-t border-b border-blue-200 py-3 sm:py-4 text-xs sm:text-sm grid-cols-1 xs:grid-cols-2">
+                  <div className="grid gap-2 sm:gap-3 border-t border-b border-brand-100 py-3 sm:py-4 text-xs sm:text-sm grid-cols-1 xs:grid-cols-2">
                     <div className="flex items-center gap-2 text-slate-600">
-                      <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 flex-shrink-0" />
+                      <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-brand-500 flex-shrink-0" />
                       <span className="truncate">{formatRelativeDate(nextApt.scheduledAt)}, {nextApt.timeRange}</span>
                     </div>
                     <div className="flex items-center gap-2 text-slate-600">
-                      <Video className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 flex-shrink-0" />
+                      <Video className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-brand-500 flex-shrink-0" />
                       <span className="truncate">{nextApt.type} Consultation</span>
                     </div>
                     <div className="flex items-center gap-2 text-slate-600">
-                      <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 flex-shrink-0" />
+                      <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-brand-500 flex-shrink-0" />
                       <span>Fee: {formatCurrency(nextApt.consultationFee)}</span>
                     </div>
                     <div className="flex items-center gap-2 text-slate-600">
-                      <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 flex-shrink-0" />
+                      <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-brand-500 flex-shrink-0" />
                       <span>{nextApt.duration}</span>
                     </div>
                   </div>
                   <div className="flex flex-col xs:flex-row gap-2 sm:gap-3">
                     <a href={nextApt.roomUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
-                      <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white gap-2 h-9 sm:h-10 text-xs sm:text-sm shadow-lg shadow-blue-500/20">
+                      <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white gap-2 h-9 sm:h-10 text-xs sm:text-sm shadow-lg shadow-brand-400/20">
                         <Video className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         <span>Join Consultation</span>
                       </Button>
@@ -297,7 +297,7 @@ export default function PatientDashboardPage() {
                 <div className="text-center py-8 text-sm text-muted-foreground">
                   <p>No upcoming appointments.</p>
                   <Link href="/patient/doctors">
-                    <Button className="mt-4 bg-blue-600 hover:bg-blue-700 text-white" size="sm">
+                    <Button className="mt-4 bg-brand-500 hover:bg-brand-600 text-white" size="sm">
                       Book a Doctor
                     </Button>
                   </Link>
@@ -343,7 +343,7 @@ export default function PatientDashboardPage() {
             </CardHeader>
             <CardContent className="grid gap-2 sm:gap-3 px-4 sm:px-6">
               {[
-                { title: "Find a Doctor", description: "Search verified specialists", href: "/patient/doctors", icon: Search, color: "bg-blue-50 text-blue-600" },
+                { title: "Find a Doctor", description: "Search verified specialists", href: "/patient/doctors", icon: Search, color: "bg-brand-50 text-brand-500" },
                 { title: "Book Appointment", description: "Schedule new session", href: "/patient/doctors", icon: Plus, color: "bg-green-50 text-green-600" },
                 { title: "View Prescriptions", description: "Download documents", href: "/patient/prescriptions", icon: FileText, color: "bg-purple-50 text-purple-600" },
                 { title: "Payment History", description: "Track transactions", href: "/patient/payments", icon: CreditCard, color: "bg-amber-50 text-amber-600" },
@@ -351,7 +351,7 @@ export default function PatientDashboardPage() {
                 const Icon = action.icon;
                 return (
                   <Link key={i} href={action.href} className="group">
-                    <div className="flex items-center justify-between p-3 sm:p-3.5 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 transition-all duration-200">
+                    <div className="flex items-center justify-between p-3 sm:p-3.5 rounded-lg border border-slate-200 hover:border-brand-200 hover:bg-brand-50/50 transition-all duration-200">
                       <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                         <div className={`rounded-lg p-1.5 sm:p-2 ${action.color} flex-shrink-0`}>
                           <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -361,7 +361,7 @@ export default function PatientDashboardPage() {
                           <p className="text-[10px] sm:text-xs text-slate-600 mt-1 truncate">{action.description}</p>
                         </div>
                       </div>
-                      <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400 group-hover:text-blue-600 flex-shrink-0" />
+                      <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400 group-hover:text-brand-500 flex-shrink-0" />
                     </div>
                   </Link>
                 );

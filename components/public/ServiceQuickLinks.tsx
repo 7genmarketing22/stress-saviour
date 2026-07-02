@@ -16,9 +16,9 @@ const services = [
     description: "Consult a doctor online from home",
     icon: Video,
     href: "/doctors?availableNow=true",
-    gradient: "from-teal-500 to-cyan-600",
-    glow: "group-hover:shadow-teal-200/60",
-    iconRing: "group-hover:ring-teal-200",
+    gradient: "from-brand-400 to-brand-300",
+    glow: "group-hover:shadow-brand-100/60",
+    iconRing: "group-hover:ring-brand-100",
   },
   {
     title: "Book Appointment",
@@ -26,7 +26,7 @@ const services = [
     description: "Book an in-person consultation",
     icon: Building2,
     href: "/doctors",
-    gradient: "from-[#1e3a5f] to-[#2d5a8a]",
+    gradient: "from-[#102c7b] to-[#2d5a8a]",
     glow: "group-hover:shadow-blue-200/60",
     iconRing: "group-hover:ring-blue-200",
   },
@@ -46,7 +46,7 @@ const services = [
     description: "Get help choosing the right doctor",
     icon: Phone,
     href: "/#faq",
-    gradient: "from-emerald-500 to-teal-600",
+    gradient: "from-emerald-500 to-brand-500",
     glow: "group-hover:shadow-emerald-200/60",
     iconRing: "group-hover:ring-emerald-200",
   },
@@ -97,7 +97,7 @@ export function ServiceQuickLinks({ className }: { className?: string }) {
 
             <div className="relative mt-5">
               <h3 className="font-bold text-slate-900">{service.title}</h3>
-              <p className="mt-0.5 text-xs font-semibold text-teal-700">{service.subtitle}</p>
+              <p className="mt-0.5 text-xs font-semibold text-brand-600">{service.subtitle}</p>
               <p className="mt-2 text-sm leading-relaxed text-slate-500">{service.description}</p>
             </div>
           </Link>
@@ -123,7 +123,7 @@ export function SpecialtyQuickLinks() {
         <Link
           key={link.label}
           href={link.href}
-          className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600 transition-all hover:border-teal-400 hover:bg-teal-50 hover:text-teal-800"
+          className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600 transition-all hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
         >
           {link.label}
         </Link>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { signOut } from "@/lib/auth/session";
@@ -16,7 +17,6 @@ import {
   DollarSign,
   ShieldCheck,
   TrendingUp,
-  Brain,
   LogOut,
   X,
 } from "lucide-react";
@@ -72,9 +72,14 @@ export function Sidebar({ role, isOpen = false, onClose }: SidebarProps) {
     <div className="flex h-full flex-col border-r border-border bg-card px-4 py-6">
       {/* Brand Logo */}
       <div className="flex items-center justify-between px-2 mb-8">
-        <Link href="/" className="flex items-center gap-2 font-bold text-xl text-primary">
-          <Brain className="h-6 w-6" />
-          <span>Stress Saviors</span>
+        <Link href="/" className="flex items-center" aria-label="Stress Saviors home">
+          <Image
+            src="/stress-savious-logo.png"
+            alt="Stress Saviors"
+            width={280}
+            height={112}
+            className="h-14 w-auto"
+          />
         </Link>
         {onClose && (
           <button

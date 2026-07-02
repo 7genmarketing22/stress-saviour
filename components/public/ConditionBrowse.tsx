@@ -56,7 +56,7 @@ export function ConditionBrowse({ title, items, type, viewAllHref }: ConditionBr
         </div>
         <Link
           href={viewAllHref ?? "/doctors"}
-          className="group inline-flex shrink-0 items-center gap-0.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-sm font-semibold text-teal-700 shadow-sm transition-all hover:border-teal-300 hover:bg-teal-50"
+          className="group inline-flex shrink-0 items-center gap-0.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-sm font-semibold text-brand-600 shadow-sm transition-all hover:border-brand-200 hover:bg-brand-50"
         >
           View all
           <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -77,7 +77,7 @@ function ConditionCard({ item, type }: { item: CatalogItem; type: "symptom" | "c
   const href = buildDoctorSearchUrl(
     type === "symptom" ? { symptom: item.id } : { condition: item.id }
   );
-  const ring = item.ring ?? "from-teal-300 to-cyan-200";
+  const ring = item.ring ?? "from-brand-200 to-brand-100";
 
   return (
     <Link
@@ -88,7 +88,7 @@ function ConditionCard({ item, type }: { item: CatalogItem; type: "symptom" | "c
       <span
         className={cn(
           "relative rounded-full bg-gradient-to-br p-[2px] shadow-sm transition-all duration-300",
-          "group-hover:-translate-y-1 group-hover:shadow-lg group-hover:shadow-teal-100",
+          "group-hover:-translate-y-1 group-hover:shadow-lg group-hover:shadow-brand-50",
           ring
         )}
       >
@@ -121,7 +121,7 @@ function ConditionCard({ item, type }: { item: CatalogItem; type: "symptom" | "c
         </span>
       </span>
 
-      <span className="text-center text-[11px] font-semibold leading-tight text-slate-700 transition-colors group-hover:text-teal-700 sm:text-xs">
+      <span className="text-center text-[11px] font-semibold leading-tight text-slate-700 transition-colors group-hover:text-brand-600 sm:text-xs">
         {item.label}
       </span>
     </Link>

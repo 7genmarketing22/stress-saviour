@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/Button";
 import {
   DollarSign, Wallet, CheckCircle2, Clock, RefreshCw, Loader2, Search,
-  Download, FileText, Filter, X, Check, Users, Undo2, BadgeCheck,
+  Download, FileText, Filter, X, Check, Users, Undo2, BadgeCheck, ImageIcon,
 } from "lucide-react";
 import { useAdmin } from "@/contexts/AdminContext";
 import {
@@ -15,6 +15,8 @@ import {
   settleDoctorPayments,
   buildDoctorPayoutSummaries,
   buildPayoutTotals,
+  approvePatientPayment,
+  rejectPatientPayment,
 } from "@/lib/admin/api";
 import { usePaymentsRealtime } from "@/lib/realtime/usePaymentsRealtime";
 import type { AdminPayment } from "@/lib/admin/types";
@@ -93,6 +95,8 @@ export default function AdminPaymentsPage() {
   const [view, setView] = useState<"doctors" | "transactions">("doctors");
   const [actionId, setActionId] = useState<string | null>(null);
   const [confirmSettle, setConfirmSettle] = useState<{ doctorId: string; name: string; amount: number } | null>(null);
+  const [reviewPayment, setReviewPayment] = useState<AdminPayment | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   // Filters
   const [search, setSearch] = useState("");
@@ -131,6 +135,40 @@ export default function AdminPaymentsPage() {
     }
     return Array.from(map, ([id, name]) => ({ id, name }));
   }, [payments]);
+
+  const pendingApprovals = useMemo(
+    () => payments.filter((p) => p.status === "pending" && p.proof_url),
+    [payments]
+  );
+
+  const handleApprovePayment = async (paymentId: string) => {
+    setActionId(paymentId);
+    try {
+      await approvePatientPayment(paymentId, profile.id);
+      showToast("Payment approved. Booking confirmed.");
+      setReviewPayment(null);
+      await loadData();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Approval failed");
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const handleRejectPayment = async (paymentId: string) => {
+    setActionId(paymentId);
+    try {
+      await rejectPatientPayment(paymentId, profile.id, rejectReason);
+      showToast("Payment proof rejected. Patient can re-upload.");
+      setReviewPayment(null);
+      setRejectReason("");
+      await loadData();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Rejection failed");
+    } finally {
+      setActionId(null);
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -263,7 +301,7 @@ export default function AdminPaymentsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
       </div>
     );
   }
@@ -295,7 +333,7 @@ export default function AdminPaymentsPage() {
       value: formatPKR(totals.commission),
       sub: `${formatPKR(totals.grossVolume)} gross volume`,
       icon: DollarSign,
-      accent: "text-teal-600",
+      accent: "text-brand-500",
     },
   ];
 
@@ -303,7 +341,7 @@ export default function AdminPaymentsPage() {
     <div className="space-y-6">
       {toast && (
         <div className="fixed top-20 right-4 z-50 flex items-center gap-2 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-sm font-medium animate-in slide-in-from-right duration-200">
-          <Check className="h-4 w-4 text-teal-400" />
+          <Check className="h-4 w-4 text-brand-300" />
           <span>{toast}</span>
         </div>
       )}
@@ -329,6 +367,62 @@ export default function AdminPaymentsPage() {
 
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+      )}
+
+      {pendingApprovals.length > 0 && (
+        <Card className="border-violet-200 bg-violet-50/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-violet-900">
+              <ImageIcon className="h-5 w-5" />
+              Pending Payment Approvals ({pendingApprovals.length})
+            </CardTitle>
+            <CardDescription>
+              Review patient payment screenshots and approve to confirm bookings.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="text-xs uppercase bg-violet-100/50 border-b border-violet-200 text-violet-900">
+                  <tr>
+                    <th className="px-6 py-3 font-semibold">Patient</th>
+                    <th className="px-6 py-3 font-semibold">Doctor</th>
+                    <th className="px-6 py-3 font-semibold">Amount</th>
+                    <th className="px-6 py-3 font-semibold">Method</th>
+                    <th className="px-6 py-3 font-semibold">Submitted</th>
+                    <th className="px-6 py-3 font-semibold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-violet-100">
+                  {pendingApprovals.map((p) => (
+                    <tr key={p.id} className="hover:bg-violet-50/50">
+                      <td className="px-6 py-4 font-medium">{p.patient?.full_name ?? "Patient"}</td>
+                      <td className="px-6 py-4">{p.doctor?.profile?.full_name ?? "Doctor"}</td>
+                      <td className="px-6 py-4 font-semibold">{formatPKR(Number(p.amount))}</td>
+                      <td className="px-6 py-4">{METHOD_LABEL[p.payment_method]}</td>
+                      <td className="px-6 py-4 text-xs text-muted-foreground">{formatDate(p.created_at)}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => setReviewPayment(p)}>
+                            Review Proof
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            disabled={actionId === p.id}
+                            onClick={() => handleApprovePayment(p.id)}
+                          >
+                            {actionId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Approve"}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Summary cards */}
@@ -363,13 +457,13 @@ export default function AdminPaymentsPage() {
                 placeholder="Search patient, doctor, txn or reference..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full h-9 pl-9 pr-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                className="w-full h-9 pl-9 pr-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400"
               />
             </div>
             <select
               value={doctorFilter}
               onChange={(e) => setDoctorFilter(e.target.value)}
-              className="h-9 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+              className="h-9 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400"
             >
               <option value="all">All doctors</option>
               {doctorOptions.map((d) => (
@@ -379,7 +473,7 @@ export default function AdminPaymentsPage() {
             <select
               value={payoutFilter}
               onChange={(e) => setPayoutFilter(e.target.value as "all" | PayoutStatus)}
-              className="h-9 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+              className="h-9 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400"
             >
               <option value="all">All payouts</option>
               <option value="pending">Pending settlement</option>
@@ -388,7 +482,7 @@ export default function AdminPaymentsPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as "all" | PaymentStatus)}
-              className="h-9 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+              className="h-9 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400"
             >
               <option value="all">All payments</option>
               <option value="completed">Collected</option>
@@ -401,14 +495,14 @@ export default function AdminPaymentsPage() {
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="h-9 px-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                className="h-9 px-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400"
               />
               <span className="text-xs text-muted-foreground">to</span>
               <input
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="h-9 px-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                className="h-9 px-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400"
               />
             </div>
             {hasActiveFilters && (
@@ -495,7 +589,7 @@ export default function AdminPaymentsPage() {
                             size="sm"
                             disabled={d.totalPending <= 0 || actionId === d.doctorId}
                             onClick={() => setConfirmSettle({ doctorId: d.doctorId, name: d.name, amount: d.totalPending })}
-                            className="h-8 text-xs bg-teal-600 hover:bg-teal-700 text-white disabled:opacity-40"
+                            className="h-8 text-xs bg-brand-500 hover:bg-brand-600 text-white disabled:opacity-40"
                           >
                             {actionId === d.doctorId ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -589,7 +683,7 @@ export default function AdminPaymentsPage() {
                               size="sm"
                               disabled={actionId === tx.id}
                               onClick={() => handleMarkPaid(tx)}
-                              className="h-8 text-xs bg-teal-600 hover:bg-teal-700 text-white"
+                              className="h-8 text-xs bg-brand-500 hover:bg-brand-600 text-white"
                             >
                               {actionId === tx.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 mr-1" />}
                               Mark Paid
@@ -624,10 +718,10 @@ export default function AdminPaymentsPage() {
               </Button>
             </div>
             <div className="p-6 space-y-4">
-              <div className="bg-teal-500/5 border border-teal-500/10 p-4 rounded-xl text-center">
+              <div className="bg-brand-400/5 border border-brand-400/10 p-4 rounded-xl text-center">
                 <p className="text-xs text-muted-foreground">Clearing all pending earnings for</p>
                 <p className="text-base font-bold mt-1">{confirmSettle.name}</p>
-                <p className="text-3xl font-black text-teal-600 mt-2">{formatPKR(confirmSettle.amount)}</p>
+                <p className="text-3xl font-black text-brand-500 mt-2">{formatPKR(confirmSettle.amount)}</p>
               </div>
               <p className="text-xs text-muted-foreground text-center">
                 This marks every collected-but-unpaid payment as paid. The doctor&apos;s dashboard updates instantly.
@@ -636,8 +730,77 @@ export default function AdminPaymentsPage() {
                 <Button variant="outline" className="flex-1" onClick={() => setConfirmSettle(null)}>
                   Cancel
                 </Button>
-                <Button onClick={handleSettleDoctor} className="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-semibold">
+                <Button onClick={handleSettleDoctor} className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold">
                   Confirm &amp; Settle
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {reviewPayment && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-card rounded-2xl max-w-lg w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b flex items-center justify-between sticky top-0 bg-card z-10">
+              <div>
+                <h3 className="text-lg font-bold">Review Payment Proof</h3>
+                <p className="text-xs text-muted-foreground">
+                  {reviewPayment.patient?.full_name} → {reviewPayment.doctor?.profile?.full_name}
+                </p>
+              </div>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setReviewPayment(null)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Amount</p>
+                  <p className="font-bold">{formatPKR(Number(reviewPayment.amount))}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Method</p>
+                  <p className="font-medium">{METHOD_LABEL[reviewPayment.payment_method]}</p>
+                </div>
+              </div>
+              {reviewPayment.proof_url && (
+                <div className="rounded-lg border border-border overflow-hidden bg-muted/20">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={reviewPayment.proof_url}
+                    alt="Payment proof"
+                    className="w-full max-h-80 object-contain"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                  Rejection reason (optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Reason if rejecting the proof..."
+                  className="w-full px-3 py-2 rounded-lg border border-border text-sm"
+                />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <Button
+                  variant="outline"
+                  className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+                  disabled={actionId === reviewPayment.id}
+                  onClick={() => handleRejectPayment(reviewPayment.id)}
+                >
+                  Reject
+                </Button>
+                <Button
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  disabled={actionId === reviewPayment.id}
+                  onClick={() => handleApprovePayment(reviewPayment.id)}
+                >
+                  {actionId === reviewPayment.id ? "Processing..." : "Approve & Confirm Booking"}
                 </Button>
               </div>
             </div>

@@ -233,7 +233,7 @@ export default function DoctorEarningsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+        <div className="h-8 w-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -243,7 +243,7 @@ export default function DoctorEarningsPage() {
       {/* Toast Alert */}
       {toastMessage && (
         <div className="fixed top-20 right-4 z-50 flex items-center gap-2 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-sm font-medium border border-slate-800 animate-in slide-in-from-right duration-200">
-          <Check className="h-4 w-4 text-teal-400" />
+          <Check className="h-4 w-4 text-brand-300" />
           <span>{toastMessage}</span>
         </div>
       )}
@@ -259,7 +259,7 @@ export default function DoctorEarningsPage() {
         {accruedBalance > 0 && (
           <Button 
             onClick={() => setShowPayoutModal(true)} 
-            className="bg-teal-600 hover:bg-teal-700 text-white font-semibold"
+            className="bg-brand-500 hover:bg-brand-600 text-white font-semibold"
           >
             Request Payout
           </Button>
@@ -268,11 +268,11 @@ export default function DoctorEarningsPage() {
 
       {/* Finances Overview Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-gradient-to-br from-teal-500/10 to-transparent border-teal-500/20">
+        <Card className="bg-gradient-to-br from-brand-400/10 to-transparent border-brand-400/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center justify-between">
               Pending Settlement
-              <Wallet className="h-4 w-4 text-teal-600" />
+              <Wallet className="h-4 w-4 text-brand-500" />
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -331,7 +331,7 @@ export default function DoctorEarningsPage() {
             </p>
             <button 
               onClick={() => showToast("Redirecting to profile console payout settings...")} 
-              className="block text-teal-600 hover:text-teal-700 mt-2 text-xs font-semibold cursor-pointer"
+              className="block text-brand-500 hover:text-brand-600 mt-2 text-xs font-semibold cursor-pointer"
             >
               Update bank details
             </button>
@@ -343,7 +343,7 @@ export default function DoctorEarningsPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Calculator className="h-5 w-5 text-teal-600" />
+            <Calculator className="h-5 w-5 text-brand-500" />
             <div>
               <CardTitle>Clinical Projection Calculator</CardTitle>
               <CardDescription>Plan your weekly sessions and model your monthly take-home revenue after platform commission (10%)</CardDescription>
@@ -356,7 +356,7 @@ export default function DoctorEarningsPage() {
               <div>
                 <div className="flex justify-between text-sm font-medium mb-1">
                   <span>Sessions per Week</span>
-                  <span className="text-teal-600 font-bold">{sessionsPerWeek} consultations</span>
+                  <span className="text-brand-500 font-bold">{sessionsPerWeek} consultations</span>
                 </div>
                 <input 
                   type="range" 
@@ -364,14 +364,14 @@ export default function DoctorEarningsPage() {
                   max="40" 
                   value={sessionsPerWeek} 
                   onChange={(e) => setSessionsPerWeek(Number(e.target.value))}
-                  className="w-full accent-teal-600 cursor-pointer"
+                  className="w-full accent-brand-500 cursor-pointer"
                 />
               </div>
 
               <div>
                 <div className="flex justify-between text-sm font-medium mb-1">
                   <span>Consultation Fee Rate (PKR)</span>
-                  <span className="text-teal-600 font-bold">PKR {sessionFee.toLocaleString()}</span>
+                  <span className="text-brand-500 font-bold">PKR {sessionFee.toLocaleString()}</span>
                 </div>
                 <input 
                   type="range" 
@@ -380,7 +380,7 @@ export default function DoctorEarningsPage() {
                   step="500"
                   value={sessionFee} 
                   onChange={(e) => setSessionFee(Number(e.target.value))}
-                  className="w-full accent-teal-600 cursor-pointer"
+                  className="w-full accent-brand-500 cursor-pointer"
                 />
               </div>
             </div>
@@ -400,7 +400,7 @@ export default function DoctorEarningsPage() {
               </div>
               <div className="flex flex-col justify-center">
                 <p className="text-[10px] text-muted-foreground uppercase font-bold">Net Take-Home</p>
-                <p className="text-lg font-black text-teal-600 mt-1">
+                <p className="text-lg font-black text-brand-500 mt-1">
                   PKR {(((sessionsPerWeek * sessionFee) * 4) * 0.9).toLocaleString()}
                 </p>
               </div>
@@ -422,7 +422,7 @@ export default function DoctorEarningsPage() {
               <Button 
                 variant={timeRange === "6months" ? "default" : "outline"} 
                 size="sm" 
-                className={timeRange === "6months" ? "bg-teal-600 text-white hover:bg-teal-700 font-semibold" : "font-semibold"} 
+                className={timeRange === "6months" ? "bg-brand-500 text-white hover:bg-brand-600 font-semibold" : "font-semibold"} 
                 onClick={() => setTimeRange("6months")}
               >
                 6 Months
@@ -430,7 +430,7 @@ export default function DoctorEarningsPage() {
               <Button 
                 variant={timeRange === "1year" ? "default" : "outline"} 
                 size="sm" 
-                className={timeRange === "1year" ? "bg-teal-600 text-white hover:bg-teal-700 font-semibold" : "font-semibold"} 
+                className={timeRange === "1year" ? "bg-brand-500 text-white hover:bg-brand-600 font-semibold" : "font-semibold"} 
                 onClick={() => setTimeRange("1year")}
               >
                 1 Year
@@ -563,7 +563,7 @@ export default function DoctorEarningsPage() {
                     <td className="px-6 py-4 font-mono text-xs text-muted-foreground">{tx.id}</td>
                     <td className="px-6 py-4 font-semibold text-foreground">{tx.patientName}</td>
                     <td className="px-6 py-4 text-xs">{tx.date}</td>
-                    <td className="px-6 py-4 text-xs font-semibold text-teal-600">{tx.method}</td>
+                    <td className="px-6 py-4 text-xs font-semibold text-brand-500">{tx.method}</td>
                     <td className="px-6 py-4 text-xs">PKR {tx.gross.toLocaleString()}</td>
                     <td className="px-6 py-4 text-xs font-bold text-foreground">PKR {tx.net.toLocaleString()}</td>
                     <td className="px-6 py-4 text-right">
@@ -604,7 +604,7 @@ export default function DoctorEarningsPage() {
               placeholder="Search payout ID or period..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-8 pl-8 pr-3 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+              className="w-full h-8 pl-8 pr-3 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400"
             />
           </div>
         </CardHeader>
@@ -646,7 +646,7 @@ export default function DoctorEarningsPage() {
                         onClick={() => handleDownloadInvoice(pay)}
                         variant="ghost" 
                         size="sm" 
-                        className="h-8 text-teal-600 hover:text-teal-700 hover:bg-teal-500/10 gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="h-8 text-brand-500 hover:text-brand-600 hover:bg-brand-400/10 gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <Download className="h-3.5 w-3.5" />
                         <span>Receipt</span>
@@ -695,7 +695,7 @@ export default function DoctorEarningsPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Settlement Time:</span>
-                  <span className="font-semibold text-teal-600">Immediate (15 mins)</span>
+                  <span className="font-semibold text-brand-500">Immediate (15 mins)</span>
                 </div>
               </div>
 
@@ -703,7 +703,7 @@ export default function DoctorEarningsPage() {
                 <Button variant="outline" className="flex-1" onClick={() => setShowPayoutModal(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleRequestPayout} className="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-semibold">
+                <Button onClick={handleRequestPayout} className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold">
                   Confirm Payout
                 </Button>
               </div>

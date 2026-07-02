@@ -16,6 +16,7 @@ import { useAdmin } from "@/contexts/AdminContext";
 import {
   approveDoctor,
   rejectDoctor,
+  approvePatient,
   getAdminDoctors,
   getAdminPatients,
   getAdminAppointments,
@@ -98,10 +99,22 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleApprovePatient = async (userId: string) => {
+    setActionId(userId);
+    try {
+      await approvePatient(userId, profile.id);
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to approve patient");
+    } finally {
+      setActionId(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
       </div>
     );
   }
@@ -110,6 +123,7 @@ export default function AdminDashboardPage() {
   const revenueData = revenueByMonth(payments, 6);
   const appointmentData = appointmentsByDay(appointments);
   const pendingDoctors = doctors.filter((d) => d.status === "pending");
+  const pendingPatients = patients.filter((p) => p.account_status === "pending");
   const topDocs = buildTopDoctors(doctors, payments, appointments, 4);
   const recentActivity = buildRecentActivity(appointments, payments, patients, doctors, 5);
   const onlineDoctors = doctors.filter((d) => d.status === "approved" && d.is_available).length;
@@ -204,8 +218,8 @@ export default function AdminDashboardPage() {
                     <p className="text-[11px] sm:text-xs font-medium text-slate-500 truncate">{stat.change}</p>
                     <p className="text-[10px] sm:text-xs text-slate-400 truncate">{stat.description}</p>
                   </div>
-                  <div className={`p-2 sm:p-3 rounded-lg ${stat.positive ? "bg-teal-50" : "bg-amber-50"} flex-shrink-0`}>
-                    <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${stat.positive ? "text-teal-600" : "text-amber-600"}`} />
+                  <div className={`p-2 sm:p-3 rounded-lg ${stat.positive ? "bg-brand-50" : "bg-amber-50"} flex-shrink-0`}>
+                    <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${stat.positive ? "text-brand-500" : "text-amber-600"}`} />
                   </div>
                 </div>
               </CardContent>
@@ -289,7 +303,7 @@ export default function AdminDashboardPage() {
               {pendingDoctors.map((doc) => (
                 <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-medium text-sm">
+                    <div className="h-10 w-10 rounded-full bg-brand-50 flex items-center justify-center text-brand-600 font-medium text-sm">
                       {(doc.profile?.full_name ?? "Dr")
                         .split(" ")
                         .map((n) => n[0])
@@ -313,7 +327,7 @@ export default function AdminDashboardPage() {
                       size="sm"
                       onClick={() => handleApprove(doc.id)}
                       disabled={actionId === doc.id}
-                      className="bg-teal-600 hover:bg-teal-700"
+                      className="bg-brand-500 hover:bg-brand-600"
                     >
                       {actionId === doc.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
                       Approve
@@ -336,6 +350,59 @@ export default function AdminDashboardPage() {
                   <p className="text-sm font-medium text-slate-900">All caught up!</p>
                   <p className="text-sm text-slate-600 mt-1">No pending verifications</p>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Pending Patient Approvals</CardTitle>
+              <CardDescription>New registrations awaiting review</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {pendingPatients.slice(0, 5).map((patient) => (
+                <div
+                  key={patient.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  <div>
+                    <p className="font-medium text-slate-900">{patient.full_name}</p>
+                    <p className="text-sm text-slate-600">{patient.email}</p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {patient.city ?? "—"} · Applied{" "}
+                      {new Date(patient.created_at).toLocaleDateString("en-PK", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => handleApprovePatient(patient.id)}
+                    disabled={actionId === patient.id}
+                    className="bg-brand-500 hover:bg-brand-600"
+                  >
+                    {actionId === patient.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-4 w-4 mr-1" />
+                    )}
+                    Approve
+                  </Button>
+                </div>
+              ))}
+              {pendingPatients.length === 0 && (
+                <div className="text-center py-8 border border-dashed border-slate-300 rounded-lg">
+                  <CheckCircle2 className="h-10 w-10 mx-auto mb-2 text-slate-400" />
+                  <p className="text-sm text-slate-600">No pending patient registrations</p>
+                </div>
+              )}
+              {pendingPatients.length > 0 && (
+                <Link href="/admin/patients">
+                  <Button variant="outline" className="w-full" size="sm">
+                    View all patients
+                  </Button>
+                </Link>
               )}
             </CardContent>
           </Card>
@@ -379,7 +446,7 @@ export default function AdminDashboardPage() {
                 {topDocs.map((doctor, i) => (
                   <div key={doctor.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-semibold text-xs">
+                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-300 flex items-center justify-center text-white font-semibold text-xs">
                         #{i + 1}
                       </div>
                       <div>
@@ -399,7 +466,7 @@ export default function AdminDashboardPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-semibold text-teal-600">{formatShortPKR(doctor.earnings)}</p>
+                      <p className="text-sm font-semibold text-brand-500">{formatShortPKR(doctor.earnings)}</p>
                     </div>
                   </div>
                 ))}

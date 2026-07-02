@@ -1,8 +1,9 @@
 export type { Database } from "./database";
 
 export type UserRole = "patient" | "doctor" | "admin" | "super_admin";
+export type AccountStatus = "pending" | "approved" | "rejected";
 export type DoctorStatus = "pending" | "approved" | "rejected" | "suspended";
-export type AppointmentStatus = "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show";
+export type AppointmentStatus = "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show" | "pending_payment";
 export type AppointmentType = "video" | "chat" | "in_person";
 export type PaymentStatus = "pending" | "completed" | "failed" | "refunded";
 export type PayoutStatus = "pending" | "paid";
@@ -20,6 +21,10 @@ export interface Profile {
   date_of_birth: string | null;
   gender: Gender | null;
   is_active: boolean;
+  account_status: AccountStatus;
+  rejection_reason: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -89,6 +94,10 @@ export interface Payment {
   gateway_response: Record<string, unknown> | null;
   refund_id: string | null;
   refunded_at: string | null;
+  proof_url: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -244,7 +244,7 @@ export default function DoctorDashboardPage() {
       value: `${uniquePatients} Active`,
       description: `+${newPatientsThisWeek} new this week`,
       icon: Users,
-      color: "text-teal-500 bg-teal-500/10",
+      color: "text-brand-400 bg-brand-400/10",
     },
     {
       title: "Monthly Earnings",
@@ -382,7 +382,7 @@ export default function DoctorDashboardPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+        <div className="h-8 w-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -392,13 +392,13 @@ export default function DoctorDashboardPage() {
       {/* Toast Alert */}
       {toastMessage && (
         <div className="fixed top-20 right-4 z-50 flex items-center gap-2 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-sm font-medium border border-slate-800 animate-in slide-in-from-right duration-200">
-          <Check className="h-4 w-4 text-teal-400" />
+          <Check className="h-4 w-4 text-brand-300" />
           <span>{toastMessage}</span>
         </div>
       )}
 
       {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-600 to-cyan-600 p-6 md:p-8 text-white shadow-md">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-brand-500 to-brand-300 p-6 md:p-8 text-white shadow-md">
         <div className="relative z-10 max-w-xl space-y-2">
           <div className="flex items-start gap-4">
             <UserAvatar
@@ -411,12 +411,12 @@ export default function DoctorDashboardPage() {
             <div className="min-w-0 flex-1 space-y-2">
           <div className="flex items-center justify-between mb-2">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-md">
-              <ShieldCheck className="h-3.5 w-3.5 fill-white text-teal-600" />
+              <ShieldCheck className="h-3.5 w-3.5 fill-white text-brand-500" />
               PMDC-{doctorProfile.pmdc_number} Verified
             </span>
             <span className="relative flex h-2 w-2 mr-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-300"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-300 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-200"></span>
             </span>
           </div>
           <h2 className="text-2xl font-bold md:text-3xl">
@@ -531,7 +531,7 @@ export default function DoctorDashboardPage() {
                         <>
                           <Button
                             size="sm"
-                            className="flex items-center gap-1 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs"
+                            className="flex items-center gap-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs"
                             onClick={(e) => startConsultation(session, e)}
                           >
                             <Video className="h-3.5 w-3.5" />
@@ -552,7 +552,7 @@ export default function DoctorDashboardPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="flex items-center gap-1 font-semibold text-xs text-teal-600 hover:bg-teal-50 cursor-pointer"
+                          className="flex items-center gap-1 font-semibold text-xs text-brand-500 hover:bg-brand-50 cursor-pointer"
                           onClick={(e) => openNotesModal(session, e)}
                         >
                           <FileText className="h-3.5 w-3.5" />
@@ -702,14 +702,14 @@ export default function DoctorDashboardPage() {
                     <div
                       key={day.day}
                       className={`flex-1 rounded-xl p-2 sm:p-3 text-center ${day.sessions > 0
-                          ? "bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800"
+                          ? "bg-brand-50 dark:bg-brand-800/20 border border-brand-100 dark:border-brand-700"
                           : "bg-muted/30 border border-border"
                         }`}
                     >
                       <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">{day.day}</p>
                       <p className="text-sm sm:text-lg font-bold mt-1">{day.date}</p>
                       {day.sessions > 0 && (
-                        <div className="mt-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-teal-500 text-white text-[10px]">
+                        <div className="mt-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-400 text-white text-[10px]">
                           {day.sessions}
                         </div>
                       )}
@@ -758,7 +758,7 @@ export default function DoctorDashboardPage() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Practice Task Checklist</CardTitle>
-                <CheckCircle className="h-4 w-4 text-teal-600" />
+                <CheckCircle className="h-4 w-4 text-brand-500" />
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -772,7 +772,7 @@ export default function DoctorDashboardPage() {
                       type="checkbox"
                       checked={task.completed}
                       onChange={() => toggleTask(task.id)}
-                      className="h-4 w-4 rounded border-border text-teal-600 focus:ring-teal-500 cursor-pointer"
+                      className="h-4 w-4 rounded border-border text-brand-500 focus:ring-brand-400 cursor-pointer"
                     />
                     <span className={task.completed ? "line-through text-muted-foreground" : "text-foreground"}>
                       {task.text}
@@ -802,7 +802,7 @@ export default function DoctorDashboardPage() {
               ) : (
                 <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
                   <textarea
-                    className="w-full min-h-[100px] rounded-lg border border-border bg-card p-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
+                    className="w-full min-h-[100px] rounded-lg border border-border bg-card p-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 transition-shadow"
                     placeholder="Type your note here..."
                     value={quickNote}
                     onChange={(e) => setQuickNote(e.target.value)}
@@ -817,7 +817,7 @@ export default function DoctorDashboardPage() {
                     </Button>
                     <Button
                       size="sm"
-                      className="bg-teal-600 hover:bg-teal-700 text-white font-semibold"
+                      className="bg-brand-500 hover:bg-brand-600 text-white font-semibold"
                       onClick={saveQuickNote}
                     >
                       Save Note
@@ -841,7 +841,7 @@ export default function DoctorDashboardPage() {
                   <Link key={i} href={action.href} className="group">
                     <div className="flex items-center justify-between p-3.5 rounded-lg border border-border bg-card hover:bg-accent transition-all duration-200">
                       <div className="flex items-center gap-3">
-                        <div className="rounded-lg bg-teal-500/10 p-2 text-teal-600 group-hover:scale-105 transition-transform duration-200">
+                        <div className="rounded-lg bg-brand-400/10 p-2 text-brand-500 group-hover:scale-105 transition-transform duration-200">
                           <Icon className="h-4 w-4" />
                         </div>
                         <div className="text-left">
@@ -867,7 +867,7 @@ export default function DoctorDashboardPage() {
               {recentActivityFeed.map((activity) => (
                 <div key={activity.id} className="flex items-start gap-3">
                   <div
-                    className={`mt-0.5 rounded-full p-2 bg-blue-500/10 text-blue-600`}
+                    className={`mt-0.5 rounded-full p-2 bg-brand-500/10 text-brand-500`}
                   >
                     <Activity className="h-3.5 w-3.5" />
                   </div>
@@ -903,7 +903,7 @@ export default function DoctorDashboardPage() {
             <div className="flex-1 grid md:grid-cols-2 bg-slate-950 p-4 gap-4 items-center justify-center">
               {/* Doctor view */}
               <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 aspect-video flex flex-col items-center justify-center text-slate-400">
-                <Brain className="h-12 w-12 text-teal-600 mb-2 animate-bounce" />
+                <Brain className="h-12 w-12 text-brand-500 mb-2 animate-bounce" />
                 <p className="text-xs font-semibold">Your Camera Feed (Active)</p>
                 <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur px-2.5 py-1 rounded-md text-[10px] font-semibold text-white">
                   Dr. {profile.full_name} (You)
@@ -912,7 +912,7 @@ export default function DoctorDashboardPage() {
 
               {/* Patient view */}
               <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 aspect-video flex flex-col items-center justify-center text-slate-400">
-                <User className="h-12 w-12 text-cyan-600 mb-2" />
+                <User className="h-12 w-12 text-brand-300 mb-2" />
                 <p className="text-xs font-semibold">Patient Webcam Connected</p>
                 <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur px-2.5 py-1 rounded-md text-[10px] font-semibold text-white">
                   {activeCallSession.patientName}
@@ -923,7 +923,7 @@ export default function DoctorDashboardPage() {
             {/* Call Controls and Direct Note Link */}
             <div className="p-4 border-t border-slate-800 bg-slate-900/50 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="text-xs text-slate-400 font-medium">
-                Room URL: <span className="font-mono text-teal-400">{activeCallSession.videoRoomUrl ?? `stress-saviours-telehealth-${activeCallSession.id.slice(0, 8)}`}</span>
+                Room URL: <span className="font-mono text-brand-300">{activeCallSession.videoRoomUrl ?? `stress-saviours-telehealth-${activeCallSession.id.slice(0, 8)}`}</span>
               </div>
               <div className="flex gap-3">
                 <Button
@@ -931,7 +931,7 @@ export default function DoctorDashboardPage() {
                     setShowCallModal(false);
                     openNotesModal(activeCallSession, e);
                   }}
-                  className="bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs"
+                  className="bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs"
                 >
                   <FileText className="h-4 w-4 mr-1.5" />
                   <span>Open Prescription / Notes Writer</span>
@@ -974,13 +974,13 @@ export default function DoctorDashboardPage() {
                   value={clinicalNoteInput}
                   onChange={(e) => setClinicalNoteInput(e.target.value)}
                   placeholder="Record summary observations, anxiety/stress level assessments, and recommended CBT tasks..."
-                  className="w-full p-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all resize-none"
+                  className="w-full p-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all resize-none"
                 />
               </div>
 
               <div className="border-t border-border/60 pt-3">
                 <h4 className="text-xs font-bold text-foreground mb-3 flex items-center gap-1">
-                  <FileText className="h-3.5 w-3.5 text-teal-600" />
+                  <FileText className="h-3.5 w-3.5 text-brand-500" />
                   Prescription Writer (Optional)
                 </h4>
                 <div className="space-y-3">
@@ -991,7 +991,7 @@ export default function DoctorDashboardPage() {
                       value={medicationInput}
                       onChange={(e) => setMedicationInput(e.target.value)}
                       placeholder="e.g. Sertraline 50mg"
-                      className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                      className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400"
                     />
                   </div>
                   <div>
@@ -1001,7 +1001,7 @@ export default function DoctorDashboardPage() {
                       value={dosageInput}
                       onChange={(e) => setDosageInput(e.target.value)}
                       placeholder="e.g. Once daily after dinner"
-                      className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                      className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400"
                     />
                   </div>
                 </div>
@@ -1011,7 +1011,7 @@ export default function DoctorDashboardPage() {
                 <Button type="button" variant="outline" className="flex-1" onClick={() => setShowNotesModal(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" className="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-semibold">
+                <Button type="submit" className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold">
                   Save Clinical Records
                 </Button>
               </div>

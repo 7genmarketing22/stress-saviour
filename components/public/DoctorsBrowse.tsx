@@ -102,7 +102,7 @@ export function DoctorsBrowse({
   if (loading) {
     return (
       <div className="flex justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
       </div>
     );
   }
@@ -163,7 +163,7 @@ export function DoctorsBrowse({
       {limit && doctors.length > limit && (
         <div className="text-center">
           <Link href="/doctors">
-            <Button className="gap-2 bg-[#1e3a5f] font-semibold text-white hover:bg-[#152a45]">
+            <Button className="gap-2 bg-[#102c7b] font-semibold text-white hover:bg-[#152a45]">
               View All Doctors
             </Button>
           </Link>

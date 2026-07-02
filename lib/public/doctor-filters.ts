@@ -1,6 +1,8 @@
 import { mapToDoctorCard } from "@/lib/patient/mappers";
 import type { DoctorWithProfile } from "@/lib/patient/types";
-import { findCatalogItem } from "./catalog";
+import { findCatalogItem, MENTAL_CONDITIONS, MENTAL_SYMPTOMS } from "./catalog";
+
+export const ALL_CITIES_LABEL = "All Cities";
 
 export interface DoctorSearchFilters {
   q?: string;
@@ -35,7 +37,7 @@ export function buildDoctorSearchUrl(filters: DoctorSearchFilters): string {
   const params = new URLSearchParams();
 
   if (filters.q?.trim()) params.set("q", filters.q.trim());
-  if (filters.city && filters.city !== "All Cities") params.set("city", filters.city);
+  if (filters.city && filters.city !== ALL_CITIES_LABEL) params.set("city", filters.city);
   if (filters.specialty && filters.specialty !== "All") params.set("specialty", filters.specialty);
   if (filters.symptom) params.set("symptom", filters.symptom);
   if (filters.condition) params.set("condition", filters.condition);
@@ -48,23 +50,90 @@ export function buildDoctorSearchUrl(filters: DoctorSearchFilters): string {
   return query ? `/doctors?${query}` : "/doctors";
 }
 
+function normalizeSearchText(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[.']/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function doctorCities(doc: DoctorWithProfile): string[] {
   if (doc.cities?.length) return doc.cities;
   if (doc.profile?.city) return [doc.profile.city];
   return [];
 }
 
-function matchesKeywords(doc: DoctorWithProfile, keywords: string[]): boolean {
-  const haystack = [
-    doc.specialization,
-    doc.sub_specialization ?? "",
-    doc.bio ?? "",
-    ...(doc.qualification ?? []),
-  ]
-    .join(" ")
-    .toLowerCase();
+function getDoctorSearchHaystack(doc: DoctorWithProfile): string {
+  return normalizeSearchText(
+    [
+      doc.profile?.full_name ?? "",
+      doc.specialization,
+      doc.sub_specialization ?? "",
+      ...(doc.qualification ?? []),
+      doc.bio ?? "",
+      ...doctorCities(doc),
+      ...(doc.languages ?? []),
+      ...(doc.hospital_affiliations ?? []),
+    ].join(" ")
+  );
+}
 
-  return keywords.some((kw) => haystack.includes(kw.toLowerCase()));
+function getQueryWords(q: string): string[] {
+  return normalizeSearchText(q)
+    .split(/\s+/)
+    .filter((word) => word.length > 0);
+}
+
+function matchesCatalogWord(doc: DoctorWithProfile, word: string): boolean {
+  for (const item of [...MENTAL_SYMPTOMS, ...MENTAL_CONDITIONS]) {
+    const terms = [item.label, ...item.keywords].map(normalizeSearchText);
+    const termHit = terms.some(
+      (term) => term.includes(word) || word.includes(term)
+    );
+    if (!termHit) continue;
+
+    const specialtyMatch = item.specialty
+      ? normalizeSearchText(doc.specialization).includes(
+          normalizeSearchText(item.specialty)
+        )
+      : false;
+
+    if (specialtyMatch || matchesKeywords(doc, item.keywords)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function matchesFreeTextQuery(doc: DoctorWithProfile, q: string): boolean {
+  const words = getQueryWords(q);
+  if (words.length === 0) return true;
+
+  const haystack = getDoctorSearchHaystack(doc);
+  return words.every(
+    (word) => haystack.includes(word) || matchesCatalogWord(doc, word)
+  );
+}
+
+function matchesKeywords(doc: DoctorWithProfile, keywords: string[]): boolean {
+  const haystack = getDoctorSearchHaystack(doc);
+  return keywords.some((kw) => haystack.includes(normalizeSearchText(kw)));
+}
+
+function matchesCity(doc: DoctorWithProfile, city: string): boolean {
+  const cityNorm = normalizeSearchText(city);
+  return doctorCities(doc).some((c) => normalizeSearchText(c) === cityNorm);
+}
+
+function matchesSpecialty(doc: DoctorWithProfile, specialty: string): boolean {
+  const spec = normalizeSearchText(specialty);
+  return (
+    normalizeSearchText(doc.specialization).includes(spec) ||
+    normalizeSearchText(doc.sub_specialization ?? "").includes(spec)
+  );
 }
 
 export function filterDoctors(
@@ -73,29 +142,16 @@ export function filterDoctors(
 ): ReturnType<typeof mapToDoctorCard>[] {
   let result = [...doctors];
 
-  if (filters.city && filters.city !== "All Cities") {
-    const cityLower = filters.city.toLowerCase();
-    result = result.filter((doc) =>
-      doctorCities(doc).some((c) => c.toLowerCase() === cityLower)
-    );
+  if (filters.city && filters.city !== ALL_CITIES_LABEL) {
+    result = result.filter((doc) => matchesCity(doc, filters.city!));
   }
 
   if (filters.specialty && filters.specialty !== "All") {
-    const spec = filters.specialty.toLowerCase();
-    result = result.filter((doc) => doc.specialization.toLowerCase().includes(spec));
+    result = result.filter((doc) => matchesSpecialty(doc, filters.specialty!));
   }
 
   if (filters.q?.trim()) {
-    const q = filters.q.trim().toLowerCase();
-    result = result.filter((doc) => {
-      const name = doc.profile?.full_name ?? "";
-      return (
-        name.toLowerCase().includes(q) ||
-        doc.specialization.toLowerCase().includes(q) ||
-        (doc.qualification ?? []).join(" ").toLowerCase().includes(q) ||
-        (doc.bio ?? "").toLowerCase().includes(q)
-      );
-    });
+    result = result.filter((doc) => matchesFreeTextQuery(doc, filters.q!));
   }
 
   if (filters.symptom) {
@@ -156,7 +212,7 @@ export function filterDoctors(
 export function getActiveFilterCount(filters: DoctorSearchFilters): number {
   let count = 0;
   if (filters.q?.trim()) count++;
-  if (filters.city && filters.city !== "All Cities") count++;
+  if (filters.city && filters.city !== ALL_CITIES_LABEL) count++;
   if (filters.specialty && filters.specialty !== "All") count++;
   if (filters.symptom) count++;
   if (filters.condition) count++;
@@ -182,7 +238,7 @@ export function buildFilterTitle(filters: DoctorSearchFilters): string {
     parts.push("Best Mental Health Doctors");
   }
 
-  if (filters.city && filters.city !== "All Cities") {
+  if (filters.city && filters.city !== ALL_CITIES_LABEL) {
     parts.push(`In ${filters.city}`);
   }
 

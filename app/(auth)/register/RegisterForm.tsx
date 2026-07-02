@@ -1,69 +1,137 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Eye, EyeOff, Lock, Mail, Phone, User, MapPin } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  Phone,
+  User,
+  MapPin,
+  Stethoscope,
+  FileText,
+  Briefcase,
+} from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { createClient } from "@/lib/supabase/client";
-import { PAKISTAN_CITIES } from "@/types";
+import { PAKISTAN_CITIES, SPECIALIZATIONS } from "@/types";
+import { cn } from "@/lib/utils";
 
-const registerSchema = z
-  .object({
-    fullName: z.string().min(2, "Name must be at least 2 characters"),
-    email: z.string().email("Please enter a valid email"),
-    phone: z.string().min(10, "Please enter a valid phone number"),
-    city: z.string().min(1, "Please select your city"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
-    confirmPassword: z.string(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
+const accountFieldsSchema = z.object({
+  fullName: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Please enter a valid email"),
+  phone: z.string().min(10, "Please enter a valid phone number"),
+  city: z.string().min(1, "Please select your city"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string(),
+});
+
+const passwordMatchRefine = {
+  check: (data: { password: string; confirmPassword: string }) =>
+    data.password === data.confirmPassword,
+  params: {
     message: "Passwords do not match",
     path: ["confirmPassword"],
-  });
+  },
+};
 
-type RegisterFormValues = z.infer<typeof registerSchema>;
+const baseSchema = accountFieldsSchema.refine(
+  passwordMatchRefine.check,
+  passwordMatchRefine.params
+);
+
+const doctorSchema = accountFieldsSchema
+  .extend({
+    pmdcNumber: z.string().min(4, "Enter your PMDC registration number"),
+    specialization: z.string().min(1, "Select your specialization"),
+    qualification: z.string().min(2, "Enter your primary qualification"),
+    experienceYears: z.number().min(0, "Experience must be 0 or more"),
+    consultationFee: z.number().min(0, "Fee must be 0 or more"),
+    bio: z.string().optional(),
+  })
+  .refine(passwordMatchRefine.check, passwordMatchRefine.params);
+
+type PatientFormValues = z.infer<typeof baseSchema>;
+type DoctorFormValues = z.infer<typeof doctorSchema>;
 
 export default function RegisterForm() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") ?? "/patient/dashboard";
-  const role = searchParams.get("role") ?? "patient";
+  const roleParam = searchParams.get("role") === "doctor" ? "doctor" : "patient";
 
+  const [accountType, setAccountType] = useState<"patient" | "doctor">(roleParam);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [needsEmailConfirm, setNeedsEmailConfirm] = useState(false);
   const supabase = createClient();
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<RegisterFormValues>({
-    resolver: zodResolver(registerSchema),
+  const switchAccountType = useCallback(
+    (type: "patient" | "doctor") => {
+      setAccountType(type);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("role", type);
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+
+  const patientForm = useForm<PatientFormValues>({
+    resolver: zodResolver(baseSchema),
     defaultValues: { city: "Lahore" },
   });
 
-  const onSubmit = async (data: RegisterFormValues) => {
+  const doctorForm = useForm<DoctorFormValues>({
+    resolver: zodResolver(doctorSchema),
+    defaultValues: {
+      city: "Lahore",
+      specialization: "Psychiatrist",
+      experienceYears: 0,
+      consultationFee: 3000,
+    },
+  });
+
+  const registerAccount = async (
+    data: PatientFormValues | DoctorFormValues,
+    role: "patient" | "doctor"
+  ) => {
     setLoading(true);
     setError(null);
 
     try {
+      const metadata: Record<string, string | number> = {
+        full_name: data.fullName,
+        role,
+        phone: data.phone,
+        city: data.city,
+      };
+
+      if (role === "doctor") {
+        const doc = data as DoctorFormValues;
+        metadata.pmdc_number = doc.pmdcNumber;
+        metadata.specialization = doc.specialization;
+        metadata.qualification = doc.qualification;
+        metadata.experience_years = doc.experienceYears;
+        metadata.consultation_fee = doc.consultationFee;
+        if (doc.bio?.trim()) metadata.bio = doc.bio.trim();
+      }
+
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
-        options: {
-          data: {
-            full_name: data.fullName,
-            role: "patient",
-          },
-        },
+        options: { data: metadata },
       });
 
       if (signUpError) {
@@ -76,28 +144,14 @@ export default function RegisterForm() {
         return;
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: profileError } = await (supabase.from("profiles") as any).insert({
-        id: authData.user.id,
-        role: "patient",
-        full_name: data.fullName,
-        email: data.email,
-        phone: data.phone,
-        city: data.city,
-      });
-
-      if (profileError) {
-        setError(profileError.message);
-        return;
-      }
-
       if (!authData.session) {
+        setNeedsEmailConfirm(true);
         setSuccess(true);
         return;
       }
 
       router.refresh();
-      router.push(redirect);
+      router.push("/pending-review");
     } catch {
       setError("An unexpected error occurred");
     } finally {
@@ -105,192 +159,286 @@ export default function RegisterForm() {
     }
   };
 
-  if (role === "doctor") {
-    return (
-      <div className="space-y-6">
-        <div className="space-y-2 text-center lg:text-left">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Join as a Doctor</h1>
-          <p className="text-sm text-slate-500">
-            Doctor registration requires admin verification. Please contact our team to get started.
-          </p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm text-slate-600">
-            Email us at{" "}
-            <a href="mailto:doctors@stresssaviors.pk" className="font-medium text-teal-700">
-              doctors@stresssaviors.pk
-            </a>{" "}
-            with your PMDC credentials and we&apos;ll guide you through onboarding.
-          </p>
-          <Link href="/login?role=doctor" className="mt-4 inline-block">
-            <Button variant="outline">Already registered? Log in</Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   if (success) {
     return (
-      <div className="rounded-2xl border border-teal-200 bg-teal-50 p-8 text-center shadow-sm">
-        <h1 className="text-xl font-bold text-slate-900">Check your email</h1>
+      <div className="rounded-2xl border border-brand-100 bg-brand-50 p-8 text-center shadow-sm">
+        <h1 className="text-xl font-bold text-slate-900">
+          {needsEmailConfirm ? "Check your email" : "Application submitted"}
+        </h1>
         <p className="mt-3 text-sm text-slate-600">
-          We&apos;ve sent a confirmation link to your email. Please verify your account, then log
-          in to continue booking.
+          {needsEmailConfirm
+            ? "We sent a confirmation link to your email. After verifying, log in — your account will show as pending review until an administrator approves it."
+            : "Your registration was received. An administrator will review your account before you can access the dashboard."}
         </p>
         <Link
-          href={`/login?redirect=${encodeURIComponent(redirect)}&role=patient`}
+          href={`/login?role=${accountType}${redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""}`}
           className="mt-6 inline-block"
         >
-          <Button className="bg-teal-600 text-white hover:bg-teal-700">Go to Login</Button>
+          <Button className="bg-brand-500 text-white hover:bg-brand-600">Go to Login</Button>
         </Link>
       </div>
     );
   }
+
+  const loginHref = `/login?role=${accountType}${redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""}`;
 
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center lg:text-left">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Create your account</h1>
         <p className="text-sm text-slate-500">
-          Sign up as a patient to book consultations with verified doctors.
+          Register as a {accountType === "doctor" ? "doctor" : "patient"}. Accounts are reviewed by
+          an administrator before dashboard access is granted.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="fullName">Full Name</Label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                id="fullName"
-                placeholder="Your full name"
-                className="pl-10 border-slate-200"
-                {...register("fullName")}
-              />
-            </div>
-            {errors.fullName && (
-              <p className="text-sm text-destructive">{errors.fullName.message}</p>
+      <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+        {(["patient", "doctor"] as const).map((type) => (
+          <button
+            key={type}
+            type="button"
+            onClick={() => switchAccountType(type)}
+            className={cn(
+              "flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all",
+              accountType === type
+                ? "bg-white text-brand-600 shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
             )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                className="pl-10 border-slate-200"
-                {...register("email")}
-              />
-            </div>
-            {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <Input
-                  id="phone"
-                  placeholder="03XX XXXXXXX"
-                  className="pl-10 border-slate-200"
-                  {...register("phone")}
-                />
-              </div>
-              {errors.phone && <p className="text-sm text-destructive">{errors.phone.message}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="city">City</Label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <select
-                  id="city"
-                  className="flex h-10 w-full rounded-lg border border-slate-200 bg-background pl-10 pr-3 text-sm"
-                  {...register("city")}
-                >
-                  {PAKISTAN_CITIES.map((city) => (
-                    <option key={city} value={city}>
-                      {city}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {errors.city && <p className="text-sm text-destructive">{errors.city.message}</p>}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
-                className="pl-10 pr-10 border-slate-200"
-                {...register("password")}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            {errors.password && (
-              <p className="text-sm text-destructive">{errors.password.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                id="confirmPassword"
-                type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
-                className="pl-10 border-slate-200"
-                {...register("confirmPassword")}
-              />
-            </div>
-            {errors.confirmPassword && (
-              <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>
-            )}
-          </div>
-
-          {error && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
-              {error}
-            </p>
-          )}
-
-          <Button
-            type="submit"
-            className="w-full bg-teal-600 font-semibold text-white hover:bg-teal-700 h-11"
-            disabled={loading}
           >
-            {loading ? "Creating account…" : "Create Account"}
-          </Button>
-        </form>
+            {type === "patient" ? "Patient" : "Doctor"}
+          </button>
+        ))}
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
+        {accountType === "patient" ? (
+          <form
+            onSubmit={patientForm.handleSubmit((data) => registerAccount(data, "patient"))}
+            className="space-y-4"
+          >
+            <AccountFields
+              register={patientForm.register}
+              errors={patientForm.formState.errors}
+              showPassword={showPassword}
+              setShowPassword={setShowPassword}
+            />
+            {error && <ErrorBanner message={error} />}
+            <Button
+              type="submit"
+              className="w-full bg-brand-500 font-semibold text-white hover:bg-brand-600 h-11"
+              disabled={loading}
+            >
+              {loading ? "Creating account…" : "Create Patient Account"}
+            </Button>
+          </form>
+        ) : (
+          <form
+            onSubmit={doctorForm.handleSubmit((data) => registerAccount(data, "doctor"))}
+            className="space-y-4"
+          >
+            <AccountFields
+              register={doctorForm.register as unknown as ReturnType<typeof useForm<PatientFormValues>>["register"]}
+              errors={doctorForm.formState.errors}
+              showPassword={showPassword}
+              setShowPassword={setShowPassword}
+            />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="PMDC Number" error={doctorForm.formState.errors.pmdcNumber?.message}>
+                <div className="relative">
+                  <FileText className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    placeholder="PMDC-12345"
+                    className="pl-10 border-slate-200"
+                    {...doctorForm.register("pmdcNumber")}
+                  />
+                </div>
+              </Field>
+              <Field label="Specialization" error={doctorForm.formState.errors.specialization?.message}>
+                <div className="relative">
+                  <Stethoscope className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <select
+                    className="flex h-10 w-full rounded-lg border border-slate-200 bg-background pl-10 pr-3 text-sm"
+                    {...doctorForm.register("specialization")}
+                  >
+                    {SPECIALIZATIONS.map((spec) => (
+                      <option key={spec} value={spec}>
+                        {spec}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </Field>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Qualification" error={doctorForm.formState.errors.qualification?.message}>
+                <div className="relative">
+                  <Briefcase className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    placeholder="MBBS, FCPS…"
+                    className="pl-10 border-slate-200"
+                    {...doctorForm.register("qualification")}
+                  />
+                </div>
+              </Field>
+              <Field label="Experience (years)" error={doctorForm.formState.errors.experienceYears?.message}>
+                <Input
+                  type="number"
+                  min={0}
+                  className="border-slate-200"
+                  {...doctorForm.register("experienceYears", { valueAsNumber: true })}
+                />
+              </Field>
+            </div>
+
+            <Field label="Consultation fee (PKR)" error={doctorForm.formState.errors.consultationFee?.message}>
+              <Input
+                type="number"
+                min={0}
+                className="border-slate-200"
+                {...doctorForm.register("consultationFee", { valueAsNumber: true })}
+              />
+            </Field>
+
+            <Field label="Bio (optional)" error={doctorForm.formState.errors.bio?.message}>
+              <textarea
+                rows={3}
+                placeholder="Brief professional background…"
+                className="flex w-full rounded-lg border border-slate-200 bg-background px-3 py-2 text-sm"
+                {...doctorForm.register("bio")}
+              />
+            </Field>
+
+            {error && <ErrorBanner message={error} />}
+            <Button
+              type="submit"
+              className="w-full bg-brand-500 font-semibold text-white hover:bg-brand-600 h-11"
+              disabled={loading}
+            >
+              {loading ? "Submitting application…" : "Submit Doctor Application"}
+            </Button>
+          </form>
+        )}
       </div>
 
       <p className="text-center text-sm text-slate-500">
         Already have an account?{" "}
-        <Link
-          href={`/login?redirect=${encodeURIComponent(redirect)}&role=patient`}
-          className="font-medium text-teal-700 hover:underline"
-        >
+        <Link href={loginHref} className="font-medium text-brand-600 hover:underline">
           Log in
         </Link>
       </p>
     </div>
+  );
+}
+
+function Field({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      {children}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+function ErrorBanner({ message }: { message: string }) {
+  return (
+    <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+      {message}
+    </p>
+  );
+}
+
+function AccountFields({
+  register,
+  errors,
+  showPassword,
+  setShowPassword,
+}: {
+  register: ReturnType<typeof useForm<PatientFormValues>>["register"];
+  errors: ReturnType<typeof useForm<PatientFormValues>>["formState"]["errors"];
+  showPassword: boolean;
+  setShowPassword: (value: boolean) => void;
+}) {
+  return (
+    <>
+      <Field label="Full Name" error={errors.fullName?.message}>
+        <div className="relative">
+          <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input placeholder="Your full name" className="pl-10 border-slate-200" {...register("fullName")} />
+        </div>
+      </Field>
+
+      <Field label="Email" error={errors.email?.message}>
+        <div className="relative">
+          <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input type="email" placeholder="you@example.com" className="pl-10 border-slate-200" {...register("email")} />
+        </div>
+      </Field>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Phone" error={errors.phone?.message}>
+          <div className="relative">
+            <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input placeholder="03XX XXXXXXX" className="pl-10 border-slate-200" {...register("phone")} />
+          </div>
+        </Field>
+        <Field label="City" error={errors.city?.message}>
+          <div className="relative">
+            <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <select
+              className="flex h-10 w-full rounded-lg border border-slate-200 bg-background pl-10 pr-3 text-sm"
+              {...register("city")}
+            >
+              {PAKISTAN_CITIES.map((city) => (
+                <option key={city} value={city}>
+                  {city}
+                </option>
+              ))}
+            </select>
+          </div>
+        </Field>
+      </div>
+
+      <Field label="Password" error={errors.password?.message}>
+        <div className="relative">
+          <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input
+            type={showPassword ? "text" : "password"}
+            placeholder="••••••••"
+            className="pl-10 pr-10 border-slate-200"
+            {...register("password")}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+          >
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
+      </Field>
+
+      <Field label="Confirm Password" error={errors.confirmPassword?.message}>
+        <div className="relative">
+          <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input
+            type={showPassword ? "text" : "password"}
+            placeholder="••••••••"
+            className="pl-10 border-slate-200"
+            {...register("confirmPassword")}
+          />
+        </div>
+      </Field>
+    </>
   );
 }
