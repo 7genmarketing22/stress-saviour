@@ -128,10 +128,19 @@ export default function RegisterForm() {
         if (doc.bio?.trim()) metadata.bio = doc.bio.trim();
       }
 
+      // Use NEXT_PUBLIC_APP_URL (set in Vercel env vars) so the confirmation
+      // email always points to the live site, never localhost.
+      const siteUrl =
+        process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
+        "https://stress-saviour.vercel.app";
+
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
-        options: { data: metadata },
+        options: {
+          data: metadata,
+          emailRedirectTo: `${siteUrl}/auth/callback?next=/login`,
+        },
       });
 
       if (signUpError) {

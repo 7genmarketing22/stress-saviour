@@ -254,12 +254,27 @@ export function approveDoctor(doctorProfileId: string, adminId: string) {
           rejection_reason: null,
         } as Database["public"]["Tables"]["profiles"]["Update"])
         .eq("id", userId);
+
+      // In-app notification
       await safeNotify(() => createNotification(
         userId,
         "Account approved",
         "Congratulations! Your doctor profile has been verified and approved. You can now accept patient bookings.",
         "approval"
       ));
+
+      // Email notification
+      const doctorEmail = doctor.profile?.email;
+      const doctorName = doctor.profile?.full_name ?? "Doctor";
+      if (doctorEmail) {
+        await safeNotify(() =>
+          fetch("/api/admin/notify-doctor-approved", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ doctorEmail, doctorName, action: "approved" }),
+          }).then(() => undefined)
+        );
+      }
     }
     return doctor;
   });
@@ -283,12 +298,27 @@ export function rejectDoctor(doctorProfileId: string, reason?: string) {
           rejection_reason: rejectionReason,
         } as Database["public"]["Tables"]["profiles"]["Update"])
         .eq("id", userId);
+
+      // In-app notification
       await safeNotify(() => createNotification(
         userId,
         "Application not approved",
         `Your doctor registration was not approved: ${rejectionReason}. Contact support if you believe this is an error.`,
         "approval"
       ));
+
+      // Email notification
+      const doctorEmail = doctor.profile?.email;
+      const doctorName = doctor.profile?.full_name ?? "Doctor";
+      if (doctorEmail) {
+        await safeNotify(() =>
+          fetch("/api/admin/notify-doctor-approved", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ doctorEmail, doctorName, action: "rejected", rejectionReason }),
+          }).then(() => undefined)
+        );
+      }
     }
     return doctor;
   });
