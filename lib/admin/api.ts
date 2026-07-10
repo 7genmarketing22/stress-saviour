@@ -9,6 +9,7 @@ import type {
   AdminPayment,
   AdminStats,
 } from "./types";
+import { createNotification } from "@/lib/notifications/api";
 
 type TableName = keyof Database["public"]["Tables"];
 
@@ -253,6 +254,12 @@ export function approveDoctor(doctorProfileId: string, adminId: string) {
           rejection_reason: null,
         } as Database["public"]["Tables"]["profiles"]["Update"])
         .eq("id", userId);
+      await safeNotify(() => createNotification(
+        userId,
+        "Account approved",
+        "Congratulations! Your doctor profile has been verified and approved. You can now accept patient bookings.",
+        "approval"
+      ));
     }
     return doctor;
   });
@@ -276,6 +283,12 @@ export function rejectDoctor(doctorProfileId: string, reason?: string) {
           rejection_reason: rejectionReason,
         } as Database["public"]["Tables"]["profiles"]["Update"])
         .eq("id", userId);
+      await safeNotify(() => createNotification(
+        userId,
+        "Application not approved",
+        `Your doctor registration was not approved: ${rejectionReason}. Contact support if you believe this is an error.`,
+        "approval"
+      ));
     }
     return doctor;
   });
@@ -315,6 +328,12 @@ export async function approvePatient(userId: string, adminId: string): Promise<P
     .single();
 
   if (error) throw error;
+  await safeNotify(() => createNotification(
+    userId,
+    "Account approved",
+    "Your patient account has been approved. You can now browse doctors and book appointments.",
+    "approval"
+  ));
   return data as Profile;
 }
 
@@ -336,6 +355,12 @@ export async function rejectPatient(
     .single();
 
   if (error) throw error;
+  await safeNotify(() => createNotification(
+    userId,
+    "Registration not approved",
+    `Your patient account was not approved: ${rejectionReason}. Contact support for assistance.`,
+    "approval"
+  ));
   return data as Profile;
 }
 
@@ -377,20 +402,19 @@ export async function updateAppointmentStatusAdmin(
 
 // --- Doctor payout / settlement actions ---
 
+async function safeNotify(fn: () => Promise<void>) {
+  try { await fn(); } catch (err) { console.warn("Notification skipped:", err); }
+}
+
 /** Best-effort notification to the doctor when a payout is cleared. Never throws. */
 async function notifyDoctorPayout(doctorUserId: string, amount: number, reference: string) {
-  try {
-    await table("notifications").insert({
-      user_id: doctorUserId,
-      title: "Payout cleared",
-      message: `A payout of PKR ${Math.round(amount).toLocaleString(
-        "en-PK"
-      )} has been settled to your account (Ref ${reference}).`,
-      type: "payment",
-    } as Database["public"]["Tables"]["notifications"]["Insert"]);
-  } catch (err) {
-    console.warn("Doctor payout notification skipped:", err);
-  }
+  await safeNotify(() => createNotification(
+    doctorUserId,
+    "Payout cleared",
+    `A payout of PKR ${Math.round(amount).toLocaleString("en-PK")} has been settled to your account (Ref: ${reference}).`,
+    "payout",
+    { reference }
+  ));
 }
 
 function payoutReference() {
@@ -455,17 +479,7 @@ async function notifyPatientPayment(
   message: string,
   metadata?: Record<string, unknown>
 ) {
-  try {
-    await table("notifications").insert({
-      user_id: patientId,
-      title,
-      message,
-      type: "payment",
-      metadata: metadata ?? null,
-    } as Database["public"]["Tables"]["notifications"]["Insert"]);
-  } catch (err) {
-    console.warn("Patient payment notification skipped:", err);
-  }
+  await safeNotify(() => createNotification(patientId, title, message, "payment", metadata));
 }
 
 /** Approve a patient's payment proof and confirm their booking. */
@@ -520,6 +534,19 @@ export async function approvePatientPayment(
     `Your payment of PKR ${Math.round(Number(row.amount)).toLocaleString("en-PK")} was approved. Your appointment is now confirmed.`,
     { payment_id: paymentId, appointment_id: row.appointment_id }
   );
+
+  // Also notify the doctor that the appointment is now confirmed
+  const aptRow = payment as AdminPayment & { doctor?: { user_id?: string } };
+  const doctorUserId = aptRow.doctor?.user_id;
+  if (doctorUserId) {
+    await safeNotify(() => createNotification(
+      doctorUserId,
+      "Appointment confirmed",
+      `A patient's payment was verified. Your appointment is now confirmed and scheduled.`,
+      "appointment",
+      { appointment_id: row.appointment_id, payment_id: paymentId }
+    ));
+  }
 
   return payment as AdminPayment;
 }

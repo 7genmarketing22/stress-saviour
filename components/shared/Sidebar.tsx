@@ -20,7 +20,12 @@ import {
   Settings,
   LogOut,
   X,
+  MessageSquare,
+  ClipboardList,
 } from "lucide-react";
+import { useContext } from "react";
+// ChatContext is optional here — it may not be mounted on all portals yet
+import { ChatContext } from "@/contexts/ChatContext";
 
 interface SidebarProps {
   role: "patient" | "doctor" | "admin";
@@ -31,6 +36,9 @@ interface SidebarProps {
 export function Sidebar({ role, isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  // Safely read unread count — ChatContext may not be mounted in all portals
+  const chatCtx = useContext(ChatContext as React.Context<{ totalUnread: number } | null>);
+  const totalUnread = chatCtx?.totalUnread ?? 0;
 
   // Define navigation items based on role
   const navigationMap = {
@@ -38,6 +46,9 @@ export function Sidebar({ role, isOpen = false, onClose }: SidebarProps) {
       { name: "Dashboard", href: "/patient/dashboard", icon: LayoutDashboard },
       { name: "Appointments", href: "/patient/appointments", icon: Calendar },
       { name: "Browse Doctors", href: "/patient/doctors", icon: UserCheck },
+      { name: "Messages", href: "/patient/chat", icon: MessageSquare, badge: totalUnread },
+      { name: "Take Assessment", href: "/patient/assessment", icon: ClipboardList },
+      { name: "Assessment History", href: "/patient/assessments", icon: FileText },
       { name: "Prescriptions", href: "/patient/prescriptions", icon: FileText },
       { name: "Payments", href: "/patient/payments", icon: CreditCard },
       { name: "My Profile", href: "/patient/profile", icon: User },
@@ -45,7 +56,9 @@ export function Sidebar({ role, isOpen = false, onClose }: SidebarProps) {
     doctor: [
       { name: "Dashboard", href: "/doctor/dashboard", icon: LayoutDashboard },
       { name: "Appointments", href: "/doctor/appointments", icon: Calendar },
+      { name: "Patient Assessments", href: "/doctor/assessments", icon: ClipboardList },
       { name: "My Patients", href: "/doctor/patients", icon: Users },
+      { name: "Messages", href: "/doctor/chat", icon: MessageSquare, badge: totalUnread },
       { name: "Schedule", href: "/doctor/schedule", icon: Clock },
       { name: "Earnings", href: "/doctor/earnings", icon: DollarSign },
       { name: "Profile Settings", href: "/doctor/profile", icon: User },
@@ -55,6 +68,7 @@ export function Sidebar({ role, isOpen = false, onClose }: SidebarProps) {
       { name: "Manage Doctors", href: "/admin/doctors", icon: UserCheck },
       { name: "Manage Patients", href: "/admin/patients", icon: Users },
       { name: "Appointments", href: "/admin/appointments", icon: Calendar },
+      { name: "Messages", href: "/admin/chat", icon: MessageSquare, badge: totalUnread },
       { name: "Payments", href: "/admin/payments", icon: CreditCard },
       { name: "Staff Management", href: "/admin/staff", icon: ShieldCheck },
       { name: "Reports & Analytics", href: "/admin/reports", icon: TrendingUp },
@@ -98,6 +112,7 @@ export function Sidebar({ role, isOpen = false, onClose }: SidebarProps) {
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           const Icon = item.icon;
+          const badge = (item as { badge?: number }).badge;
 
           return (
             <Link
@@ -112,7 +127,12 @@ export function Sidebar({ role, isOpen = false, onClose }: SidebarProps) {
               )}
             >
               <Icon className={cn("h-4 w-4 shrink-0 transition-transform duration-200 group-hover:scale-110", isActive ? "" : "text-muted-foreground")} />
-              <span>{item.name}</span>
+              <span className="flex-1">{item.name}</span>
+              {badge && badge > 0 && (
+                <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
+                  {badge > 99 ? "99+" : badge}
+                </span>
+              )}
             </Link>
           );
         })}

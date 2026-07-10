@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { User, Mail, Phone, MapPin, Building, Activity, FileText,
   ShieldCheck, Lock, Bell, Clock, CreditCard,
-  Check,
+  Check, Upload, X, Eye, Loader2, GraduationCap,
 } from "lucide-react";
 import { useDoctor } from "@/contexts/DoctorContext";
 import { AvatarUpload } from "@/components/shared/AvatarUpload";
@@ -16,6 +16,8 @@ import {
   updatePassword,
   updateUserProfile,
 } from "@/lib/doctor/api";
+import { uploadDoctorCertificate, removeDoctorCertificate, validateCertificateFile } from "@/lib/storage/certificates";
+import type { DoctorCertificate } from "@/lib/doctor/types";
 
 export default function DoctorProfilePage() {
   const { profile, doctorProfile, documents, setProfile, setDoctorProfile, setDocuments, refresh } =
@@ -23,6 +25,12 @@ export default function DoctorProfilePage() {
   const [activeTab, setActiveTab] = useState<"profile" | "telehealth" | "payout" | "security">("profile");
   const [isSaving, setIsSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [certificates, setCertificates] = useState<DoctorCertificate[]>(
+    documents.certificates ?? []
+  );
+  const [certUploading, setCertUploading] = useState(false);
+  const [certDragging, setCertDragging] = useState(false);
+  const certInputRef = useRef<HTMLInputElement>(null);
 
   const [profileForm, setProfileForm] = useState({
     fullName: profile.full_name,
@@ -62,6 +70,10 @@ export default function DoctorProfilePage() {
   });
 
   useEffect(() => {
+    setCertificates(documents.certificates ?? []);
+  }, [documents.certificates]);
+
+  useEffect(() => {
     setProfileForm({
       fullName: profile.full_name,
       email: profile.email,
@@ -90,6 +102,36 @@ export default function DoctorProfilePage() {
   const showToast = (message: string) => {
     setToastMessage(message);
     setTimeout(() => setToastMessage(""), 3000);
+  };
+
+  const handleCertificateUpload = async (file: File) => {
+    const validErr = validateCertificateFile(file);
+    if (validErr) { showToast(validErr); return; }
+    setCertUploading(true);
+    try {
+      const cert = await uploadDoctorCertificate(profile.id, file);
+      const updated = [...certificates, cert];
+      await updateDoctorDocuments(doctorProfile.id, documents, { certificates: updated });
+      setCertificates(updated);
+      showToast("Certificate uploaded successfully.");
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setCertUploading(false);
+      if (certInputRef.current) certInputRef.current.value = "";
+    }
+  };
+
+  const handleCertificateDelete = async (cert: DoctorCertificate) => {
+    try {
+      await removeDoctorCertificate(profile.id, cert.id, cert.name);
+      const updated = certificates.filter((c) => c.id !== cert.id);
+      await updateDoctorDocuments(doctorProfile.id, documents, { certificates: updated });
+      setCertificates(updated);
+      showToast("Certificate removed.");
+    } catch {
+      showToast("Failed to remove certificate.");
+    }
   };
 
   const handleAvatarUpload = async (file: File) => {
@@ -402,17 +444,130 @@ export default function DoctorProfilePage() {
                     </div>
 
                     {/* Qualification */}
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <label className="text-xs font-semibold text-muted-foreground">Qualifications & Degrees</label>
-                      <div className="relative">
-                        <FileText className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <input
-                          type="text"
-                          value={profileForm.qualification}
-                          onChange={(e) => setProfileForm({ ...profileForm, qualification: e.target.value })}
-                          required
-                          className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
-                        />
+                    <div className="space-y-3 sm:col-span-2">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground">Qualifications & Degrees</label>
+                        <div className="relative">
+                          <FileText className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <input
+                            type="text"
+                            value={profileForm.qualification}
+                            onChange={(e) => setProfileForm({ ...profileForm, qualification: e.target.value })}
+                            placeholder="e.g. MBBS, MSc Clinical Psychology, PMDC Registered"
+                            required
+                            className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
+                          />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">Enter degrees separated by commas. Upload certificate documents below for verification.</p>
+                      </div>
+
+                      {/* Certificate Upload Zone */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                            <GraduationCap className="h-3.5 w-3.5" />
+                            Certificate Documents
+                            <span className="text-[10px] font-normal bg-muted px-1.5 py-0.5 rounded-full">{certificates.length} uploaded</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => certInputRef.current?.click()}
+                            disabled={certUploading}
+                            className="flex items-center gap-1.5 text-xs font-semibold text-brand-600 dark:text-brand-300 hover:text-brand-700 transition-colors disabled:opacity-50"
+                          >
+                            {certUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                            Upload File
+                          </button>
+                          <input
+                            ref={certInputRef}
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,application/pdf"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleCertificateUpload(f);
+                            }}
+                          />
+                        </div>
+
+                        {/* Drop Zone */}
+                        <div
+                          onDragOver={(e) => { e.preventDefault(); setCertDragging(true); }}
+                          onDragLeave={() => setCertDragging(false)}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setCertDragging(false);
+                            const f = e.dataTransfer.files?.[0];
+                            if (f) handleCertificateUpload(f);
+                          }}
+                          onClick={() => certInputRef.current?.click()}
+                          className={`relative flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed py-6 cursor-pointer transition-all duration-200 ${
+                            certDragging
+                              ? "border-brand-400 bg-brand-50/60 dark:bg-brand-900/20"
+                              : "border-border hover:border-brand-300 hover:bg-muted/30"
+                          } ${certUploading ? "pointer-events-none opacity-60" : ""}`}
+                        >
+                          {certUploading ? (
+                            <>
+                              <Loader2 className="h-6 w-6 text-brand-400 animate-spin" />
+                              <p className="text-xs text-muted-foreground font-medium">Uploading certificate…</p>
+                            </>
+                          ) : (
+                            <>
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100/60 dark:bg-brand-900/30">
+                                <Upload className="h-5 w-5 text-brand-500" />
+                              </div>
+                              <div className="text-center">
+                                <p className="text-xs font-semibold text-foreground">Drop file here or click to browse</p>
+                                <p className="text-[11px] text-muted-foreground mt-0.5">PDF, JPEG, PNG, WebP · max 10 MB</p>
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Uploaded Certificates List */}
+                        {certificates.length > 0 && (
+                          <div className="space-y-2 mt-1">
+                            {certificates.map((cert) => {
+                              const isPdf = cert.name.toLowerCase().endsWith(".pdf");
+                              return (
+                                <div
+                                  key={cert.id}
+                                  className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/30 group"
+                                >
+                                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${isPdf ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400" : "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"}`}>
+                                    {isPdf ? "PDF" : "IMG"}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-semibold text-foreground truncate">{cert.name}</p>
+                                    <p className="text-[11px] text-muted-foreground">
+                                      {new Date(cert.uploaded_at).toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" })}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <a
+                                      href={cert.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-brand-100 text-muted-foreground hover:text-brand-600 transition-colors"
+                                      title="View certificate"
+                                    >
+                                      <Eye className="h-3.5 w-3.5" />
+                                    </a>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCertificateDelete(cert)}
+                                      className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-red-100 text-muted-foreground hover:text-red-600 transition-colors"
+                                      title="Remove certificate"
+                                    >
+                                      <X className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
 

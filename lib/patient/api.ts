@@ -8,6 +8,7 @@ import type {
 import type { Database } from "@/types/database";
 import { parseClinicalNotes } from "@/lib/doctor/notes";
 import { uploadPaymentProof } from "@/lib/storage/paymentProof";
+import { createNotification, notifyAllAdmins } from "@/lib/notifications/api";
 import type {
   AppointmentWithDoctor,
   DoctorWithProfile,
@@ -251,46 +252,28 @@ export async function bookAppointment(params: {
     throw payError;
   }
 
+  // Notify the doctor a new booking request arrived
+  await safeNotify(async () => {
+    const doctorUserId = booked.doctor?.user_id;
+    if (doctorUserId) {
+      const dateStr = new Date(params.scheduledAt).toLocaleString("en-PK", {
+        weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+      });
+      await createNotification(
+        doctorUserId,
+        "New appointment booking",
+        `A patient booked a ${params.appointmentType.replace("_", " ")} session on ${dateStr}. Awaiting payment confirmation.`,
+        "appointment",
+        { appointment_id: booked.id }
+      );
+    }
+  });
+
   return { appointment: booked, paymentId: (payment as { id: string }).id };
 }
 
-async function notifyAdmins(title: string, message: string, metadata?: Record<string, unknown>) {
-  try {
-    const { data: admins } = await table("profiles")
-      .select("id")
-      .in("role", ["admin", "super_admin"]);
-    if (!admins?.length) return;
-    await table("notifications").insert(
-      (admins as { id: string }[]).map((admin) => ({
-        user_id: admin.id,
-        title,
-        message,
-        type: "payment",
-        metadata: metadata ?? null,
-      })) as Database["public"]["Tables"]["notifications"]["Insert"][]
-    );
-  } catch (err) {
-    console.warn("Admin notification skipped:", err);
-  }
-}
-
-async function notifyUser(
-  userId: string,
-  title: string,
-  message: string,
-  metadata?: Record<string, unknown>
-) {
-  try {
-    await table("notifications").insert({
-      user_id: userId,
-      title,
-      message,
-      type: "payment",
-      metadata: metadata ?? null,
-    } as Database["public"]["Tables"]["notifications"]["Insert"]);
-  } catch (err) {
-    console.warn("User notification skipped:", err);
-  }
+async function safeNotify(fn: () => Promise<void>) {
+  try { await fn(); } catch (err) { console.warn("Notification skipped:", err); }
 }
 
 export async function submitPaymentProof(paymentId: string, file: File) {
@@ -326,17 +309,19 @@ export async function submitPaymentProof(paymentId: string, file: File) {
   if (updateError) throw updateError;
 
   const amount = Number((payment as { amount: number }).amount);
-  await notifyUser(
+  await safeNotify(() => createNotification(
     user.id,
     "Payment proof submitted",
     `Your payment of PKR ${Math.round(amount).toLocaleString("en-PK")} is under review. We will notify you once admin confirms your booking.`,
+    "payment",
     { payment_id: paymentId }
-  );
-  await notifyAdmins(
+  ));
+  await safeNotify(() => notifyAllAdmins(
     "Payment proof to review",
     `A patient submitted a payment screenshot (PKR ${Math.round(amount).toLocaleString("en-PK")}). Approve to confirm the booking.`,
+    "payment",
     { payment_id: paymentId, appointment_id: (payment as { appointment_id: string }).appointment_id }
-  );
+  ));
 
   return proofUrl;
 }
@@ -381,7 +366,23 @@ export async function cancelPatientAppointment(
     .single();
 
   if (error) throw error;
-  return data as AppointmentWithDoctor;
+  const cancelled = data as AppointmentWithDoctor;
+
+  // Notify the doctor the appointment was cancelled
+  await safeNotify(async () => {
+    const doctorUserId = cancelled.doctor?.user_id;
+    if (doctorUserId) {
+      await createNotification(
+        doctorUserId,
+        "Appointment cancelled",
+        `A patient cancelled their appointment scheduled for ${new Date(cancelled.scheduled_at).toLocaleString("en-PK", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}.`,
+        "appointment",
+        { appointment_id: cancelled.id }
+      );
+    }
+  });
+
+  return cancelled;
 }
 
 export async function submitAppointmentReview(

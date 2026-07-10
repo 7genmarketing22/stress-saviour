@@ -159,6 +159,39 @@ export default async function HomePage() {
           <ServiceQuickLinks />
         </section>
 
+        {/* Behavioral Health Assessment CTA Section */}
+        <section className="mx-auto max-w-6xl px-4 pb-12 sm:px-6">
+          <div className="relative overflow-hidden rounded-3xl border border-brand-100/80 bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 p-6 sm:p-8 md:p-10 text-white shadow-lg">
+            <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
+            <div className="absolute -left-16 -bottom-16 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="max-w-2xl space-y-3">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-md">
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  Free Self-Screening Assessment
+                </span>
+                <h3 className="text-2xl sm:text-3xl font-bold">
+                  Take a Behavioral Assessment Test
+                </h3>
+                <p className="text-white/90 text-sm sm:text-base leading-relaxed">
+                  Understand your mental well-being with our clinically backed self-assessments (Anxiety & Anger PROMIS Short Forms). Get instant diagnostic indicators and recommendations for verified PMDC specialists.
+                </p>
+              </div>
+              <div className="flex-shrink-0">
+                <Link href="/assessment">
+                  <Button
+                    size="lg"
+                    className="w-full sm:w-auto bg-white text-brand-700 hover:bg-brand-50 font-semibold shadow-md shadow-brand-900/10 gap-2 h-12 px-6"
+                  >
+                    Start Free Assessment
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Brand banner */}
         <section className="mx-auto max-w-6xl px-4 pb-12 sm:px-6">
           <div className="group relative overflow-hidden rounded-[2rem] border border-brand-50/80 bg-white shadow-sm ring-1 ring-slate-100">

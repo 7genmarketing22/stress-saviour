@@ -1,22 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Sidebar } from "@/components/shared/Sidebar";
 import { Header } from "@/components/shared/Header";
 import { usePathname } from "next/navigation";
 import { AdminProvider, useAdmin } from "@/contexts/AdminContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
+import { ChatProvider } from "@/contexts/ChatContext";
 
 function AdminLayoutShell({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [notifications, setNotifications] = useState<
-    Array<{ id: string; title: string; message: string; created_at: string; is_read: boolean }>
-  >([]);
   const pathname = usePathname();
   const { profile } = useAdmin();
-
-  useEffect(() => {
-    setNotifications([]);
-  }, [profile.id]);
 
   const getPageTitle = (path: string) => {
     if (path.includes("/dashboard")) return "Dashboard Overview";
@@ -26,34 +21,39 @@ function AdminLayoutShell({ children }: { children: React.ReactNode }) {
     if (path.includes("/payments")) return "Financial Oversight";
     if (path.includes("/staff")) return "Staff Management";
     if (path.includes("/reports")) return "Reports & Analytics";
+    if (path.includes("/settings")) return "Settings";
+    if (path.includes("/chat")) return "Messages";
     return "Admin Portal";
   };
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <Sidebar
-        role="admin"
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-      />
+    <NotificationProvider userId={profile.id}>
+      <ChatProvider myId={profile.id} myName={profile.full_name}>
+        <div className="min-h-screen bg-muted/30">
+          <Sidebar
+            role="admin"
+            isOpen={isSidebarOpen}
+            onClose={() => setIsSidebarOpen(false)}
+          />
 
-      <div className="flex flex-col md:pl-64 min-h-screen transition-all duration-200">
-        <Header
-          title={getPageTitle(pathname)}
-          user={{
-            name: profile.full_name,
-            email: profile.email,
-            role: "admin",
-            avatarUrl: profile.avatar_url ?? undefined,
-          }}
-          notifications={notifications}
-          onMenuClick={() => setIsSidebarOpen(true)}
-        />
-        <main className="flex-1 p-4 md:p-6 container max-w-7xl mx-auto">
-          {children}
-        </main>
-      </div>
-    </div>
+          <div className="flex flex-col md:pl-64 min-h-screen transition-all duration-200">
+            <Header
+              title={getPageTitle(pathname)}
+              user={{
+                name: profile.full_name,
+                email: profile.email,
+                role: "admin",
+                avatarUrl: profile.avatar_url ?? undefined,
+              }}
+              onMenuClick={() => setIsSidebarOpen(true)}
+            />
+            <main className="flex-1 p-4 md:p-6 container max-w-7xl mx-auto">
+              {children}
+            </main>
+          </div>
+        </div>
+      </ChatProvider>
+    </NotificationProvider>
   );
 }
 
@@ -64,3 +64,4 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     </AdminProvider>
   );
 }
+

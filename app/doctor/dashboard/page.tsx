@@ -33,13 +33,13 @@ import {
 } from "lucide-react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from "recharts";
 import { useDoctor } from "@/contexts/DoctorContext";
+import { useNotifications } from "@/contexts/NotificationContext";
 import { usePaymentsRealtime } from "@/lib/realtime/usePaymentsRealtime";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import {
   buildLastVisitMap,
   getDoctorAppointments,
   getDoctorPayments,
-  getNotifications,
   saveClinicalRecords,
   startAppointmentCall,
   updateDoctorDocuments,
@@ -55,6 +55,7 @@ import {
 
 export default function DoctorDashboardPage() {
   const { profile, doctorProfile, documents, setDocuments } = useDoctor();
+  const { notifications: contextNotifications } = useNotifications();
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
   const [showQuickNote, setShowQuickNote] = useState(false);
   const [quickNote, setQuickNote] = useState("");
@@ -98,10 +99,9 @@ export default function DoctorDashboardPage() {
   const loadDashboardData = async () => {
     setIsLoading(true);
     try {
-      const [appointments, payments, notifications] = await Promise.all([
+      const [appointments, payments] = await Promise.all([
         getDoctorAppointments(doctorProfile.id),
         getDoctorPayments(doctorProfile.id),
-        getNotifications(profile.id, 5),
       ]);
 
       const lastVisitMap = buildLastVisitMap(appointments);
@@ -199,7 +199,7 @@ export default function DoctorDashboardPage() {
       setWeekSchedule(weekDays);
 
       setRecentActivity(
-        (notifications as Array<{ id: string; title: string; message: string; created_at: string }>).map((n) => ({
+        contextNotifications.slice(0, 5).map((n) => ({
           id: n.id,
           text: `${n.title}: ${n.message}`,
           time: timeAgo(n.created_at),
@@ -285,6 +285,17 @@ export default function DoctorDashboardPage() {
       actionText: "View Finances",
     },
   ];
+
+  // Keep activity feed in sync with context notifications (live updates)
+  useEffect(() => {
+    setRecentActivity(
+      contextNotifications.slice(0, 5).map((n) => ({
+        id: n.id,
+        text: `${n.title}: ${n.message}`,
+        time: timeAgo(n.created_at),
+      }))
+    );
+  }, [contextNotifications]);
 
   const recentActivityFeed = recentActivity;
 

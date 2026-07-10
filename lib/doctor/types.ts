@@ -1,6 +1,14 @@
 import type { AppointmentStatus, AppointmentType, DoctorProfile, Profile } from "@/types";
 
+export interface DoctorCertificate {
+  id: string;          // uuid
+  name: string;        // original file name shown to user
+  url: string;         // public Supabase storage URL
+  uploaded_at: string; // ISO date string
+}
+
 export interface DoctorDocuments {
+  certificates?: DoctorCertificate[];
   payout_settings?: {
     method: "bank" | "easypaisa" | "jazzcash";
     bankName: string;

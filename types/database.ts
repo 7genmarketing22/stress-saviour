@@ -446,7 +446,124 @@ export type Database = {
           updated_at?: string;
         };
       };
+      conversations: {
+        Row: {
+          id: string;
+          participant_a: string;
+          participant_b: string;
+          created_at: string;
+          updated_at: string;
+          last_message_at: string;
+        };
+        Insert: {
+          id?: string;
+          participant_a: string;
+          participant_b: string;
+          created_at?: string;
+          updated_at?: string;
+          last_message_at?: string;
+        };
+        Update: {
+          id?: string;
+          participant_a?: string;
+          participant_b?: string;
+          created_at?: string;
+          updated_at?: string;
+          last_message_at?: string;
+        };
+      };
+      messages: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          sender_id: string;
+          body: string | null;
+          attachment_url: string | null;
+          attachment_type: "image" | "file" | null;
+          attachment_name: string | null;
+          attachment_size: number | null;
+          reply_to_id: string | null;
+          is_edited: boolean;
+          edited_at: string | null;
+          deleted_for_sender: boolean;
+          deleted_for_everyone: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          conversation_id: string;
+          sender_id: string;
+          body?: string | null;
+          attachment_url?: string | null;
+          attachment_type?: "image" | "file" | null;
+          attachment_name?: string | null;
+          attachment_size?: number | null;
+          reply_to_id?: string | null;
+          is_edited?: boolean;
+          edited_at?: string | null;
+          deleted_for_sender?: boolean;
+          deleted_for_everyone?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          conversation_id?: string;
+          sender_id?: string;
+          body?: string | null;
+          attachment_url?: string | null;
+          attachment_type?: "image" | "file" | null;
+          attachment_name?: string | null;
+          attachment_size?: number | null;
+          reply_to_id?: string | null;
+          is_edited?: boolean;
+          edited_at?: string | null;
+          deleted_for_sender?: boolean;
+          deleted_for_everyone?: boolean;
+          created_at?: string;
+        };
+      };
+      message_reactions: {
+        Row: {
+          id: string;
+          message_id: string;
+          user_id: string;
+          emoji: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          message_id: string;
+          user_id: string;
+          emoji: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          message_id?: string;
+          user_id?: string;
+          emoji?: string;
+          created_at?: string;
+        };
+      };
+      message_reads: {
+        Row: {
+          message_id: string;
+          user_id: string;
+          read_at: string;
+        };
+        Insert: {
+          message_id: string;
+          user_id: string;
+          read_at?: string;
+        };
+        Update: {
+          message_id?: string;
+          user_id?: string;
+          read_at?: string;
+        };
+      };
     };
+
     Views: Record<string, never>;
     Functions: {
       provision_staff_member: {
