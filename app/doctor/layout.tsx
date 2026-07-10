@@ -7,11 +7,13 @@ import { usePathname } from "next/navigation";
 import { DoctorProvider, useDoctor } from "@/contexts/DoctorContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { ChatProvider } from "@/contexts/ChatContext";
+import { ProfileOptimizationModal } from "@/components/doctor/ProfileOptimizationModal";
+import { checkProfileCompleteness } from "@/lib/doctor/profileCompleteness";
 
 function DoctorLayoutShell({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pathname = usePathname();
-  const { profile } = useDoctor();
+  const { profile, doctorProfile, documents } = useDoctor();
 
   const getPageTitle = (path: string) => {
     if (path.includes("/dashboard")) return "Dashboard Overview";
@@ -24,6 +26,8 @@ function DoctorLayoutShell({ children }: { children: React.ReactNode }) {
     if (path.includes("/chat")) return "Messages";
     return "Doctor Portal";
   };
+
+  const completeness = checkProfileCompleteness(profile, doctorProfile, documents);
 
   return (
     <NotificationProvider userId={profile.id}>
@@ -50,6 +54,12 @@ function DoctorLayoutShell({ children }: { children: React.ReactNode }) {
               {children}
             </main>
           </div>
+
+          {/* Profile optimization popup — shows 8-10s after login, once per session */}
+          <ProfileOptimizationModal
+            completeness={completeness}
+            doctorName={profile.full_name}
+          />
         </div>
       </ChatProvider>
     </NotificationProvider>

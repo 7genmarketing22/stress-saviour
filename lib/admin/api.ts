@@ -213,6 +213,56 @@ export async function getAdminPayments(): Promise<AdminPayment[]> {
   return (data ?? []) as AdminPayment[];
 }
 
+// --- Admin doctor profile editor ---
+
+export async function adminUpdateDoctorProfile(
+  doctorProfileId: string,
+  profileUserId: string,
+  profileUpdates: {
+    full_name?: string;
+    phone?: string | null;
+    city?: string | null;
+  },
+  doctorUpdates: {
+    specialization?: string;
+    qualification?: string[];
+    bio?: string | null;
+    experience_years?: number;
+    consultation_fee?: number;
+    follow_up_fee?: number | null;
+    pmdc_number?: string;
+    is_available?: boolean;
+  }
+) {
+  const hasProfileChanges = Object.keys(profileUpdates).length > 0;
+  const hasDoctorChanges = Object.keys(doctorUpdates).length > 0;
+
+  let updatedProfile = null;
+  let updatedDoctor = null;
+
+  if (hasProfileChanges) {
+    const { data, error } = await table("profiles")
+      .update(profileUpdates as Database["public"]["Tables"]["profiles"]["Update"])
+      .eq("id", profileUserId)
+      .select()
+      .single();
+    if (error) throw error;
+    updatedProfile = data;
+  }
+
+  if (hasDoctorChanges) {
+    const { data, error } = await table("doctor_profiles")
+      .update(doctorUpdates as Database["public"]["Tables"]["doctor_profiles"]["Update"])
+      .eq("id", doctorProfileId)
+      .select(DOCTOR_ADMIN_SELECT)
+      .single();
+    if (error) throw error;
+    updatedDoctor = data as AdminDoctor;
+  }
+
+  return { updatedProfile, updatedDoctor };
+}
+
 // --- Doctor verification actions ---
 
 async function setDoctorStatus(
