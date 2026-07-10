@@ -176,6 +176,16 @@ function LoginForm() {
         return;
       }
 
+      // Notify all admins about this login (fire-and-forget, never blocks the user)
+      if (actualRole === "doctor" || actualRole === "patient") {
+        const userName = access.profile.full_name ?? access.profile.email ?? "Unknown";
+        (supabase as any).rpc("notify_admins_on_login", {
+          p_user_id: userId,
+          p_role: actualRole,
+          p_name: userName,
+        }).then(() => {}).catch(() => {});
+      }
+
       router.refresh();
 
       if (actualRole === "doctor") {
