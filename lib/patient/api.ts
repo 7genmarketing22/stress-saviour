@@ -9,6 +9,8 @@ import type { Database } from "@/types/database";
 import { parseClinicalNotes } from "@/lib/doctor/notes";
 import { uploadPaymentProof } from "@/lib/storage/paymentProof";
 import { createNotification, notifyAllAdmins } from "@/lib/notifications/api";
+import { initiateRefundForCancelledAppointment } from "@/lib/refunds/process";
+import { getOrCreateConversation, sendMessage } from "@/lib/chat/api";
 import type {
   AppointmentWithDoctor,
   DoctorWithProfile,
@@ -47,7 +49,10 @@ const APPOINTMENT_SELECT = `
     ${DOCTOR_SELECT}
   ),
   review:reviews!reviews_appointment_id_fkey ( rating, comment ),
-  payments ( id, status, proof_url, payment_method, rejection_reason, amount )
+  payments (
+    id, status, proof_url, payment_method, rejection_reason, amount,
+    refund_status, refund_amount, refund_initiated_at, refund_processed_at, refund_note, refunded_at
+  )
 `;
 
 const PRESCRIPTION_APPOINTMENT_SELECT = `
@@ -162,6 +167,38 @@ export async function getDoctorAvailability(doctorProfileId: string) {
   return data ?? [];
 }
 
+export interface SlotAvailability {
+  booked: string[];   // HH:MM — occupied by a patient appointment
+  blocked: string[];  // HH:MM — doctor has marked off / unavailable
+}
+
+/**
+ * Returns sets of "HH:MM" times that are either booked (by another patient)
+ * or blocked (doctor marked as off) for a given doctor on a specific date.
+ *
+ * Uses a SECURITY DEFINER RPC so any authenticated patient can call it
+ * without being able to read other patients' full appointment records.
+ */
+export async function getBookedSlotsForDate(
+  doctorProfileId: string,
+  date: string,
+): Promise<SlotAvailability> {
+  const supabase = createClient();
+  const { data, error } = await (supabase as any).rpc("get_booked_slots", {
+    p_doctor_id: doctorProfileId,
+    p_date: date,
+  });
+  if (error) {
+    console.warn("getBookedSlotsForDate error:", error.message);
+    return { booked: [], blocked: [] };
+  }
+  const rows = (data ?? []) as { slot_time: string; is_blocked: boolean }[];
+  return {
+    booked: rows.filter((r) => !r.is_blocked).map((r) => r.slot_time),
+    blocked: rows.filter((r) => r.is_blocked).map((r) => r.slot_time),
+  };
+}
+
 export async function getPatientPayments(): Promise<PaymentWithDoctor[]> {
   const { data, error } = await table("payments")
     .select(
@@ -227,7 +264,36 @@ export async function bookAppointment(params: {
     .select(APPOINTMENT_SELECT)
     .single();
 
-  if (aptError) throw aptError;
+  if (aptError) {
+    if (aptError.code === "23505") {
+      throw new Error(
+        "This time slot was just booked by another patient. Please select a different time.",
+      );
+    }
+    // Trigger raised when doctor marked the slot as off
+    if (
+      aptError.code === "P0001" &&
+      aptError.message?.includes("SLOT_BLOCKED")
+    ) {
+      // Notify admins of the failed attempt for visibility
+      await safeNotify(async () => {
+        const scheduledDate = new Date(params.scheduledAt).toLocaleString("en-PK", {
+          weekday: "short", day: "numeric", month: "short",
+          hour: "2-digit", minute: "2-digit",
+        });
+        await notifyAllAdmins(
+          "Booking blocked — doctor unavailable",
+          `A patient attempted to book an appointment with doctor (ID: ${params.doctorProfileId}) on ${scheduledDate}, but the slot is marked as off by the doctor. No booking was created.`,
+          "appointment",
+          { doctor_id: params.doctorProfileId, scheduled_at: params.scheduledAt }
+        );
+      });
+      throw new Error(
+        "This doctor is unavailable at the selected time. Please choose a different slot."
+      );
+    }
+    throw aptError;
+  }
 
   const booked = appointment as AppointmentWithDoctor;
   const platformFee = Math.round(params.consultationFee * 0.1 * 100) / 100;
@@ -252,21 +318,62 @@ export async function bookAppointment(params: {
     throw payError;
   }
 
-  // Notify the doctor a new booking request arrived
+  const doctorUserId = booked.doctor?.user_id;
+  const doctorName = booked.doctor?.profile?.full_name ?? "your doctor";
+  const dateStr = new Date(params.scheduledAt).toLocaleString("en-PK", {
+    weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+  });
+  const typeLabel = params.appointmentType.replace("_", " ");
+
+  // ── In-app: notify doctor ────────────────────────────────────
   await safeNotify(async () => {
-    const doctorUserId = booked.doctor?.user_id;
-    if (doctorUserId) {
-      const dateStr = new Date(params.scheduledAt).toLocaleString("en-PK", {
-        weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
-      });
-      await createNotification(
-        doctorUserId,
-        "New appointment booking",
-        `A patient booked a ${params.appointmentType.replace("_", " ")} session on ${dateStr}. Awaiting payment confirmation.`,
-        "appointment",
-        { appointment_id: booked.id }
-      );
-    }
+    if (!doctorUserId) return;
+    await createNotification(
+      doctorUserId,
+      "New appointment booking",
+      `A patient booked a ${typeLabel} session on ${dateStr}. Awaiting payment confirmation.`,
+      "appointment",
+      { appointment_id: booked.id }
+    );
+  });
+
+  // ── In-app: confirm to patient ───────────────────────────────
+  await safeNotify(async () => {
+    await createNotification(
+      user.id,
+      "Appointment booked",
+      `Your ${typeLabel} appointment with ${doctorName} is scheduled for ${dateStr}. Please complete payment to confirm.`,
+      "appointment",
+      { appointment_id: booked.id }
+    );
+  });
+
+  // ── Chat: post a system-style confirmation in the thread ─────
+  await safeNotify(async () => {
+    if (!doctorUserId) return;
+    const conversationId = await getOrCreateConversation(user.id, doctorUserId);
+    await sendMessage({
+      conversationId,
+      senderId: user.id,
+      body: `📅 Appointment Booked\n\nHello Dr. ${doctorName.split(" ")[0]}, I've scheduled a ${typeLabel} consultation for ${dateStr}. Payment is being processed — looking forward to the session!`,
+    });
+  });
+
+  // ── Email: fire-and-forget to both parties ───────────────────
+  await safeNotify(async () => {
+    await fetch("/api/appointments/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        appointmentId: booked.id,
+        patientId: user.id,
+        doctorProfileId: params.doctorProfileId,
+        scheduledAt: params.scheduledAt,
+        appointmentType: params.appointmentType,
+        consultationFee: params.consultationFee,
+        patientNotes: params.patientNotes ?? "",
+      }),
+    });
   });
 
   return { appointment: booked, paymentId: (payment as { id: string }).id };
@@ -367,6 +474,12 @@ export async function cancelPatientAppointment(
 
   if (error) throw error;
   const cancelled = data as AppointmentWithDoctor;
+
+  await initiateRefundForCancelledAppointment({
+    appointmentId,
+    cancelledBy: "patient",
+    cancellationReason: reason?.trim() || "Cancelled by patient",
+  }).catch(() => {});
 
   // Notify the doctor the appointment was cancelled
   await safeNotify(async () => {

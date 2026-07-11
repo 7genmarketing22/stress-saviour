@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Calendar, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { bookAppointment, getDoctorAvailability } from "@/lib/patient/api";
+import { bookAppointment, getDoctorAvailability, getBookedSlotsForDate } from "@/lib/patient/api";
 import { generateTimeSlotsForDate } from "@/lib/booking/slots";
 import type { AppointmentType } from "@/types";
 
@@ -37,6 +37,9 @@ export function BookingModal({ doctor, onClose, onSuccess }: BookingModalProps) 
     Awaited<ReturnType<typeof getDoctorAvailability>>
   >([]);
   const [loadingSlots, setLoadingSlots] = useState(true);
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [blockedSlots, setBlockedSlots] = useState<string[]>([]);
+  const [loadingBooked, setLoadingBooked] = useState(false);
 
   useEffect(() => {
     getDoctorAvailability(doctor.id)
@@ -45,21 +48,50 @@ export function BookingModal({ doctor, onClose, onSuccess }: BookingModalProps) 
       .finally(() => setLoadingSlots(false));
   }, [doctor.id]);
 
+  // Re-fetch booked slots whenever the selected date changes
+  useEffect(() => {
+    if (!bookDate) return;
+    setLoadingBooked(true);
+    getBookedSlotsForDate(doctor.id, bookDate)
+      .then((result) => {
+        setBookedSlots(result.booked);
+        setBlockedSlots(result.blocked);
+      })
+      .catch(() => { setBookedSlots([]); setBlockedSlots([]); })
+      .finally(() => setLoadingBooked(false));
+  }, [doctor.id, bookDate]);
+
   const timeOptions = useMemo(() => {
     const generated = generateTimeSlotsForDate(availabilitySlots, bookDate);
     return generated.length > 0 ? generated : ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00"];
   }, [availabilitySlots, bookDate]);
 
   useEffect(() => {
-    if (!timeOptions.includes(bookTime)) {
-      setBookTime(timeOptions[0] ?? "10:00");
+    const isUnavailable = bookedSlots.includes(bookTime) || blockedSlots.includes(bookTime);
+    if (!timeOptions.includes(bookTime) || isUnavailable) {
+      const firstFree = timeOptions.find(
+        (t) => !bookedSlots.includes(t) && !blockedSlots.includes(t)
+      );
+      setBookTime(firstFree ?? timeOptions[0] ?? "10:00");
     }
-  }, [timeOptions, bookTime]);
+  }, [timeOptions, bookedSlots, blockedSlots, bookTime]);
 
   const handleBook = async (e: React.FormEvent) => {
     e.preventDefault();
     setBooking(true);
     setError(null);
+
+    if (bookedSlots.includes(bookTime)) {
+      setError("This slot is already booked. Please choose a different time.");
+      setBooking(false);
+      return;
+    }
+    if (blockedSlots.includes(bookTime)) {
+      setError("This doctor is unavailable at the selected time. Please choose a different slot.");
+      setBooking(false);
+      return;
+    }
+
     try {
       const scheduledAt = new Date(`${bookDate}T${bookTime}:00`).toISOString();
       await bookAppointment({
@@ -72,7 +104,15 @@ export function BookingModal({ doctor, onClose, onSuccess }: BookingModalProps) 
       });
       onSuccess();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to book appointment");
+      const message = err instanceof Error ? err.message : "Failed to book appointment";
+      setError(message);
+      // If it was a race-condition collision, refresh booked slots so the
+      // UI immediately reflects the newly-taken slot
+      if (message.includes("just been booked") || message.includes("already booked") || message.includes("unavailable")) {
+        getBookedSlotsForDate(doctor.id, bookDate)
+          .then((result) => { setBookedSlots(result.booked); setBlockedSlots(result.blocked); })
+          .catch(() => {});
+      }
     } finally {
       setBooking(false);
     }
@@ -115,27 +155,41 @@ export function BookingModal({ doctor, onClose, onSuccess }: BookingModalProps) 
 
           <div>
             <label className="mb-1 block text-xs font-semibold text-slate-500">Time</label>
-            {loadingSlots ? (
+            {loadingSlots || loadingBooked ? (
               <div className="flex h-10 items-center gap-2 text-sm text-slate-500">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Loading available slots…
+                {loadingSlots ? "Loading available slots…" : "Checking availability…"}
               </div>
             ) : (
               <div className="flex flex-wrap gap-2">
-                {timeOptions.map((time) => (
-                  <button
-                    key={time}
-                    type="button"
-                    onClick={() => setBookTime(time)}
-                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                      bookTime === time
-                        ? "border-brand-500 bg-brand-500 text-white"
-                        : "border-slate-200 text-slate-700 hover:border-brand-200"
-                    }`}
-                  >
-                    {time}
-                  </button>
-                ))}
+                {timeOptions.map((time) => {
+                  const isBooked = bookedSlots.includes(time);
+                  const isBlocked = blockedSlots.includes(time);
+                  const isUnavailable = isBooked || isBlocked;
+                  const isSelected = bookTime === time;
+                  return (
+                    <button
+                      key={time}
+                      type="button"
+                      disabled={isUnavailable}
+                      onClick={() => !isUnavailable && setBookTime(time)}
+                      title={isBlocked ? "Doctor unavailable" : isBooked ? "Already booked" : undefined}
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        isBlocked
+                          ? "cursor-not-allowed border-orange-100 bg-orange-50 text-orange-300 line-through"
+                          : isBooked
+                            ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300 line-through"
+                            : isSelected
+                              ? "border-brand-500 bg-brand-500 text-white"
+                              : "border-slate-200 text-slate-700 hover:border-brand-200"
+                      }`}
+                    >
+                      {time}
+                      {isBlocked && <span className="ml-1 text-[10px] normal-case no-underline">Off</span>}
+                      {isBooked && !isBlocked && <span className="ml-1 text-[10px] normal-case no-underline">Booked</span>}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

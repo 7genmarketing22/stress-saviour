@@ -1,13 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
   Search, Eye, Ban, Users, Calendar, Activity, MapPin, Mail, Phone,
   XCircle, CheckCircle, Clock, TrendingUp, ArrowUpRight, RefreshCw, Loader2,
+  Filter, X,
 } from "lucide-react";
+import { type FilterPeriod, FILTER_LABELS, getDateRange, inDateRange } from "@/lib/utils/dateFilter";
 import {
   Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid,
 } from "recharts";
@@ -81,6 +83,22 @@ export default function AdminPatientsPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | PatientStatus>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  // Date filter
+  const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>("month");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const [showCustom, setShowCustom] = useState(false);
+
+  const dateRange = useMemo(
+    () => getDateRange(filterPeriod, customFrom, customTo),
+    [filterPeriod, customFrom, customTo]
+  );
+
+  const handleFilterChange = (p: FilterPeriod) => {
+    setFilterPeriod(p);
+    setShowCustom(p === "custom");
+  };
+
   const loadData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -149,7 +167,14 @@ export default function AdminPatientsPage() {
   const summaries = buildPatientSummaries(patients, appointments, payments);
   const registrationData = registrationByMonth(patients, 6);
 
-  const filtered = summaries.filter((s) => {
+  // Date-filtered summaries (by patient registration date)
+  const dateFilteredSummaries = useMemo(
+    () => summaries.filter((s) => inDateRange(s.profile.created_at, dateRange)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [summaries, dateRange]
+  );
+
+  const filtered = dateFilteredSummaries.filter((s) => {
     const q = searchQuery.toLowerCase();
     const matchesSearch =
       s.profile.full_name.toLowerCase().includes(q) ||
@@ -160,14 +185,14 @@ export default function AdminPatientsPage() {
   });
 
   const counts = {
-    total: summaries.length,
-    pending: summaries.filter((s) => s.profile.account_status === "pending").length,
-    active: summaries.filter((s) => deriveStatus(s) === "active").length,
-    inactive: summaries.filter((s) => deriveStatus(s) === "inactive").length,
-    blocked: summaries.filter((s) => deriveStatus(s) === "blocked").length,
+    total: dateFilteredSummaries.length,
+    pending: dateFilteredSummaries.filter((s) => s.profile.account_status === "pending").length,
+    active: dateFilteredSummaries.filter((s) => deriveStatus(s) === "active").length,
+    inactive: dateFilteredSummaries.filter((s) => deriveStatus(s) === "inactive").length,
+    blocked: dateFilteredSummaries.filter((s) => deriveStatus(s) === "blocked").length,
   };
-  const totalAppointments = summaries.reduce((acc, s) => acc + s.totalAppointments, 0);
-  const totalRevenue = summaries.reduce((acc, s) => acc + s.totalSpent, 0);
+  const totalAppointments = dateFilteredSummaries.reduce((acc, s) => acc + s.totalAppointments, 0);
+  const totalRevenue = dateFilteredSummaries.reduce((acc, s) => acc + s.totalSpent, 0);
   const newThisMonth = registrationData[registrationData.length - 1]?.count ?? 0;
 
   const getAccountBadge = (status: Profile["account_status"]) => {
@@ -220,6 +245,62 @@ export default function AdminPatientsPage() {
           {error}
         </div>
       )}
+
+      {/* Date filter bar */}
+      <Card className="border-slate-200">
+        <CardContent className="p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500 shrink-0">
+              <Filter className="h-3.5 w-3.5" />
+              Registered:
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {(["today", "week", "month", "3months", "custom"] as FilterPeriod[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => handleFilterChange(p)}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all border ${
+                    filterPeriod === p
+                      ? "bg-brand-500 text-white border-brand-500 shadow-sm"
+                      : "bg-white text-slate-600 border-slate-200 hover:border-brand-300 hover:text-brand-600"
+                  }`}
+                >
+                  {FILTER_LABELS[p]}
+                </button>
+              ))}
+            </div>
+            {showCustom && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  type="date"
+                  value={customFrom}
+                  max={customTo || new Date().toISOString().split("T")[0]}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  className="h-7 px-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400"
+                />
+                <span className="text-xs text-slate-400">to</span>
+                <input
+                  type="date"
+                  value={customTo}
+                  min={customFrom}
+                  max={new Date().toISOString().split("T")[0]}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  className="h-7 px-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400"
+                />
+                <button
+                  onClick={() => { setCustomFrom(""); setCustomTo(""); setFilterPeriod("month"); setShowCustom(false); }}
+                  className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+            <span className="ml-auto text-[11px] text-slate-400 hidden sm:block">
+              {dateFilteredSummaries.length} patients — <span className="font-semibold text-slate-600">{FILTER_LABELS[filterPeriod]}</span>
+            </span>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>

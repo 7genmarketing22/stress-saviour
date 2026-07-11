@@ -37,23 +37,45 @@ export async function getPatientAssessments(): Promise<PatientAssessment[]> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
 
-  const { data, error } = await db()
+  // Step 1: fetch the patient's own assessments
+  const { data: assessments, error: aptErr } = await db()
     .from("patient_assessments")
-    .select(`
-      *,
-      shares:assessment_shares (
-        *,
-        doctor:doctor_profiles (
-          id,
-          profile:profiles ( full_name )
-        )
-      )
-    `)
+    .select("*")
     .eq("patient_id", user.id)
     .order("created_at", { ascending: false });
 
-  if (error) throw error;
-  return (data ?? []) as any[];
+  if (aptErr) throw aptErr;
+  if (!assessments?.length) return [];
+
+  // Step 2: fetch shares + doctor profile for those assessments
+  const ids = assessments.map((a: { id: string }) => a.id);
+  const { data: shares, error: shareErr } = await db()
+    .from("assessment_shares")
+    .select(`
+      *,
+      doctor:profiles!assessment_shares_doctor_id_fkey (
+        id,
+        full_name,
+        avatar_url
+      )
+    `)
+    .in("assessment_id", ids)
+    .order("shared_at", { ascending: false });
+
+  if (shareErr) throw shareErr;
+
+  // Step 3: group shares by assessment id
+  const sharesByAssessment = new Map<string, unknown[]>();
+  for (const share of shares ?? []) {
+    const list = sharesByAssessment.get(share.assessment_id) ?? [];
+    list.push(share);
+    sharesByAssessment.set(share.assessment_id, list);
+  }
+
+  return assessments.map((a: PatientAssessment) => ({
+    ...a,
+    shares: sharesByAssessment.get(a.id) ?? [],
+  })) as any[];
 }
 
 export async function getAssessmentDetails(id: string): Promise<PatientAssessment & { shares: any[] }> {
@@ -63,9 +85,10 @@ export async function getAssessmentDetails(id: string): Promise<PatientAssessmen
       *,
       shares:assessment_shares (
         *,
-        doctor:doctor_profiles (
+        doctor:profiles!assessment_shares_doctor_id_fkey (
           id,
-          profile:profiles ( id, full_name, avatar_url )
+          full_name,
+          avatar_url
         )
       )
     `)

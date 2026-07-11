@@ -62,7 +62,12 @@ export default function DoctorEarningsPage() {
     try {
       const payments = await getDoctorPayments(doctorProfile.id);
       // Only collected (patient-paid) consultations count toward earnings.
-      const completed = payments.filter((p) => p.status === "completed");
+      // Exclude payments with active or completed refunds.
+      const completed = payments.filter(
+        (p) =>
+          p.status === "completed" &&
+          (!p.refund_status || p.refund_status === "not_applicable")
+      );
       const cleared = completed.filter((p) => p.payout_status === "paid");
       const pending = completed.filter((p) => p.payout_status !== "paid");
 

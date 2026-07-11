@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
   Users, UserCheck, Calendar, DollarSign, Star, Activity, AlertTriangle,
-  CheckCircle2, RefreshCw, BarChart3, MessageSquare, XCircle, Loader2,
+  CheckCircle2, RefreshCw, BarChart3, MessageSquare, XCircle, Loader2, Filter, X,
 } from "lucide-react";
 import {
   Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -30,6 +30,8 @@ import {
 import type { AdminAppointment, AdminDoctor, AdminPayment } from "@/lib/admin/types";
 import type { Profile } from "@/types";
 
+import { type FilterPeriod, FILTER_LABELS, getDateRange, inDateRange } from "@/lib/utils/dateFilter";
+
 function formatPKR(value: number) {
   return `₨${Math.round(value).toLocaleString("en-PK")}`;
 }
@@ -49,6 +51,78 @@ export default function AdminDashboardPage() {
   const [patients, setPatients] = useState<Profile[]>([]);
   const [appointments, setAppointments] = useState<AdminAppointment[]>([]);
   const [payments, setPayments] = useState<AdminPayment[]>([]);
+
+  // --- Date filter state ---
+  const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>("month");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const [showCustom, setShowCustom] = useState(false);
+
+  const dateRange = useMemo(
+    () => getDateRange(filterPeriod, customFrom, customTo),
+    [filterPeriod, customFrom, customTo]
+  );
+
+  const periodPayments = useMemo(
+    () => payments.filter((p) => inDateRange(p.created_at, dateRange)),
+    [payments, dateRange]
+  );
+
+  const periodAppointments = useMemo(
+    () => appointments.filter((a) => inDateRange(a.scheduled_at, dateRange)),
+    [appointments, dateRange]
+  );
+
+  const periodPatients = useMemo(
+    () => patients.filter((p) => inDateRange(p.created_at, dateRange)),
+    [patients, dateRange]
+  );
+
+  const periodRevenue = useMemo(
+    () =>
+      periodPayments
+        .filter((p) => p.status === "completed")
+        .reduce((s, p) => s + Number(p.platform_fee), 0),
+    [periodPayments]
+  );
+
+  const periodGrossVolume = useMemo(
+    () =>
+      periodPayments
+        .filter((p) => p.status === "completed")
+        .reduce((s, p) => s + Number(p.amount), 0),
+    [periodPayments]
+  );
+
+  const periodActiveAppointments = useMemo(
+    () => periodAppointments.filter((a) => a.status !== "cancelled").length,
+    [periodAppointments]
+  );
+
+  const periodUpcoming = useMemo(
+    () =>
+      periodAppointments.filter(
+        (a) => a.status === "scheduled" || a.status === "ongoing"
+      ).length,
+    [periodAppointments]
+  );
+
+  const periodCompleted = useMemo(
+    () => periodAppointments.filter((a) => a.status === "completed").length,
+    [periodAppointments]
+  );
+
+  const handleFilterChange = (period: FilterPeriod) => {
+    setFilterPeriod(period);
+    setShowCustom(period === "custom");
+  };
+
+  const clearCustom = () => {
+    setCustomFrom("");
+    setCustomTo("");
+    setFilterPeriod("month");
+    setShowCustom(false);
+  };
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -127,16 +201,17 @@ export default function AdminDashboardPage() {
   const topDocs = buildTopDoctors(doctors, payments, appointments, 4);
   const recentActivity = buildRecentActivity(appointments, payments, patients, doctors, 5);
   const onlineDoctors = doctors.filter((d) => d.status === "approved" && d.is_available).length;
-  const completedToday = stats.appointmentsTodayCompleted;
+
+  const periodLabel = FILTER_LABELS[filterPeriod];
 
   const statCards = [
     {
       title: "Platform Revenue",
-      value: formatPKR(stats.monthlyPlatformRevenue),
-      change: `${formatPKR(stats.grossVolume)} gross volume`,
+      value: formatPKR(periodRevenue),
+      change: `${formatPKR(periodGrossVolume)} gross volume`,
       icon: DollarSign,
       positive: true,
-      description: "Commission earned this month",
+      description: `Commission — ${periodLabel}`,
     },
     {
       title: "Active Doctors",
@@ -147,20 +222,24 @@ export default function AdminDashboardPage() {
       description: `${onlineDoctors} available now`,
     },
     {
-      title: "Total Patients",
-      value: String(stats.totalPatients),
-      change: stats.newPatientsThisMonth > 0 ? `+${stats.newPatientsThisMonth} this month` : "No new signups",
+      title: "Patients",
+      value: String(periodPatients.length || stats.totalPatients),
+      change: filterPeriod === "month" || filterPeriod === "3months"
+        ? `+${periodPatients.length} new in period`
+        : `${stats.totalPatients} total registered`,
       icon: Users,
       positive: true,
-      description: `${stats.totalPatients} registered`,
+      description: filterPeriod === "month" || filterPeriod === "3months"
+        ? `${stats.totalPatients} total registered`
+        : `${periodPatients.length} joined — ${periodLabel}`,
     },
     {
-      title: "Appointments Today",
-      value: String(stats.appointmentsToday),
-      change: `${stats.appointmentsTodayUpcoming} upcoming`,
+      title: "Appointments",
+      value: String(periodActiveAppointments),
+      change: `${periodUpcoming} upcoming`,
       icon: Calendar,
       positive: true,
-      description: `${completedToday} completed today`,
+      description: `${periodCompleted} completed — ${periodLabel}`,
     },
     {
       title: "Pending Reviews",
@@ -202,6 +281,64 @@ export default function AdminDashboardPage() {
           {error}
         </div>
       )}
+
+      {/* ── Date filter bar ── */}
+      <Card className="border-slate-200">
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500 shrink-0">
+              <Filter className="h-3.5 w-3.5" />
+              Period:
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {(["today", "week", "month", "3months", "custom"] as FilterPeriod[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => handleFilterChange(p)}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all border ${
+                    filterPeriod === p
+                      ? "bg-brand-500 text-white border-brand-500 shadow-sm"
+                      : "bg-white text-slate-600 border-slate-200 hover:border-brand-300 hover:text-brand-600"
+                  }`}
+                >
+                  {FILTER_LABELS[p]}
+                </button>
+              ))}
+            </div>
+
+            {showCustom && (
+              <div className="flex items-center gap-2 ml-1 flex-wrap">
+                <input
+                  type="date"
+                  value={customFrom}
+                  max={customTo || new Date().toISOString().split("T")[0]}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  className="h-7 px-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400"
+                />
+                <span className="text-xs text-slate-400">to</span>
+                <input
+                  type="date"
+                  value={customTo}
+                  min={customFrom}
+                  max={new Date().toISOString().split("T")[0]}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  className="h-7 px-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400"
+                />
+                <button
+                  onClick={clearCustom}
+                  className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 hover:border-slate-300 transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+
+            <span className="ml-auto text-[11px] text-slate-400 hidden sm:block">
+              Showing stats for: <span className="font-semibold text-slate-600">{periodLabel}</span>
+            </span>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-3 sm:gap-4 grid-cols-1 xs:grid-cols-2 lg:grid-cols-3">
         {statCards.map((stat, i) => {

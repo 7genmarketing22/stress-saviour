@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { initiateRefundForCancelledAppointment } from "@/lib/refunds/process";
 import type { DoctorProfile, Profile, AppointmentStatus } from "@/types";
 import type { Database } from "@/types/database";
 import { formatClinicalNotes } from "./notes";
@@ -200,6 +201,7 @@ export async function updateAppointment(
     video_room_url?: string | null;
     completed_at?: string | null;
     cancellation_reason?: string | null;
+    cancelled_by?: string | null;
   }
 ) {
   const { data, error } = await table("appointments")
@@ -209,6 +211,15 @@ export async function updateAppointment(
     .single();
 
   if (error) throw error;
+
+  if (updates.status === "cancelled") {
+    await initiateRefundForCancelledAppointment({
+      appointmentId,
+      cancelledBy: "doctor",
+      cancellationReason: updates.cancellation_reason?.trim() || "Cancelled by doctor",
+    }).catch(() => {});
+  }
+
   return data;
 }
 
@@ -449,4 +460,69 @@ export function getUniquePatients(appointments: AppointmentWithPatient[]) {
   }
 
   return Array.from(patients.values());
+}
+
+// ── Doctor Blocked Slots ───────────────────────────────────────────
+
+export interface DoctorBlockedSlot {
+  id: string;
+  doctor_id: string;
+  blocked_date: string; // YYYY-MM-DD
+  start_time: string | null; // HH:MM or null (full day)
+  end_time: string | null;   // HH:MM or null (full day)
+  reason: string;
+  created_at: string;
+}
+
+/** Fetch all blocked slots for this doctor (optionally for a specific date). */
+export async function getDocBlockedSlots(
+  doctorProfileId: string,
+  date?: string
+): Promise<DoctorBlockedSlot[]> {
+  let q = (createClient() as any)
+    .from("doctor_blocked_slots")
+    .select("*")
+    .eq("doctor_id", doctorProfileId)
+    .order("blocked_date", { ascending: true })
+    .order("start_time", { ascending: true });
+
+  if (date) q = q.eq("blocked_date", date);
+
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []) as DoctorBlockedSlot[];
+}
+
+/** Block a date or time range for this doctor. */
+export async function addDocBlockedSlot(
+  doctorProfileId: string,
+  blockedDate: string,
+  reason: string,
+  startTime?: string, // "HH:MM" or omit for full-day
+  endTime?: string
+): Promise<DoctorBlockedSlot> {
+  const { data, error } = await (createClient() as any)
+    .from("doctor_blocked_slots")
+    .insert({
+      doctor_id: doctorProfileId,
+      blocked_date: blockedDate,
+      start_time: startTime ?? null,
+      end_time: endTime ?? null,
+      reason: reason || "Unavailable",
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as DoctorBlockedSlot;
+}
+
+/** Remove a blocked slot entry. */
+export async function removeDocBlockedSlot(slotId: string): Promise<void> {
+  const { error } = await (createClient() as any)
+    .from("doctor_blocked_slots")
+    .delete()
+    .eq("id", slotId);
+
+  if (error) throw error;
 }

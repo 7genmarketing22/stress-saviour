@@ -7,6 +7,7 @@ export type AppointmentStatus = "scheduled" | "ongoing" | "completed" | "cancell
 export type AppointmentType = "video" | "chat" | "in_person";
 export type PaymentStatus = "pending" | "completed" | "failed" | "refunded";
 export type PayoutStatus = "pending" | "paid";
+export type RefundStatus = "not_applicable" | "pending" | "processing" | "refunded" | "failed";
 export type PaymentMethod = "jazzcash" | "easypaisa" | "stripe" | "bank_transfer";
 export type Gender = "male" | "female" | "other";
 
@@ -90,6 +91,13 @@ export interface Payment {
   paid_at: string | null;
   paid_by: string | null;
   payout_reference: string | null;
+  payout_receipt_url: string | null;
+  refund_status: RefundStatus;
+  refund_amount: number | null;
+  refund_initiated_at: string | null;
+  refund_processed_at: string | null;
+  refund_processed_by: string | null;
+  refund_note: string | null;
   transaction_id: string | null;
   gateway_response: Record<string, unknown> | null;
   refund_id: string | null;

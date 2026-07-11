@@ -134,7 +134,13 @@ export default function DoctorAppointmentsPage() {
 
   const handleStatusChange = async (id: string, newStatus: Appointment["status"]) => {
     try {
-      await updateAppointment(id, { status: mapStatusToDb(newStatus) });
+      const dbStatus = mapStatusToDb(newStatus);
+      await updateAppointment(id, {
+        status: dbStatus,
+        ...(dbStatus === "cancelled"
+          ? { cancellation_reason: "Cancelled by doctor" }
+          : {}),
+      });
       showToast(`Appointment status updated to ${newStatus}.`);
       await loadAppointments();
     } catch {

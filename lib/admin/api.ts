@@ -10,6 +10,7 @@ import type {
   AdminStats,
 } from "./types";
 import { createNotification } from "@/lib/notifications/api";
+import { initiateRefundForCancelledAppointment } from "@/lib/refunds/process";
 
 type TableName = keyof Database["public"]["Tables"];
 
@@ -41,6 +42,10 @@ const APPOINTMENT_ADMIN_SELECT = `
   doctor:doctor_profiles!appointments_doctor_id_fkey (
     id, specialization,
     profile:profiles!doctor_profiles_user_id_fkey ( full_name, avatar_url )
+  ),
+  payments (
+    id, status, amount, refund_status, refund_amount,
+    refund_initiated_at, refund_processed_at, refund_note, refund_id, refunded_at
   )
 `;
 
@@ -460,11 +465,13 @@ export async function setProfileActive(userId: string, isActive: boolean): Promi
 export async function updateAppointmentStatusAdmin(
   appointmentId: string,
   status: AppointmentStatus,
-  reason?: string
+  reason?: string,
+  adminId?: string
 ) {
   const updates: Record<string, unknown> = { status };
   if (status === "cancelled") {
     updates.cancellation_reason = reason?.trim() || "Cancelled by administrator.";
+    if (adminId) updates.cancelled_by = adminId;
   }
   if (status === "completed") {
     updates.completed_at = new Date().toISOString();
@@ -477,7 +484,17 @@ export async function updateAppointmentStatusAdmin(
     .single();
 
   if (error) throw error;
-  return data as AdminAppointment;
+  const appointment = data as AdminAppointment;
+
+  if (status === "cancelled") {
+    await initiateRefundForCancelledAppointment({
+      appointmentId,
+      cancelledBy: "admin",
+      cancellationReason: (updates.cancellation_reason as string) ?? "",
+    }).catch(() => {});
+  }
+
+  return appointment;
 }
 
 // --- Doctor payout / settlement actions ---
@@ -508,8 +525,21 @@ function payoutReference() {
 export async function markPaymentPaid(
   paymentId: string,
   adminId: string,
-  options?: { reference?: string; notifyDoctorUserId?: string }
+  options?: { reference?: string; notifyDoctorUserId?: string; receiptUrl?: string }
 ): Promise<AdminPayment> {
+  const { data: existing, error: fetchErr } = await table("payments")
+    .select("id, refund_status, status")
+    .eq("id", paymentId)
+    .maybeSingle();
+  if (fetchErr) throw fetchErr;
+  const row = existing as { id: string; refund_status?: string; status: string } | null;
+  if (!row) throw new Error("Payment not found");
+  if (row.status !== "completed") throw new Error("Only collected payments can be settled");
+  const rs = row.refund_status ?? "not_applicable";
+  if (rs !== "not_applicable") {
+    throw new Error("Cannot settle a payment with an active or completed refund");
+  }
+
   const reference = options?.reference?.trim() || payoutReference();
   const { data, error } = await table("payments")
     .update({
@@ -517,6 +547,7 @@ export async function markPaymentPaid(
       paid_at: new Date().toISOString(),
       paid_by: adminId,
       payout_reference: reference,
+      ...(options?.receiptUrl ? { payout_receipt_url: options.receiptUrl } : {}),
     } as Database["public"]["Tables"]["payments"]["Update"])
     .eq("id", paymentId)
     .select(PAYMENT_ADMIN_SELECT)
@@ -679,7 +710,7 @@ export async function rejectPatientPayment(
 export async function settleDoctorPayments(
   doctorProfileId: string,
   adminId: string,
-  options?: { notifyDoctorUserId?: string }
+  options?: { notifyDoctorUserId?: string; receiptUrl?: string }
 ): Promise<{ updated: AdminPayment[]; reference: string; total: number }> {
   const reference = payoutReference();
   const { data, error } = await table("payments")
@@ -688,10 +719,12 @@ export async function settleDoctorPayments(
       paid_at: new Date().toISOString(),
       paid_by: adminId,
       payout_reference: reference,
+      ...(options?.receiptUrl ? { payout_receipt_url: options.receiptUrl } : {}),
     } as Database["public"]["Tables"]["payments"]["Update"])
     .eq("doctor_id", doctorProfileId)
     .eq("status", "completed")
     .eq("payout_status", "pending")
+    .eq("refund_status", "not_applicable")
     .select(PAYMENT_ADMIN_SELECT);
 
   if (error) throw error;
@@ -707,7 +740,10 @@ export async function settleDoctorPayments(
 
 /** A completed payment is "earned" by the doctor and eligible for settlement. */
 function isEarned(p: AdminPayment) {
-  return p.status === "completed";
+  if (p.status !== "completed") return false;
+  const rs = p.refund_status ?? "not_applicable";
+  if (rs === "pending" || rs === "processing" || rs === "refunded") return false;
+  return true;
 }
 
 export interface DoctorPayoutSummary {

@@ -9,11 +9,33 @@ export interface AppointmentWithDoctor extends Appointment {
   review?: { rating: number; comment: string | null } | { rating: number; comment: string | null }[] | null;
   payment?: Pick<
     Payment,
-    "id" | "status" | "proof_url" | "payment_method" | "rejection_reason" | "amount"
+    | "id"
+    | "status"
+    | "proof_url"
+    | "payment_method"
+    | "rejection_reason"
+    | "amount"
+    | "refund_status"
+    | "refund_amount"
+    | "refund_initiated_at"
+    | "refund_processed_at"
+    | "refund_note"
+    | "refunded_at"
   > | null;
   payments?: Pick<
     Payment,
-    "id" | "status" | "proof_url" | "payment_method" | "rejection_reason" | "amount"
+    | "id"
+    | "status"
+    | "proof_url"
+    | "payment_method"
+    | "rejection_reason"
+    | "amount"
+    | "refund_status"
+    | "refund_amount"
+    | "refund_initiated_at"
+    | "refund_processed_at"
+    | "refund_note"
+    | "refunded_at"
   >[] | null;
 }
 

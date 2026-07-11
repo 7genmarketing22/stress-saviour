@@ -7,6 +7,19 @@ import type {
   Profile,
 } from "@/types";
 
+export interface AdminAppointmentPayment {
+  id: string;
+  status: Payment["status"];
+  amount: number;
+  refund_status: Payment["refund_status"];
+  refund_amount: number | null;
+  refund_initiated_at: string | null;
+  refund_processed_at: string | null;
+  refund_note: string | null;
+  refund_id: string | null;
+  refunded_at: string | null;
+}
+
 export interface AdminContextData {
   profile: Profile;
 }
@@ -25,6 +38,7 @@ export interface AdminAppointment extends Appointment {
         profile: Pick<Profile, "full_name" | "avatar_url"> | null;
       })
     | null;
+  payments?: AdminAppointmentPayment[] | null;
 }
 
 export interface AdminPayment extends Payment {

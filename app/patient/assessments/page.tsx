@@ -51,15 +51,19 @@ const severityConfig = {
 export default function PatientAssessmentsHistoryPage() {
   const [assessments, setAssessments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const loadAssessments = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await getPatientAssessments();
       setAssessments(data);
     } catch (err) {
       console.error("Failed to load assessments", err);
+      setError("Could not load your assessment history. Please try again.");
+      setAssessments([]);
     } finally {
       setLoading(false);
     }
@@ -109,6 +113,21 @@ export default function PatientAssessmentsHistoryPage() {
           </Button>
         </Link>
       </div>
+
+      {error && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-sm text-red-700">{error}</p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={loadAssessments}
+            className="text-xs gap-1.5 border-red-200 text-red-700 hover:bg-red-100 h-8 shrink-0"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Retry
+          </Button>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -303,7 +322,7 @@ export default function PatientAssessmentsHistoryPage() {
                       {assessment.shares?.length > 0 ? (
                         <div className="space-y-2.5">
                           {assessment.shares.map((share: any) => {
-                            const docName = share.doctor?.profile?.full_name ?? "Specialist";
+                            const docName = share.doctor?.full_name ?? "Specialist";
                             const isReviewed = share.status === "reviewed";
 
                             return (

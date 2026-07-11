@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/Input";
 import {
   Video, Clock, Search, Calendar, User, ChevronLeft, ChevronRight,
   XCircle, CheckCircle2, Eye, MessageSquare, DollarSign, Activity,
-  AlertCircle, RefreshCw, Loader2,
+  AlertCircle, RefreshCw, Loader2, Filter, X,
 } from "lucide-react";
+import { type FilterPeriod, FILTER_LABELS, getDateRange, inDateRange } from "@/lib/utils/dateFilter";
 import {
   ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, BarChart, CartesianGrid,
 } from "recharts";
@@ -17,6 +18,9 @@ import {
   appointmentsByDay,
   updateAppointmentStatusAdmin,
 } from "@/lib/admin/api";
+import { useAdmin } from "@/contexts/AdminContext";
+import { AppointmentFinancialDetails } from "@/components/shared/AppointmentFinancialDetails";
+import { completeManualRefund } from "@/lib/refunds/process";
 import type { AdminAppointment } from "@/lib/admin/types";
 import type { AppointmentStatus, AppointmentType } from "@/types";
 
@@ -56,6 +60,7 @@ function formatTime(dateStr: string) {
 }
 
 export default function AdminAppointmentsPage() {
+  const { profile } = useAdmin();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
@@ -65,7 +70,25 @@ export default function AdminAppointmentsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selected, setSelected] = useState<AdminAppointment | null>(null);
+  const [refundProcessing, setRefundProcessing] = useState(false);
   const itemsPerPage = 8;
+
+  // Date filter
+  const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>("month");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const [showCustom, setShowCustom] = useState(false);
+
+  const dateRange = useMemo(
+    () => getDateRange(filterPeriod, customFrom, customTo),
+    [filterPeriod, customFrom, customTo]
+  );
+
+  const handleFilterChange = (p: FilterPeriod) => {
+    setFilterPeriod(p);
+    setShowCustom(p === "custom");
+    setCurrentPage(1);
+  };
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -87,7 +110,7 @@ export default function AdminAppointmentsPage() {
     setActionId(id);
     setError(null);
     try {
-      await updateAppointmentStatusAdmin(id, "cancelled");
+      await updateAppointmentStatusAdmin(id, "cancelled", undefined, profile?.id);
       await loadData();
       setSelected(null);
     } catch (err) {
@@ -97,22 +120,48 @@ export default function AdminAppointmentsPage() {
     }
   };
 
-  const weeklyData = useMemo(() => appointmentsByDay(appointments), [appointments]);
-
-  const counts = {
-    total: appointments.length,
-    upcoming: appointments.filter((a) => a.status === "scheduled" || a.status === "ongoing").length,
-    completed: appointments.filter((a) => a.status === "completed").length,
-    cancelled: appointments.filter((a) => a.status === "cancelled").length,
-    noShow: appointments.filter((a) => a.status === "no_show").length,
+  const handleProcessRefund = async (paymentId: string) => {
+    if (!profile?.id) return;
+    setRefundProcessing(true);
+    setError(null);
+    try {
+      await completeManualRefund(paymentId, profile.id);
+      const refreshed = await getAdminAppointments();
+      setAppointments(refreshed);
+      if (selected) {
+        const updated = refreshed.find((a) => a.id === selected.id);
+        if (updated) setSelected(updated);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to process refund");
+    } finally {
+      setRefundProcessing(false);
+    }
   };
 
-  const totalRevenue = appointments
+  const weeklyData = useMemo(() => appointmentsByDay(appointments), [appointments]);
+
+  // Date-filtered appointments (for stat cards)
+  const dateFiltered = useMemo(
+    () => appointments.filter((a) => inDateRange(a.scheduled_at, dateRange)),
+    [appointments, dateRange]
+  );
+
+  const counts = {
+    total: dateFiltered.length,
+    upcoming: dateFiltered.filter((a) => a.status === "scheduled" || a.status === "ongoing").length,
+    completed: dateFiltered.filter((a) => a.status === "completed").length,
+    cancelled: dateFiltered.filter((a) => a.status === "cancelled").length,
+    noShow: dateFiltered.filter((a) => a.status === "no_show").length,
+  };
+
+  const totalRevenue = dateFiltered
     .filter((a) => a.status === "completed")
     .reduce((sum, a) => sum + Number(a.consultation_fee), 0);
   const avgSessionValue = counts.completed > 0 ? totalRevenue / counts.completed : 0;
 
   const filtered = appointments.filter((apt) => {
+    if (!inDateRange(apt.scheduled_at, dateRange)) return false;
     if (activeTab === "Upcoming" && !(apt.status === "scheduled" || apt.status === "ongoing")) return false;
     if (activeTab === "Completed" && apt.status !== "completed") return false;
     if (activeTab === "Cancelled" && apt.status !== "cancelled" && apt.status !== "no_show") return false;
@@ -160,6 +209,62 @@ export default function AdminAppointmentsPage() {
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
+
+      {/* Date filter bar */}
+      <Card className="border-slate-200">
+        <CardContent className="p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500 shrink-0">
+              <Filter className="h-3.5 w-3.5" />
+              Period:
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {(["today", "week", "month", "3months", "custom"] as FilterPeriod[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => handleFilterChange(p)}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all border ${
+                    filterPeriod === p
+                      ? "bg-brand-500 text-white border-brand-500 shadow-sm"
+                      : "bg-white text-slate-600 border-slate-200 hover:border-brand-300 hover:text-brand-600"
+                  }`}
+                >
+                  {FILTER_LABELS[p]}
+                </button>
+              ))}
+            </div>
+            {showCustom && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  type="date"
+                  value={customFrom}
+                  max={customTo || new Date().toISOString().split("T")[0]}
+                  onChange={(e) => { setCustomFrom(e.target.value); setCurrentPage(1); }}
+                  className="h-7 px-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400"
+                />
+                <span className="text-xs text-slate-400">to</span>
+                <input
+                  type="date"
+                  value={customTo}
+                  min={customFrom}
+                  max={new Date().toISOString().split("T")[0]}
+                  onChange={(e) => { setCustomTo(e.target.value); setCurrentPage(1); }}
+                  className="h-7 px-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400"
+                />
+                <button
+                  onClick={() => { setCustomFrom(""); setCustomTo(""); setFilterPeriod("month"); setShowCustom(false); }}
+                  className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+            <span className="ml-auto text-[11px] text-slate-400 hidden sm:block">
+              {dateFiltered.length} appointments in <span className="font-semibold text-slate-600">{FILTER_LABELS[filterPeriod]}</span>
+            </span>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card>
@@ -465,23 +570,39 @@ export default function AdminAppointmentsPage() {
                 </div>
               )}
 
-              <div>
-                <h4 className="font-semibold text-sm mb-3">Financial Details</h4>
-                <div className="border border-slate-200 rounded-lg divide-y divide-slate-200">
-                  <div className="flex items-center justify-between p-3">
-                    <p className="text-sm text-slate-600">Consultation Fee</p>
-                    <p className="font-semibold text-slate-900">₨{Number(selected.consultation_fee).toLocaleString("en-PK")}</p>
-                  </div>
-                  <div className="flex items-center justify-between p-3">
-                    <p className="text-sm text-slate-600">Platform Commission (10%)</p>
-                    <p className="font-semibold text-brand-500">₨{Math.round(Number(selected.consultation_fee) * 0.1).toLocaleString("en-PK")}</p>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-slate-50">
-                    <p className="text-sm font-semibold text-slate-900">Doctor Earnings</p>
-                    <p className="font-bold text-slate-900">₨{Math.round(Number(selected.consultation_fee) * 0.9).toLocaleString("en-PK")}</p>
-                  </div>
+              {(() => {
+                const payment = selected.payments?.[0];
+                return (
+                  <AppointmentFinancialDetails
+                    info={{
+                      consultationFee: Number(selected.consultation_fee),
+                      refundStatus: payment?.refund_status ?? "not_applicable",
+                      refundAmount: payment?.refund_amount ?? null,
+                      refundProcessedAt: payment?.refund_processed_at ?? payment?.refunded_at ?? null,
+                      paymentStatus: payment?.status ?? null,
+                      isCancelled: selected.status === "cancelled",
+                    }}
+                  />
+                );
+              })()}
+
+              {selected.payments?.[0]?.refund_status === "pending" && (
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    disabled={refundProcessing}
+                    onClick={() => handleProcessRefund(selected.payments![0].id)}
+                  >
+                    {refundProcessing ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                    )}
+                    Mark Refund Processed
+                  </Button>
                 </div>
-              </div>
+              )}
 
               {selected.cancellation_reason && (
                 <div className="p-3 bg-red-50 border border-red-100 rounded-lg">

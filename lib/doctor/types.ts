@@ -1,4 +1,4 @@
-import type { AppointmentStatus, AppointmentType, DoctorProfile, Profile } from "@/types";
+import type { AppointmentStatus, AppointmentType, DoctorProfile, Payment, Profile } from "@/types";
 
 export interface DoctorCertificate {
   id: string;          // uuid
@@ -61,21 +61,25 @@ export interface AppointmentWithPatient {
   > | null;
 }
 
-export interface PaymentWithPatient {
-  id: string;
-  appointment_id: string;
-  patient_id: string;
-  doctor_id: string;
-  amount: number;
-  platform_fee: number;
-  doctor_earning: number;
-  payment_method: string;
-  status: string;
-  payout_status: "pending" | "paid";
-  paid_at: string | null;
-  payout_reference: string | null;
-  transaction_id: string | null;
-  created_at: string;
+export interface PaymentWithPatient extends Pick<
+  Payment,
+  | "id"
+  | "appointment_id"
+  | "patient_id"
+  | "doctor_id"
+  | "amount"
+  | "platform_fee"
+  | "doctor_earning"
+  | "payment_method"
+  | "status"
+  | "payout_status"
+  | "paid_at"
+  | "payout_reference"
+  | "transaction_id"
+  | "refund_status"
+  | "refund_amount"
+  | "created_at"
+> {
   patient: Pick<Profile, "id" | "full_name"> | null;
   appointment: { appointment_type: AppointmentType } | null;
 }

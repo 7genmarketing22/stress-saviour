@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import {
   DollarSign, Wallet, CheckCircle2, Clock, RefreshCw, Loader2, Search,
   Download, FileText, Filter, X, Check, Users, Undo2, BadgeCheck, ImageIcon,
+  Paperclip, ExternalLink, UploadCloud, Receipt,
 } from "lucide-react";
 import { useAdmin } from "@/contexts/AdminContext";
 import {
@@ -19,8 +20,11 @@ import {
   rejectPatientPayment,
 } from "@/lib/admin/api";
 import { usePaymentsRealtime } from "@/lib/realtime/usePaymentsRealtime";
+import { validatePayoutReceiptFile, uploadPayoutReceipt } from "@/lib/storage/payoutReceipt";
+import { completeManualRefund } from "@/lib/refunds/process";
+import { REFUND_STATUS_LABEL } from "@/lib/refunds/policy";
 import type { AdminPayment } from "@/lib/admin/types";
-import type { PaymentMethod, PaymentStatus, PayoutStatus } from "@/types";
+import type { PaymentMethod, PaymentStatus, PayoutStatus, RefundStatus } from "@/types";
 
 function formatPKR(value: number) {
   return `PKR ${Math.round(value).toLocaleString("en-PK")}`;
@@ -95,8 +99,13 @@ export default function AdminPaymentsPage() {
   const [view, setView] = useState<"doctors" | "transactions">("doctors");
   const [actionId, setActionId] = useState<string | null>(null);
   const [confirmSettle, setConfirmSettle] = useState<{ doctorId: string; name: string; amount: number } | null>(null);
+  const [settleReceiptFile, setSettleReceiptFile] = useState<File | null>(null);
+  const [settleReceiptError, setSettleReceiptError] = useState<string | null>(null);
+  const [settleUploading, setSettleUploading] = useState(false);
   const [reviewPayment, setReviewPayment] = useState<AdminPayment | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [viewProofPayment, setViewProofPayment] = useState<AdminPayment | null>(null);
+  const [viewPayoutReceiptUrl, setViewPayoutReceiptUrl] = useState<{ url: string; doctorName: string; reference: string } | null>(null);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -140,6 +149,24 @@ export default function AdminPaymentsPage() {
     () => payments.filter((p) => p.status === "pending" && p.proof_url),
     [payments]
   );
+
+  const pendingRefunds = useMemo(
+    () => payments.filter((p) => p.refund_status === "pending" || p.refund_status === "processing"),
+    [payments]
+  );
+
+  const handleProcessRefund = async (paymentId: string) => {
+    setActionId(paymentId);
+    try {
+      await completeManualRefund(paymentId, profile.id);
+      showToast("Refund marked as processed. Patient has been notified.");
+      await loadData();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Refund processing failed");
+    } finally {
+      setActionId(null);
+    }
+  };
 
   const handleApprovePayment = async (paymentId: string) => {
     setActionId(paymentId);
@@ -242,14 +269,46 @@ export default function AdminPaymentsPage() {
     }
   };
 
-  const handleSettleDoctor = async () => {
-    if (!confirmSettle) return;
-    const { doctorId, name } = confirmSettle;
-    setActionId(doctorId);
+  const handleReceiptFileChange = (file: File | null) => {
+    if (!file) {
+      setSettleReceiptFile(null);
+      setSettleReceiptError(null);
+      return;
+    }
+    const err = validatePayoutReceiptFile(file);
+    setSettleReceiptError(err);
+    setSettleReceiptFile(file);
+  };
+
+  const closeSettleModal = () => {
     setConfirmSettle(null);
+    setSettleReceiptFile(null);
+    setSettleReceiptError(null);
+  };
+
+  const handleSettleDoctor = async () => {
+    if (!confirmSettle || !settleReceiptFile) return;
+    const { doctorId, name } = confirmSettle;
+
+    setSettleUploading(true);
+    let receiptUrl: string | undefined;
+    try {
+      // Generate a temporary reference to name the file; final reference comes from the API
+      const tempRef = `PRE-${Date.now().toString(36).toUpperCase()}`;
+      receiptUrl = await uploadPayoutReceipt(profile.id, tempRef, settleReceiptFile);
+    } catch (err) {
+      setSettleReceiptError(err instanceof Error ? err.message : "Upload failed. Please try again.");
+      setSettleUploading(false);
+      return;
+    }
+    setSettleUploading(false);
+
+    setActionId(doctorId);
+    closeSettleModal();
     try {
       const { total, updated } = await settleDoctorPayments(doctorId, profile.id, {
         notifyDoctorUserId: doctorUserId(doctorId),
+        receiptUrl,
       });
       await loadData();
       showToast(`Settled ${formatPKR(total)} across ${updated.length} payment(s) for ${name}.`);
@@ -390,6 +449,7 @@ export default function AdminPaymentsPage() {
                     <th className="px-6 py-3 font-semibold">Amount</th>
                     <th className="px-6 py-3 font-semibold">Method</th>
                     <th className="px-6 py-3 font-semibold">Submitted</th>
+                    <th className="px-6 py-3 font-semibold">Proof</th>
                     <th className="px-6 py-3 font-semibold text-right">Actions</th>
                   </tr>
                 </thead>
@@ -401,6 +461,16 @@ export default function AdminPaymentsPage() {
                       <td className="px-6 py-4 font-semibold">{formatPKR(Number(p.amount))}</td>
                       <td className="px-6 py-4">{METHOD_LABEL[p.payment_method]}</td>
                       <td className="px-6 py-4 text-xs text-muted-foreground">{formatDate(p.created_at)}</td>
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => setViewProofPayment(p)}
+                          title="View payment attachment"
+                          className="inline-flex items-center gap-1.5 text-xs text-violet-700 hover:text-violet-900 font-medium hover:underline"
+                        >
+                          <Paperclip className="h-3.5 w-3.5" />
+                          View
+                        </button>
+                      </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-2">
                           <Button variant="outline" size="sm" onClick={() => setReviewPayment(p)}>
@@ -415,6 +485,75 @@ export default function AdminPaymentsPage() {
                             {actionId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Approve"}
                           </Button>
                         </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {pendingRefunds.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-amber-900">
+              <Undo2 className="h-5 w-5" />
+              Pending Refunds ({pendingRefunds.length})
+            </CardTitle>
+            <CardDescription>
+              Cancelled appointments awaiting manual refund to the patient&apos;s payment method.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="text-xs uppercase bg-amber-100/50 border-b border-amber-200 text-amber-900">
+                  <tr>
+                    <th className="px-6 py-3 font-semibold">Patient</th>
+                    <th className="px-6 py-3 font-semibold">Doctor</th>
+                    <th className="px-6 py-3 font-semibold">Refund Amount</th>
+                    <th className="px-6 py-3 font-semibold">Status</th>
+                    <th className="px-6 py-3 font-semibold">Initiated</th>
+                    <th className="px-6 py-3 font-semibold text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-amber-100">
+                  {pendingRefunds.map((p) => (
+                    <tr key={p.id} className="hover:bg-amber-50/50">
+                      <td className="px-6 py-4 font-medium">{p.patient?.full_name ?? "Patient"}</td>
+                      <td className="px-6 py-4">{p.doctor?.profile?.full_name ?? "Doctor"}</td>
+                      <td className="px-6 py-4 font-semibold text-amber-700">
+                        {formatPKR(Number(p.refund_amount ?? p.amount))}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-xs font-semibold text-amber-700">
+                          {REFUND_STATUS_LABEL[p.refund_status as RefundStatus]}
+                        </span>
+                        {p.refund_note && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5 max-w-xs truncate" title={p.refund_note}>
+                            {p.refund_note}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-muted-foreground">
+                        {formatDate(p.refund_initiated_at)}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <Button
+                          size="sm"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white h-8 text-xs"
+                          disabled={actionId === p.id}
+                          onClick={() => handleProcessRefund(p.id)}
+                        >
+                          {actionId === p.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Check className="h-3.5 w-3.5 mr-1" />
+                          )}
+                          Mark Refunded
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -635,7 +774,9 @@ export default function AdminPaymentsPage() {
                     <th className="px-6 py-4">Amount</th>
                     <th className="px-6 py-4">Dr Share</th>
                     <th className="px-6 py-4">Payment</th>
+                    <th className="px-6 py-4">Refund</th>
                     <th className="px-6 py-4">Payout</th>
+                    <th className="px-6 py-4">Proof</th>
                     <th className="px-6 py-4 text-right">Action</th>
                   </tr>
                 </thead>
@@ -657,15 +798,61 @@ export default function AdminPaymentsPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4">
+                          <span className="text-[10px] font-semibold text-slate-600">
+                            {REFUND_STATUS_LABEL[(tx.refund_status ?? "not_applicable") as RefundStatus]}
+                          </span>
+                          {(tx.refund_status === "pending" || tx.refund_status === "refunded") && tx.refund_amount != null && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              {formatPKR(Number(tx.refund_amount))}
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
                           <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${payoutBadgeClass(tx.payout_status)}`}>
                             {isPaid ? "Paid" : "Pending"}
                           </span>
                           {isPaid && tx.paid_at && (
                             <p className="text-[10px] text-muted-foreground mt-1">{formatDate(tx.paid_at)}</p>
                           )}
+                          {isPaid && (tx as any).payout_receipt_url && (
+                            <button
+                              onClick={() => setViewPayoutReceiptUrl({
+                                url: (tx as any).payout_receipt_url,
+                                doctorName: tx.doctor?.profile?.full_name ?? "Doctor",
+                                reference: tx.payout_reference ?? "—",
+                              })}
+                              className="mt-1 inline-flex items-center gap-1 text-[10px] text-brand-600 hover:text-brand-800 font-medium hover:underline"
+                            >
+                              <Receipt className="h-3 w-3" /> Receipt
+                            </button>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          {tx.proof_url ? (
+                            <button
+                              onClick={() => setViewProofPayment(tx)}
+                              title="View payment attachment"
+                              className="inline-flex items-center gap-1.5 text-xs text-brand-600 hover:text-brand-800 font-medium hover:underline"
+                            >
+                              <Paperclip className="h-3.5 w-3.5" />
+                              View
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground">—</span>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-right">
-                          {!isCompleted ? (
+                          {tx.refund_status === "pending" || tx.refund_status === "processing" ? (
+                            <Button
+                              size="sm"
+                              disabled={actionId === tx.id}
+                              onClick={() => handleProcessRefund(tx.id)}
+                              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                            >
+                              {actionId === tx.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 mr-1" />}
+                              Refund
+                            </Button>
+                          ) : !isCompleted ? (
                             <span className="text-[10px] text-muted-foreground">Not collected</span>
                           ) : isPaid ? (
                             <Button
@@ -695,7 +882,7 @@ export default function AdminPaymentsPage() {
                   })}
                   {filtered.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="px-6 py-12 text-center text-sm text-muted-foreground">
+                      <td colSpan={11} className="px-6 py-12 text-center text-sm text-muted-foreground">
                         No transactions match your filters.
                       </td>
                     </tr>
@@ -710,28 +897,87 @@ export default function AdminPaymentsPage() {
       {/* Settle confirmation modal */}
       {confirmSettle && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-card rounded-2xl max-w-sm w-full shadow-2xl animate-in fade-in duration-150">
+          <div className="bg-card rounded-2xl max-w-md w-full shadow-2xl animate-in fade-in duration-150">
             <div className="p-6 border-b border-border flex items-center justify-between">
               <h3 className="text-lg font-bold">Settle Doctor Payout</h3>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setConfirmSettle(null)}>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={closeSettleModal}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-5">
+              {/* Amount summary */}
               <div className="bg-brand-400/5 border border-brand-400/10 p-4 rounded-xl text-center">
                 <p className="text-xs text-muted-foreground">Clearing all pending earnings for</p>
                 <p className="text-base font-bold mt-1">{confirmSettle.name}</p>
                 <p className="text-3xl font-black text-brand-500 mt-2">{formatPKR(confirmSettle.amount)}</p>
               </div>
+
+              {/* Receipt upload — mandatory */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-700">
+                  Attach Payout Receipt <span className="text-red-500">*</span>
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Upload your bank transfer screenshot or receipt. Required before confirming settlement.
+                </p>
+
+                {!settleReceiptFile ? (
+                  <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-brand-400 hover:bg-brand-400/5 transition-colors group">
+                    <UploadCloud className="h-7 w-7 text-slate-300 group-hover:text-brand-400 mb-1.5 transition-colors" />
+                    <span className="text-sm font-medium text-slate-500 group-hover:text-brand-600">Click to upload</span>
+                    <span className="text-[11px] text-muted-foreground mt-0.5">JPG, PNG, PDF — max 10 MB</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,application/pdf"
+                      className="hidden"
+                      onChange={(e) => handleReceiptFileChange(e.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                ) : (
+                  <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-3">
+                    <Receipt className="h-5 w-5 text-emerald-600 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-800 truncate">{settleReceiptFile.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(settleReceiptFile.size / 1024).toFixed(0)} KB — ready to upload
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleReceiptFileChange(null)}
+                      title="Remove and choose another file"
+                      className="shrink-0 text-muted-foreground hover:text-red-500 transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+
+                {settleReceiptError && (
+                  <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
+                    <X className="h-3 w-3" /> {settleReceiptError}
+                  </p>
+                )}
+              </div>
+
               <p className="text-xs text-muted-foreground text-center">
                 This marks every collected-but-unpaid payment as paid. The doctor&apos;s dashboard updates instantly.
               </p>
+
               <div className="flex gap-3 pt-1">
-                <Button variant="outline" className="flex-1" onClick={() => setConfirmSettle(null)}>
+                <Button variant="outline" className="flex-1" onClick={closeSettleModal} disabled={settleUploading}>
                   Cancel
                 </Button>
-                <Button onClick={handleSettleDoctor} className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold">
-                  Confirm &amp; Settle
+                <Button
+                  onClick={handleSettleDoctor}
+                  disabled={!settleReceiptFile || !!settleReceiptError || settleUploading}
+                  className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold disabled:opacity-50"
+                >
+                  {settleUploading ? (
+                    <><Loader2 className="h-4 w-4 animate-spin mr-2" />Uploading…</>
+                  ) : (
+                    "Confirm & Settle"
+                  )}
                 </Button>
               </div>
             </div>
@@ -807,6 +1053,228 @@ export default function AdminPaymentsPage() {
           </div>
         </div>
       )}
+
+      {/* Attachment viewer modal — available for all payments (pending & approved) */}
+      {viewProofPayment && (
+        <AttachmentViewerModal
+          payment={viewProofPayment}
+          onClose={() => setViewProofPayment(null)}
+        />
+      )}
+
+      {/* Payout receipt viewer */}
+      {viewPayoutReceiptUrl && (
+        <PayoutReceiptViewerModal
+          url={viewPayoutReceiptUrl.url}
+          doctorName={viewPayoutReceiptUrl.doctorName}
+          reference={viewPayoutReceiptUrl.reference}
+          onClose={() => setViewPayoutReceiptUrl(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Attachment Viewer Modal
+   Handles image (inline preview) and PDF (iframe) with a download fallback.
+   Shows a "No attachment" state when proof_url is absent.
+───────────────────────────────────────────────────────────────────────────── */
+function AttachmentViewerModal({
+  payment,
+  onClose,
+}: {
+  payment: AdminPayment;
+  onClose: () => void;
+}) {
+  const url = payment.proof_url ?? null;
+
+  // Strip query string before checking extension
+  const rawPath = url ? url.split("?")[0] : "";
+  const isPdf = rawPath.toLowerCase().endsWith(".pdf");
+
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50"
+      onClick={handleBackdropClick}
+    >
+      <div className="bg-card rounded-2xl max-w-2xl w-full shadow-2xl max-h-[92vh] flex flex-col">
+        {/* Header */}
+        <div className="p-5 border-b flex items-start justify-between gap-3 shrink-0">
+          <div>
+            <h3 className="text-base font-bold flex items-center gap-2">
+              <Paperclip className="h-4 w-4 text-brand-500" />
+              Payment Attachment
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {payment.patient?.full_name ?? "Patient"} &rarr;{" "}
+              {payment.doctor?.profile?.full_name ?? "Doctor"} &mdash;{" "}
+              {formatPKR(Number(payment.amount))} via {METHOD_LABEL[payment.payment_method as PaymentMethod] ?? payment.payment_method}
+            </p>
+          </div>
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Payment meta strip */}
+        <div className="px-5 py-3 border-b bg-muted/30 flex flex-wrap gap-x-6 gap-y-1.5 text-xs shrink-0">
+          <span>
+            <span className="text-muted-foreground">Status: </span>
+            <span className="font-semibold capitalize">{payment.status}</span>
+          </span>
+          <span>
+            <span className="text-muted-foreground">Submitted: </span>
+            <span className="font-medium">{formatDate(payment.created_at)}</span>
+          </span>
+          {payment.reviewed_at && (
+            <span>
+              <span className="text-muted-foreground">Reviewed: </span>
+              <span className="font-medium">{formatDate(payment.reviewed_at)}</span>
+            </span>
+          )}
+          {payment.transaction_id && (
+            <span className="font-mono">
+              <span className="text-muted-foreground">Txn: </span>
+              {payment.transaction_id}
+            </span>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-auto p-5 min-h-0">
+          {!url ? (
+            /* No attachment state */
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+              <Paperclip className="h-10 w-10 opacity-25" />
+              <p className="text-sm font-medium">No attachment uploaded</p>
+              <p className="text-xs">This payment was submitted without a proof screenshot.</p>
+            </div>
+          ) : isPdf ? (
+            /* PDF preview via iframe */
+            <div className="rounded-lg border border-border overflow-hidden bg-muted/10 h-[55vh]">
+              <iframe
+                src={url}
+                title="Payment proof PDF"
+                className="w-full h-full"
+              />
+            </div>
+          ) : (
+            /* Image preview */
+            <div className="rounded-lg border border-border overflow-hidden bg-muted/20 flex items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={url}
+                alt="Payment proof"
+                className="max-w-full max-h-[55vh] object-contain"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Footer actions */}
+        <div className="p-5 border-t flex items-center justify-between gap-3 shrink-0">
+          {url ? (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              download
+              className="inline-flex items-center gap-2 text-sm font-medium text-brand-600 hover:text-brand-800 hover:underline"
+            >
+              <Download className="h-4 w-4" />
+              Download attachment
+              <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+            </a>
+          ) : (
+            <span />
+          )}
+          <Button variant="outline" size="sm" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Payout Receipt Viewer Modal
+   Shows the admin-uploaded payout receipt for a settled transaction.
+───────────────────────────────────────────────────────────────────────────── */
+function PayoutReceiptViewerModal({
+  url,
+  doctorName,
+  reference,
+  onClose,
+}: {
+  url: string;
+  doctorName: string;
+  reference: string;
+  onClose: () => void;
+}) {
+  const rawPath = url.split("?")[0];
+  const isPdf = rawPath.toLowerCase().endsWith(".pdf");
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-card rounded-2xl max-w-2xl w-full shadow-2xl max-h-[92vh] flex flex-col">
+        {/* Header */}
+        <div className="p-5 border-b flex items-start justify-between gap-3 shrink-0">
+          <div>
+            <h3 className="text-base font-bold flex items-center gap-2">
+              <Receipt className="h-4 w-4 text-brand-500" />
+              Payout Receipt
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Settlement for <span className="font-medium">{doctorName}</span>
+              {reference !== "—" && <> &mdash; Ref: <span className="font-mono">{reference}</span></>}
+            </p>
+          </div>
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-auto p-5 min-h-0">
+          {isPdf ? (
+            <div className="rounded-lg border border-border overflow-hidden bg-muted/10 h-[55vh]">
+              <iframe src={url} title="Payout receipt PDF" className="w-full h-full" />
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border overflow-hidden bg-muted/20 flex items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt="Payout receipt" className="max-w-full max-h-[55vh] object-contain" />
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-5 border-t flex items-center justify-between gap-3 shrink-0">
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            download
+            className="inline-flex items-center gap-2 text-sm font-medium text-brand-600 hover:text-brand-800 hover:underline"
+          >
+            <Download className="h-4 w-4" />
+            Download receipt
+            <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+          </a>
+          <Button variant="outline" size="sm" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

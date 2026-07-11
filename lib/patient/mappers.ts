@@ -1,4 +1,4 @@
-import type { AppointmentStatus, PaymentMethod, PaymentStatus } from "@/types";
+import type { AppointmentStatus, PaymentMethod, PaymentStatus, RefundStatus } from "@/types";
 import { parseClinicalNotes } from "@/lib/doctor/notes";
 import {
   calcAge,
@@ -42,6 +42,10 @@ export interface PatientUIAppointment {
   scheduledAt: string;
   consultationFee: number;
   rawStatus: AppointmentStatus;
+  refundStatus: RefundStatus | null;
+  refundAmount: number | null;
+  refundProcessedAt: string | null;
+  cancellationReason: string | null;
 }
 
 export function mapPatientStatus(
@@ -106,6 +110,10 @@ export function mapToPatientAppointment(apt: AppointmentWithDoctor): PatientUIAp
     scheduledAt: apt.scheduled_at,
     consultationFee: Number(apt.consultation_fee),
     rawStatus: apt.status,
+    refundStatus: payment?.refund_status ?? null,
+    refundAmount: payment?.refund_amount != null ? Number(payment.refund_amount) : null,
+    refundProcessedAt: payment?.refund_processed_at ?? payment?.refunded_at ?? null,
+    cancellationReason: apt.cancellation_reason ?? null,
   };
 }
 

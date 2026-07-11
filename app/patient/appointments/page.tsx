@@ -22,6 +22,7 @@ import {
   type PatientUIAppointment,
 } from "@/lib/patient/mappers";
 import { UserAvatar } from "@/components/shared/UserAvatar";
+import { AppointmentFinancialDetails } from "@/components/shared/AppointmentFinancialDetails";
 import { PaymentProofUpload } from "@/components/patient/PaymentProofUpload";
 import { fetchPlatformPaymentAccounts, FALLBACK_PAYMENT_ACCOUNTS, type PaymentAccountDetails, type BookablePaymentMethod } from "@/lib/payment/config";
 
@@ -487,6 +488,26 @@ export default function PatientAppointmentsPage() {
                 <p className="text-xs text-muted-foreground mb-1">Reason</p>
                 <p className="text-sm">{selectedAppointment.reason}</p>
               </div>
+
+              {(selectedAppointment.isPaid || selectedAppointment.status === "Cancelled") && (
+                <AppointmentFinancialDetails
+                  info={{
+                    consultationFee: selectedAppointment.consultationFee,
+                    refundStatus: selectedAppointment.refundStatus ?? "not_applicable",
+                    refundAmount: selectedAppointment.refundAmount,
+                    refundProcessedAt: selectedAppointment.refundProcessedAt,
+                    paymentStatus: selectedAppointment.paymentStatus,
+                    isCancelled: selectedAppointment.status === "Cancelled",
+                  }}
+                />
+              )}
+
+              {selectedAppointment.cancellationReason && (
+                <div className="p-3 bg-red-50 border border-red-100 rounded-lg">
+                  <div className="text-xs text-red-600 mb-1">Cancellation reason</div>
+                  <div className="text-sm text-red-700">{selectedAppointment.cancellationReason}</div>
+                </div>
+              )}
               {selectedAppointment.prescription && (
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Prescription</p>

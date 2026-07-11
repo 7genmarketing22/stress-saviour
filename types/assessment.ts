@@ -15,6 +15,15 @@ export interface PatientAssessment {
   patient_name?: string;
   patient_email?: string;
   patient_avatar?: string;
+  shares?: AssessmentShareWithDoctor[];
+}
+
+export interface AssessmentShareWithDoctor extends AssessmentShare {
+  doctor?: {
+    id: string;
+    full_name: string;
+    avatar_url: string | null;
+  };
 }
 
 export interface AssessmentShare {
