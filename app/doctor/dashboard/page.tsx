@@ -44,6 +44,7 @@ import {
   startAppointmentCall,
   updateDoctorDocuments,
 } from "@/lib/doctor/api";
+import { isDoctorNetEarning } from "@/lib/doctor/stats";
 import {
   DashboardSession,
   formatCurrency,
@@ -51,6 +52,7 @@ import {
   isToday,
   mapToDashboardSession,
   timeAgo,
+  toLocalDateKey,
 } from "@/lib/doctor/mappers";
 
 export default function DoctorDashboardPage() {
@@ -146,19 +148,19 @@ export default function DoctorDashboardPage() {
 
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthPayments = payments.filter(
-        (p) => p.status === "completed" && new Date(p.created_at) >= monthStart
+      const earnedPayments = payments.filter(isDoctorNetEarning);
+      const monthPayments = earnedPayments.filter(
+        (p) => new Date(p.created_at) >= monthStart
       );
       setMonthlyEarnings(
         monthPayments.reduce((sum, p) => sum + Number(p.doctor_earning), 0)
       );
 
-      const collected = payments.filter((p) => p.status === "completed");
       setWallet({
-        disbursable: collected
+        disbursable: earnedPayments
           .filter((p) => p.payout_status === "paid")
           .reduce((sum, p) => sum + Number(p.doctor_earning), 0),
-        pending: collected
+        pending: earnedPayments
           .filter((p) => p.payout_status !== "paid")
           .reduce((sum, p) => sum + Number(p.doctor_earning), 0),
       });
@@ -168,13 +170,9 @@ export default function DoctorDashboardPage() {
       for (let i = 6; i >= 0; i--) {
         const date = new Date();
         date.setDate(date.getDate() - i);
-        const key = date.toISOString().split("T")[0];
-        const amount = payments
-          .filter(
-            (p) =>
-              p.status === "completed" &&
-              p.created_at.split("T")[0] === key
-          )
+        const key = toLocalDateKey(date);
+        const amount = earnedPayments
+          .filter((p) => p.created_at.split("T")[0] === key)
           .reduce((sum, p) => sum + Number(p.doctor_earning), 0);
         chartDays.push({ name: dayNames[date.getDay()], amount });
       }
@@ -184,10 +182,10 @@ export default function DoctorDashboardPage() {
       for (let i = 0; i < 5; i++) {
         const date = new Date();
         date.setDate(date.getDate() + i);
-        const key = date.toISOString().split("T")[0];
+        const key = toLocalDateKey(date);
         const count = appointments.filter(
           (apt) =>
-            apt.scheduled_at.split("T")[0] === key &&
+            toLocalDateKey(new Date(apt.scheduled_at)) === key &&
             apt.status !== "cancelled"
         ).length;
         weekDays.push({

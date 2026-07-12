@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { useDoctor } from "@/contexts/DoctorContext";
 import { getDoctorPayments } from "@/lib/doctor/api";
+import { isDoctorNetEarning } from "@/lib/doctor/stats";
 import { usePaymentsRealtime } from "@/lib/realtime/usePaymentsRealtime";
 import { formatCurrency, mapAppointmentType } from "@/lib/doctor/mappers";
 
@@ -63,11 +64,7 @@ export default function DoctorEarningsPage() {
       const payments = await getDoctorPayments(doctorProfile.id);
       // Only collected (patient-paid) consultations count toward earnings.
       // Exclude payments with active or completed refunds.
-      const completed = payments.filter(
-        (p) =>
-          p.status === "completed" &&
-          (!p.refund_status || p.refund_status === "not_applicable")
-      );
+      const completed = payments.filter(isDoctorNetEarning);
       const cleared = completed.filter((p) => p.payout_status === "paid");
       const pending = completed.filter((p) => p.payout_status !== "paid");
 
@@ -123,8 +120,12 @@ export default function DoctorEarningsPage() {
           : "Other";
         typeCounts[label] = (typeCounts[label] ?? 0) + 1;
       }
+      const total = Object.values(typeCounts).reduce((sum, n) => sum + n, 0);
       setSourceData(
-        Object.entries(typeCounts).map(([name, value]) => ({ name, value }))
+        Object.entries(typeCounts).map(([name, value]) => ({
+          name,
+          value: total > 0 ? Math.round((value / total) * 100) : 0,
+        }))
       );
 
       setPayouts(

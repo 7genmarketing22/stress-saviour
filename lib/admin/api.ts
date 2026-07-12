@@ -870,6 +870,9 @@ export function buildAdminStats(
   const activeDoctors = doctors.filter((d) => d.status === "approved").length;
   const pendingDoctors = doctors.filter((d) => d.status === "pending").length;
   const pendingPatients = patients.filter((p) => p.account_status === "pending").length;
+  const activePatients = patients.filter(
+    (p) => p.is_active && p.account_status === "approved"
+  ).length;
 
   const todays = appointments.filter((a) => isSameDay(new Date(a.scheduled_at), now));
   const appointmentsTodayCompleted = todays.filter((a) => a.status === "completed").length;
@@ -901,6 +904,7 @@ export function buildAdminStats(
     pendingDoctors,
     pendingPatients,
     totalPatients: patients.length,
+    activePatients,
     appointmentsToday: todays.length,
     appointmentsTodayCompleted,
     appointmentsTodayUpcoming,
@@ -1061,10 +1065,15 @@ export function topDoctors(
 ) {
   return doctors
     .map((doctor) => {
-      const earnings = payments
-        .filter((p) => p.doctor_id === doctor.id && p.status === "completed")
-        .reduce((sum, p) => sum + Number(p.doctor_earning), 0);
-      const consultations = appointments.filter(
+      // Single source of truth: a "session" that produces earnings is a paid,
+      // non-refunded payment. Deriving both `consultations` and `earnings` from
+      // the SAME set guarantees they can never contradict each other
+      // (earnings > 0 ⟺ sessions > 0), fixing the "Rs5.4k / 0 sessions" bug.
+      const paidPayments = payments.filter((p) => p.doctor_id === doctor.id && isEarned(p));
+      const earnings = paidPayments.reduce((sum, p) => sum + Number(p.doctor_earning), 0);
+      const consultations = paidPayments.length;
+      // Sessions actually held (doctor marked complete) — for reference only.
+      const completedSessions = appointments.filter(
         (a) => a.doctor_id === doctor.id && a.status === "completed"
       ).length;
       return {
@@ -1073,6 +1082,7 @@ export function topDoctors(
         specialization: doctor.specialization,
         rating: Number(doctor.rating) || 0,
         consultations,
+        completedSessions,
         earnings,
       };
     })

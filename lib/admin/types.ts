@@ -71,6 +71,7 @@ export interface AdminStats {
   pendingDoctors: number;
   pendingPatients: number;
   totalPatients: number;
+  activePatients: number;
   appointmentsToday: number;
   appointmentsTodayCompleted: number;
   appointmentsTodayUpcoming: number;

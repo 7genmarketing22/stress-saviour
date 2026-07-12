@@ -27,6 +27,7 @@ import {
   topDoctors as buildTopDoctors,
   buildRecentActivity,
 } from "@/lib/admin/api";
+import { checkDashboardConsistency } from "@/lib/admin/consistency";
 import type { AdminAppointment, AdminDoctor, AdminPayment } from "@/lib/admin/types";
 import type { Profile } from "@/types";
 
@@ -202,6 +203,23 @@ export default function AdminDashboardPage() {
   const recentActivity = buildRecentActivity(appointments, payments, patients, doctors, 5);
   const onlineDoctors = doctors.filter((d) => d.status === "approved" && d.is_available).length;
 
+  // Cross-check related stats derive from the same source of truth. In healthy
+  // data this is empty; if it ever fires, related numbers have drifted apart.
+  const consistencyWarnings = checkDashboardConsistency({
+    doctors: buildTopDoctors(doctors, payments, appointments, doctors.length).map((d) => ({
+      id: d.id,
+      name: d.name,
+      consultations: d.consultations,
+      earnings: d.earnings,
+    })),
+    totalPatients: stats.totalPatients,
+    newPatientsInPeriod: periodPatients.length,
+    activePatients: stats.activePatients,
+    activeAppointments: periodActiveAppointments,
+    upcomingAppointments: periodUpcoming,
+    completedAppointments: periodCompleted,
+  });
+
   const periodLabel = FILTER_LABELS[filterPeriod];
 
   const statCards = [
@@ -222,24 +240,25 @@ export default function AdminDashboardPage() {
       description: `${onlineDoctors} available now`,
     },
     {
+      // Headline is ALWAYS the true total registered count so it never
+      // contradicts the "total registered" subtext. New-in-period and active
+      // counts are shown as reconciling context (total ≥ active ≥ new).
       title: "Patients",
-      value: String(periodPatients.length || stats.totalPatients),
-      change: filterPeriod === "month" || filterPeriod === "3months"
-        ? `+${periodPatients.length} new in period`
-        : `${stats.totalPatients} total registered`,
+      value: String(stats.totalPatients),
+      change: `+${periodPatients.length} new — ${periodLabel}`,
       icon: Users,
       positive: true,
-      description: filterPeriod === "month" || filterPeriod === "3months"
-        ? `${stats.totalPatients} total registered`
-        : `${periodPatients.length} joined — ${periodLabel}`,
+      description: `${stats.activePatients} active · ${stats.totalPatients} registered`,
     },
     {
+      // Active = non-cancelled in period. Breakdown (upcoming + completed)
+      // always sums to ≤ active so the three numbers reconcile.
       title: "Appointments",
       value: String(periodActiveAppointments),
-      change: `${periodUpcoming} upcoming`,
+      change: `${periodUpcoming} upcoming · ${periodCompleted} completed`,
       icon: Calendar,
       positive: true,
-      description: `${periodCompleted} completed — ${periodLabel}`,
+      description: `${periodActiveAppointments} active — ${periodLabel}`,
     },
     {
       title: "Pending Reviews",
@@ -279,6 +298,20 @@ export default function AdminDashboardPage() {
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
+        </div>
+      )}
+
+      {consistencyWarnings.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <div className="flex items-center gap-2 font-semibold">
+            <AlertTriangle className="h-4 w-4" />
+            Data consistency check ({consistencyWarnings.length})
+          </div>
+          <ul className="mt-2 list-disc pl-6 space-y-1 text-xs text-amber-700">
+            {consistencyWarnings.map((w) => (
+              <li key={w.code + w.message}>{w.message}</li>
+            ))}
+          </ul>
         </div>
       )}
 

@@ -272,6 +272,13 @@ export interface DashboardSession {
   scheduledAt: string;
 }
 
+export function toLocalDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 export function mapToUIAppointment(appointment: AppointmentWithPatient) {
   const patientName = appointment.patient?.full_name ?? "Unknown Patient";
   const parsed = parseClinicalNotes(appointment.doctor_notes);
@@ -285,7 +292,7 @@ export function mapToUIAppointment(appointment: AppointmentWithPatient) {
     patientPhone: appointment.patient?.phone ?? "",
     patientAge: calcAge(appointment.patient?.date_of_birth ?? null)?.toString() ?? "—",
     patientGender: formatGender(appointment.patient?.gender ?? null),
-    date: scheduled.toISOString().split("T")[0],
+    date: toLocalDateKey(scheduled),
     time: `${scheduled.getHours().toString().padStart(2, "0")}:${scheduled.getMinutes().toString().padStart(2, "0")}`,
     duration: `${appointment.duration_minutes} min`,
     type: mapAppointmentType(appointment.appointment_type) as "Video" | "Audio" | "Chat",

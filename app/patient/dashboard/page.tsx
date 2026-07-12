@@ -16,6 +16,7 @@ import {
   getPatientPayments,
   getRecentDoctors,
 } from "@/lib/patient/api";
+import { buildPatientDashboardStats } from "@/lib/patient/stats";
 import {
   formatCurrency,
   formatRelativeDate,
@@ -29,7 +30,7 @@ export default function PatientDashboardPage() {
   const { profile } = usePatient();
   const [loading, setLoading] = useState(true);
   const [appointments, setAppointments] = useState<ReturnType<typeof mapToPatientAppointment>[]>([]);
-  const [totalSpent, setTotalSpent] = useState(0);
+  const [dashboardStats, setDashboardStats] = useState<ReturnType<typeof buildPatientDashboardStats> | null>(null);
   const [prescriptionCount, setPrescriptionCount] = useState(0);
 
   const [rawAppointments, setRawAppointments] = useState<Awaited<ReturnType<typeof getPatientAppointments>>>([]);
@@ -47,16 +48,12 @@ export default function PatientDashboardPage() {
         const mapped = apts.map(mapToPatientAppointment);
         setAppointments(mapped);
         setPrescriptionCount(buildPrescriptions(apts).length);
-        setTotalSpent(
-          payments
-            .filter((p) => p.status === "completed")
-            .reduce((sum, p) => sum + Number(p.amount), 0)
-        );
+        setDashboardStats(buildPatientDashboardStats(payments, apts));
       } catch {
         if (!cancelled) {
           setRawAppointments([]);
           setAppointments([]);
-          setTotalSpent(0);
+          setDashboardStats(null);
           setPrescriptionCount(0);
         }
       } finally {
@@ -68,8 +65,30 @@ export default function PatientDashboardPage() {
 
   const upcoming = useMemo(() => getUpcomingAppointments(appointments), [appointments]);
   const nextApt = upcoming[0] ?? null;
-  const completedCount = appointments.filter((a) => a.status === "Completed").length;
+  const completedCount = dashboardStats?.completedAppointments ?? 0;
   const recentDoctorsList = useMemo(() => getRecentDoctors(rawAppointments), [rawAppointments]);
+
+  const spentDescription = useMemo(() => {
+    if (!dashboardStats) return "Loading…";
+    const { netSpent, paidSessionCount, avgPerSession, pendingRefundCount, pendingRefundAmount } =
+      dashboardStats;
+    if (netSpent === 0 && paidSessionCount === 0) {
+      if (pendingRefundCount > 0) {
+        return `${formatCurrency(pendingRefundAmount)} refund pending`;
+      }
+      return "No payments yet";
+    }
+    const avg =
+      paidSessionCount > 0
+        ? `Avg ${formatCurrency(avgPerSession)}/session · ${paidSessionCount} paid`
+        : "";
+    if (pendingRefundCount > 0) {
+      return [avg, `${formatCurrency(pendingRefundAmount)} refund pending`]
+        .filter(Boolean)
+        .join(" · ");
+    }
+    return avg || "Net spend after refunds";
+  }, [dashboardStats]);
 
   const nextAptDoctorAvatar = useMemo(() => {
     if (!nextApt) return null;
@@ -102,19 +121,19 @@ export default function PatientDashboardPage() {
       title: "Total Sessions",
       value: String(completedCount),
       subtitle: "Completed",
-      description: "Since joining platform",
+      description:
+        dashboardStats && dashboardStats.activeBookings > completedCount
+          ? `${dashboardStats.activeBookings} total bookings`
+          : "Consultations held",
       icon: Activity,
       color: "text-purple-600 bg-purple-50",
       href: "/patient/appointments",
     },
     {
       title: "Total Spent",
-      value: formatCurrency(totalSpent),
-      subtitle: "All time",
-      description:
-        completedCount > 0
-          ? `Average ${formatCurrency(Math.round(totalSpent / completedCount))}/session`
-          : "No payments yet",
+      value: formatCurrency(dashboardStats?.netSpent ?? 0),
+      subtitle: "Net",
+      description: spentDescription,
       icon: DollarSign,
       color: "text-amber-600 bg-amber-50",
       href: "/patient/payments",
@@ -216,9 +235,11 @@ export default function PatientDashboardPage() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
                         <p className="text-[10px] sm:text-xs font-medium text-slate-600 truncate">{stat.title}</p>
-                        <div className="flex items-baseline gap-1 mt-1 sm:mt-2">
-                          <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">{stat.value}</h3>
-                          <span className="text-[10px] sm:text-xs text-slate-600">{stat.subtitle}</span>
+                        <div className="flex items-baseline gap-1 mt-1 sm:mt-2 flex-wrap">
+                          <h3 className="text-lg sm:text-2xl md:text-3xl font-bold text-slate-900 leading-tight break-words">
+                            {stat.value}
+                          </h3>
+                          <span className="text-[10px] sm:text-xs text-slate-600 shrink-0">{stat.subtitle}</span>
                         </div>
                       </div>
                       <div className={`rounded-lg p-1.5 sm:p-2 ${stat.color} flex-shrink-0`}>

@@ -174,6 +174,8 @@ export function mapToPaymentRow(payment: PaymentWithDoctor) {
     rawMethod: payment.payment_method,
     status: statusLabels[payment.status] ?? payment.status,
     rawStatus: payment.status,
+    refundStatus: payment.refund_status ?? "not_applicable",
+    refundAmount: payment.refund_amount != null ? Number(payment.refund_amount) : null,
     proofUrl: payment.proof_url,
     rejectionReason: payment.rejection_reason,
     reviewedAt: payment.reviewed_at,

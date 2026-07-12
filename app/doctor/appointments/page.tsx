@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
@@ -25,11 +25,11 @@ import {
 } from "lucide-react";
 import { useDoctor } from "@/contexts/DoctorContext";
 import {
+  addDocBlockedSlot,
   getDoctorAppointments,
   saveClinicalRecords,
   startAppointmentCall,
   updateAppointment,
-  updateDoctorDocuments,
 } from "@/lib/doctor/api";
 import { mapStatusToDb, mapToUIAppointment } from "@/lib/doctor/mappers";
 
@@ -54,7 +54,7 @@ interface Appointment {
 }
 
 export default function DoctorAppointmentsPage() {
-  const { doctorProfile, documents, setDocuments } = useDoctor();
+  const { doctorProfile } = useDoctor();
   const [activeTab, setActiveTab] = useState<"Upcoming" | "Completed" | "Cancelled" | "All">("Upcoming");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -70,6 +70,10 @@ export default function DoctorAppointmentsPage() {
   
   const today = new Date().toISOString().split("T")[0];
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(today);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
 
   const [newDateInput, setNewDateInput] = useState("");
   const [newTimeInput, setNewTimeInput] = useState("");
@@ -126,6 +130,32 @@ export default function DoctorAppointmentsPage() {
     return filtered;
   };
 
+  const calendarCells = useMemo(() => {
+    const year = calendarMonth.getFullYear();
+    const monthIndex = calendarMonth.getMonth();
+    const firstDay = new Date(year, monthIndex, 1);
+    const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+    const startPadding = (firstDay.getDay() + 6) % 7;
+
+    const cells: Array<{ day: number | null; date: string | null }> = [];
+    for (let i = 0; i < startPadding; i++) cells.push({ day: null, date: null });
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      cells.push({ day, date });
+    }
+    return cells;
+  }, [calendarMonth]);
+
+  const calendarMonthLabel = calendarMonth.toLocaleDateString("en-PK", {
+    month: "long",
+    year: "numeric",
+  });
+
+  const appointmentsOnSelectedDate = useMemo(
+    () => appointments.filter((a) => a.date === selectedCalendarDate),
+    [appointments, selectedCalendarDate]
+  );
+
   const filteredAppointments = getFilteredAppointments();
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -171,20 +201,14 @@ export default function DoctorAppointmentsPage() {
   const handleBlockTimeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const blocked = documents.blocked_dates ?? [];
-      const updated = [
-        ...blocked,
-        {
-          id: `bl-${Date.now()}`,
-          date: blockTimeForm.date,
-          reason: blockTimeForm.reason || "Blocked by doctor",
-        },
-      ];
-      const result = await updateDoctorDocuments(doctorProfile.id, documents, {
-        blocked_dates: updated,
-      });
-      setDocuments(result.documents);
-      showToast(`Time slot successfully blocked on ${blockTimeForm.date}.`);
+      await addDocBlockedSlot(
+        doctorProfile.id,
+        blockTimeForm.date,
+        blockTimeForm.reason || "Blocked by doctor",
+        blockTimeForm.timeStart,
+        blockTimeForm.timeEnd
+      );
+      showToast(`Time slot blocked on ${blockTimeForm.date} (${blockTimeForm.timeStart}–${blockTimeForm.timeEnd}).`);
       setShowBlockTimeModal(false);
     } catch {
       showToast("Failed to block time slot.");
@@ -470,28 +494,56 @@ export default function DoctorAppointmentsPage() {
           <div className="md:col-span-4 space-y-4">
             <Card>
               <CardContent className="p-4 space-y-3">
-                <h3 className="font-bold text-sm text-foreground">Select Calendar Date</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-sm text-foreground">{calendarMonthLabel}</h3>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() =>
+                        setCalendarMonth(
+                          (prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1)
+                        )
+                      }
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() =>
+                        setCalendarMonth(
+                          (prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1)
+                        )
+                      }
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
                 <div className="grid grid-cols-7 gap-1 text-center text-xs">
                   {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
                     <span key={i} className="text-muted-foreground font-semibold py-1">{d}</span>
                   ))}
-                  {[22, 23, 24, 25, 26, 27, 28].map((day) => {
-                    const fullDate = `2026-06-${day}`;
-                    const isSelected = selectedCalendarDate === fullDate;
-                    return (
+                  {calendarCells.map((cell, idx) =>
+                    cell.day === null ? (
+                      <span key={`pad-${idx}`} className="h-8" />
+                    ) : (
                       <button
-                        key={day}
-                        onClick={() => setSelectedCalendarDate(fullDate)}
+                        key={cell.date}
+                        onClick={() => cell.date && setSelectedCalendarDate(cell.date)}
                         className={`h-8 w-8 mx-auto rounded-lg font-medium flex items-center justify-center transition-colors cursor-pointer ${
-                          isSelected
+                          selectedCalendarDate === cell.date
                             ? "bg-brand-500 text-white shadow-sm"
                             : "hover:bg-muted text-foreground"
                         }`}
                       >
-                        {day}
+                        {cell.day}
                       </button>
-                    );
-                  })}
+                    )
+                  )}
                 </div>
                 <div className="border-t border-border/60 pt-3 text-xs text-muted-foreground">
                   Showing agenda for <span className="font-bold text-foreground">{formatDate(selectedCalendarDate)}</span>
@@ -520,8 +572,8 @@ export default function DoctorAppointmentsPage() {
                   </div>
 
                   {/* Filter appointments matching selected calendar date */}
-                  {appointments.filter(a => a.date === selectedCalendarDate).length > 0 ? (
-                    appointments.filter(a => a.date === selectedCalendarDate).map((apt) => (
+                  {appointmentsOnSelectedDate.length > 0 ? (
+                    appointmentsOnSelectedDate.map((apt) => (
                       <div key={apt.id} className="relative group hover:bg-muted/10 p-3 rounded-lg border border-transparent hover:border-border transition-colors">
                         <div className="absolute -left-[31px] top-4.5 h-4 w-4 rounded-full border-2 border-brand-500 bg-card" />
                         <div className="flex justify-between items-start">

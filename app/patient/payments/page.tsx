@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { getPatientPayments } from "@/lib/patient/api";
 import { formatCurrency, mapToPaymentRow, type PatientPaymentRow } from "@/lib/patient/mappers";
+import { isPatientNetPayment } from "@/lib/patient/stats";
 import { usePatient } from "@/contexts/PatientContext";
 import { usePaymentsRealtime } from "@/lib/realtime/usePaymentsRealtime";
 import type { PaymentMethod, PaymentStatus } from "@/types";
@@ -185,10 +186,22 @@ export default function PatientPaymentsPage() {
 
   const stats = useMemo(() => {
     const completed = transactions.filter((t) => t.rawStatus === "completed");
+    const net = completed.filter((t) =>
+      isPatientNetPayment({ status: t.rawStatus, refund_status: t.refundStatus })
+    );
+    const pendingRefund = completed.filter(
+      (t) => t.refundStatus === "pending" || t.refundStatus === "processing"
+    );
     const pending = transactions.filter((t) => t.rawStatus === "pending");
+    const netSpent = net.reduce((sum, t) => sum + t.amountRaw, 0);
     return {
-      totalSpent: completed.reduce((sum, t) => sum + t.amountRaw, 0),
-      completedCount: completed.length,
+      totalSpent: netSpent,
+      completedCount: net.length,
+      pendingRefundAmount: pendingRefund.reduce(
+        (sum, t) => sum + (t.refundAmount ?? t.amountRaw),
+        0
+      ),
+      pendingRefundCount: pendingRefund.length,
       pendingAmount: pending.reduce((sum, t) => sum + t.amountRaw, 0),
       pendingCount: pending.length,
       totalCount: transactions.length,
@@ -336,9 +349,14 @@ export default function PatientPaymentsPage() {
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Spent</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Net Spent</p>
                 <p className="text-2xl font-bold mt-1">{formatCurrency(stats.totalSpent)}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{stats.completedCount} completed</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {stats.completedCount} paid
+                  {stats.pendingRefundCount > 0
+                    ? ` · ${formatCurrency(stats.pendingRefundAmount)} refund pending`
+                    : ""}
+                </p>
               </div>
               <div className="h-10 w-10 rounded-full bg-emerald-50 flex items-center justify-center">
                 <DollarSign className="h-5 w-5 text-emerald-600" />
