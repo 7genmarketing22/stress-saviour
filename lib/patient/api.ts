@@ -267,10 +267,9 @@ export async function bookAppointment(params: {
   if (aptError) {
     if (aptError.code === "23505") {
       throw new Error(
-        "This time slot was just booked by another patient. Please select a different time.",
+        "This slot was just booked by another patient. Please choose a different time.",
       );
     }
-    // Trigger raised when doctor marked the slot as off
     if (
       aptError.code === "P0001" &&
       aptError.message?.includes("SLOT_BLOCKED")
@@ -290,6 +289,14 @@ export async function bookAppointment(params: {
       });
       throw new Error(
         "This doctor is unavailable at the selected time. Please choose a different slot."
+      );
+    }
+    if (
+      aptError.code === "P0001" &&
+      aptError.message?.includes("SLOT_OUTSIDE_HOURS")
+    ) {
+      throw new Error(
+        "The selected time is outside the doctor's working hours. Please choose another slot."
       );
     }
     throw aptError;

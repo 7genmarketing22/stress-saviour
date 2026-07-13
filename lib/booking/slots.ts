@@ -5,6 +5,25 @@ interface AvailabilitySlot {
   slot_duration_minutes: number;
 }
 
+const CLINIC_TIMEZONE = "Asia/Karachi";
+const WEEKDAY_MAP: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
+function getPkDayOfWeek(date: string): number {
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: CLINIC_TIMEZONE,
+    weekday: "short",
+  }).format(new Date(`${date}T12:00:00+05:00`));
+  return WEEKDAY_MAP[weekday] ?? 0;
+}
+
 export const DAY_LABELS = [
   "Sunday",
   "Monday",
@@ -31,7 +50,7 @@ export function generateTimeSlotsForDate(
   date: string,
   durationMinutes = 30
 ): string[] {
-  const dayOfWeek = new Date(`${date}T12:00:00`).getDay();
+  const dayOfWeek = getPkDayOfWeek(date);
   const daySlots = slots.filter((s) => s.day_of_week === dayOfWeek);
   const times: string[] = [];
 
@@ -40,12 +59,25 @@ export function generateTimeSlotsForDate(
     const end = parseTimeToMinutes(slot.end_time);
     const step = slot.slot_duration_minutes || durationMinutes;
 
+    // Last bookable start must allow the full session to finish before closing.
     for (let t = start; t + durationMinutes <= end; t += step) {
       times.push(minutesToTime(t));
     }
   }
 
   return [...new Set(times)].sort();
+}
+
+/** Default session length from the doctor's availability config for a given date. */
+export function getSessionDurationForDate(
+  slots: AvailabilitySlot[],
+  date: string,
+  fallbackMinutes = 30,
+): number {
+  const dayOfWeek = getPkDayOfWeek(date);
+  const daySlots = slots.filter((s) => s.day_of_week === dayOfWeek);
+  if (daySlots.length === 0) return fallbackMinutes;
+  return daySlots[0].slot_duration_minutes || fallbackMinutes;
 }
 
 export function getAvailableWeekdays(slots: AvailabilitySlot[]): number[] {

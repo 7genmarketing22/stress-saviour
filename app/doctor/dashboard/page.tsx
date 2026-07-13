@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -29,19 +30,19 @@ import {
   Check,
   TrendingUp,
   Wallet,
-  User,
 } from "lucide-react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from "recharts";
 import { useDoctor } from "@/contexts/DoctorContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { usePaymentsRealtime } from "@/lib/realtime/usePaymentsRealtime";
+import { useAppointmentSessionSync } from "@/lib/hooks/useAppointmentSessionSync";
+import { AppointmentSessionAlert } from "@/components/shared/AppointmentSessionAlert";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import {
   buildLastVisitMap,
   getDoctorAppointments,
   getDoctorPayments,
   saveClinicalRecords,
-  startAppointmentCall,
   updateDoctorDocuments,
 } from "@/lib/doctor/api";
 import { isDoctorNetEarning } from "@/lib/doctor/stats";
@@ -56,6 +57,7 @@ import {
 } from "@/lib/doctor/mappers";
 
 export default function DoctorDashboardPage() {
+  const router = useRouter();
   const { profile, doctorProfile, documents, setDocuments } = useDoctor();
   const { notifications: contextNotifications } = useNotifications();
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
@@ -81,8 +83,6 @@ export default function DoctorDashboardPage() {
   const [newPatientsThisWeek, setNewPatientsThisWeek] = useState(0);
 
   // Modals State
-  const [showCallModal, setShowCallModal] = useState(false);
-  const [activeCallSession, setActiveCallSession] = useState<DashboardSession | null>(null);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [notesSession, setNotesSession] = useState<DashboardSession | null>(null);
 
@@ -98,8 +98,8 @@ export default function DoctorDashboardPage() {
     ]
   );
 
-  const loadDashboardData = async () => {
-    setIsLoading(true);
+  const loadDashboardData = async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       const [appointments, payments] = await Promise.all([
         getDoctorAppointments(doctorProfile.id),
@@ -210,13 +210,17 @@ export default function DoctorDashboardPage() {
     } catch {
       showToast("Failed to load dashboard data.");
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     loadDashboardData();
   }, [doctorProfile.id, profile.id]);
+
+  useAppointmentSessionSync(Boolean(doctorProfile.id), () => {
+    loadDashboardData(true);
+  });
 
   // Live-sync wallet when admin settles a payout.
   usePaymentsRealtime({ doctorId: doctorProfile.id, onChange: loadDashboardData });
@@ -302,19 +306,10 @@ export default function DoctorDashboardPage() {
     setTimeout(() => setToastMessage(""), 3000);
   };
 
-  const startConsultation = async (session: DashboardSession, e: React.MouseEvent) => {
+  const startConsultation = (session: DashboardSession, e: React.MouseEvent) => {
     e.stopPropagation();
-    try {
-      const updated = await startAppointmentCall(session.id, session.videoRoomUrl ?? undefined);
-      const roomUrl = (updated as { video_room_url: string | null }).video_room_url ?? session.videoRoomUrl;
-      setActiveCallSession({ ...session, videoRoomUrl: roomUrl });
-      setShowCallModal(true);
-      if (roomUrl) window.open(roomUrl, "_blank", "noopener,noreferrer");
-      showToast(`Entering video session with ${session.patientName}.`);
-      await loadDashboardData();
-    } catch {
-      showToast("Failed to start consultation.");
-    }
+    // The secure video page marks the appointment ongoing and joins as host.
+    router.push(`/video/${session.id}`);
   };
 
   const openNotesModal = (session: DashboardSession, e: React.MouseEvent) => {
@@ -515,12 +510,15 @@ export default function DoctorDashboardPage() {
                         <div className="flex items-center gap-2">
                           <h4 className="font-semibold text-sm">{session.patientName}</h4>
                           <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${session.status === "Ready"
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                              session.status === "Ready" || session.status === "Starting Soon"
                                 ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
-                                : session.status === "Completed"
-                                  ? "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300"
-                                  : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-                              }`}
+                                : session.status === "Expired" || session.status === "Expired / No Show"
+                                  ? "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400"
+                                  : session.status === "Completed"
+                                    ? "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300"
+                                    : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+                            }`}
                           >
                             {session.status}
                           </span>
@@ -532,11 +530,12 @@ export default function DoctorDashboardPage() {
                           </span>
                           <span>{session.type}</span>
                         </div>
+                        <AppointmentSessionAlert timing={session.timing} className="mt-2" />
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 mt-4 sm:mt-0" onClick={(e) => e.stopPropagation()}>
-                      {!session.completed && (
+                      {!session.completed && session.canStartCall && (
                         <>
                           <Button
                             size="sm"
@@ -556,6 +555,11 @@ export default function DoctorDashboardPage() {
                             <Check className="h-3.5 w-3.5" />
                           </Button>
                         </>
+                      )}
+                      {!session.completed && !session.canStartCall && session.rawStatus === "scheduled" && (
+                        <span className="text-[10px] font-semibold text-rose-600 px-2 py-1 rounded-md bg-rose-50 border border-rose-200">
+                          Join window closed
+                        </span>
                       )}
                       {session.completed && (
                         <Button
@@ -890,76 +894,6 @@ export default function DoctorDashboardPage() {
           </Card>
         </div>
       </div>
-
-      {/* Simulated Live Consultation Camera Modal */}
-      {showCallModal && activeCallSession && (
-        <div className="fixed inset-0 bg-slate-950/95 flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col h-[85vh]">
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between text-white bg-slate-900/50 backdrop-blur">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">Live Video Consultation</span>
-              </div>
-              <div className="text-center font-mono text-sm font-semibold text-slate-200">
-                Patient: {activeCallSession.patientName} ({activeCallSession.patientAge}y, {activeCallSession.patientGender})
-              </div>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-400 hover:text-white" onClick={() => setShowCallModal(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-
-            {/* Webcam Grid View */}
-            <div className="flex-1 grid md:grid-cols-2 bg-slate-950 p-4 gap-4 items-center justify-center">
-              {/* Doctor view */}
-              <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 aspect-video flex flex-col items-center justify-center text-slate-400">
-                <Brain className="h-12 w-12 text-brand-500 mb-2 animate-bounce" />
-                <p className="text-xs font-semibold">Your Camera Feed (Active)</p>
-                <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur px-2.5 py-1 rounded-md text-[10px] font-semibold text-white">
-                  Dr. {profile.full_name} (You)
-                </div>
-              </div>
-
-              {/* Patient view */}
-              <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 aspect-video flex flex-col items-center justify-center text-slate-400">
-                <User className="h-12 w-12 text-brand-300 mb-2" />
-                <p className="text-xs font-semibold">Patient Webcam Connected</p>
-                <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur px-2.5 py-1 rounded-md text-[10px] font-semibold text-white">
-                  {activeCallSession.patientName}
-                </div>
-              </div>
-            </div>
-
-            {/* Call Controls and Direct Note Link */}
-            <div className="p-4 border-t border-slate-800 bg-slate-900/50 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-xs text-slate-400 font-medium">
-                Room URL: <span className="font-mono text-brand-300">{activeCallSession.videoRoomUrl ?? `stress-saviours-telehealth-${activeCallSession.id.slice(0, 8)}`}</span>
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  onClick={(e) => {
-                    setShowCallModal(false);
-                    openNotesModal(activeCallSession, e);
-                  }}
-                  className="bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs"
-                >
-                  <FileText className="h-4 w-4 mr-1.5" />
-                  <span>Open Prescription / Notes Writer</span>
-                </Button>
-                <Button
-                  onClick={() => {
-                    setShowCallModal(false);
-                    showToast("Consultation call ended.");
-                  }}
-                  className="bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs"
-                >
-                  <X className="h-4 w-4 mr-1.5" />
-                  <span>End Consultation</span>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Clinical Notes & Prescription Writer Modal */}
       {showNotesModal && notesSession && (

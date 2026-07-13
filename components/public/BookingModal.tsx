@@ -1,10 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Calendar, Loader2, X } from "lucide-react";
+import { Calendar, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { bookAppointment, getDoctorAvailability, getBookedSlotsForDate } from "@/lib/patient/api";
-import { generateTimeSlotsForDate } from "@/lib/booking/slots";
+import { SlotTimePicker } from "@/components/booking/SlotTimePicker";
+import { bookAppointment } from "@/lib/patient/api";
+import { pkDateTimeToUtcIso } from "@/lib/booking/timezone";
+import {
+  isSlotSelectable,
+  mapBookingErrorMessage,
+  shouldRefreshSlotsAfterBookingError,
+} from "@/lib/booking/slot-status";
+import { useDoctorSlotAvailability } from "@/lib/hooks/useDoctorSlotAvailability";
 import type { AppointmentType } from "@/types";
 
 export interface BookingDoctorInfo {
@@ -33,90 +40,81 @@ export function BookingModal({ doctor, onClose, onSuccess }: BookingModalProps) 
   const [bookNotes, setBookNotes] = useState("");
   const [booking, setBooking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [availabilitySlots, setAvailabilitySlots] = useState<
-    Awaited<ReturnType<typeof getDoctorAvailability>>
-  >([]);
-  const [loadingSlots, setLoadingSlots] = useState(true);
-  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
-  const [blockedSlots, setBlockedSlots] = useState<string[]>([]);
-  const [loadingBooked, setLoadingBooked] = useState(false);
+
+  const {
+    bookedSlots,
+    blockedSlots,
+    timeOptions,
+    sessionDuration,
+    loadingAvailability,
+    loadingSlots,
+    hasAvailabilityConfigured,
+    refreshSlots,
+    fetchSlotsNow,
+    findFirstAvailable,
+  } = useDoctorSlotAvailability({
+    doctorId: doctor.id,
+    date: bookDate,
+  });
 
   useEffect(() => {
-    getDoctorAvailability(doctor.id)
-      .then(setAvailabilitySlots)
-      .catch(() => setAvailabilitySlots([]))
-      .finally(() => setLoadingSlots(false));
-  }, [doctor.id]);
-
-  // Re-fetch booked slots whenever the selected date changes
-  useEffect(() => {
-    if (!bookDate) return;
-    setLoadingBooked(true);
-    getBookedSlotsForDate(doctor.id, bookDate)
-      .then((result) => {
-        setBookedSlots(result.booked);
-        setBlockedSlots(result.blocked);
-      })
-      .catch(() => { setBookedSlots([]); setBlockedSlots([]); })
-      .finally(() => setLoadingBooked(false));
-  }, [doctor.id, bookDate]);
-
-  const timeOptions = useMemo(() => {
-    const generated = generateTimeSlotsForDate(availabilitySlots, bookDate);
-    return generated.length > 0 ? generated : ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00"];
-  }, [availabilitySlots, bookDate]);
-
-  useEffect(() => {
-    const isUnavailable = bookedSlots.includes(bookTime) || blockedSlots.includes(bookTime);
-    if (!timeOptions.includes(bookTime) || isUnavailable) {
-      const firstFree = timeOptions.find(
-        (t) => !bookedSlots.includes(t) && !blockedSlots.includes(t)
-      );
-      setBookTime(firstFree ?? timeOptions[0] ?? "10:00");
+    const firstFree = findFirstAvailable();
+    if (firstFree) {
+      if (
+        !timeOptions.includes(bookTime) ||
+        !isSlotSelectable(bookTime, bookedSlots, blockedSlots)
+      ) {
+        setBookTime(firstFree);
+      }
+      return;
     }
-  }, [timeOptions, bookedSlots, blockedSlots, bookTime]);
+    if (timeOptions.length > 0) {
+      setBookTime(timeOptions[0]);
+    }
+  }, [timeOptions, bookedSlots, blockedSlots, bookTime, findFirstAvailable]);
 
   const handleBook = async (e: React.FormEvent) => {
     e.preventDefault();
     setBooking(true);
     setError(null);
 
-    if (bookedSlots.includes(bookTime)) {
-      setError("This slot is already booked. Please choose a different time.");
+    if (!hasAvailabilityConfigured || timeOptions.length === 0) {
+      setError("This doctor has no bookable slots for the selected date.");
       setBooking(false);
       return;
     }
-    if (blockedSlots.includes(bookTime)) {
-      setError("This doctor is unavailable at the selected time. Please choose a different slot.");
+
+    const latest = await fetchSlotsNow();
+    if (!isSlotSelectable(bookTime, latest.booked, latest.blocked)) {
+      setError("This slot is no longer available. Please choose a different time.");
       setBooking(false);
       return;
     }
 
     try {
-      const scheduledAt = new Date(`${bookDate}T${bookTime}:00`).toISOString();
+      const scheduledAt = pkDateTimeToUtcIso(bookDate, bookTime);
       await bookAppointment({
         doctorProfileId: doctor.id,
         scheduledAt,
         appointmentType: bookType,
         patientNotes: bookNotes,
         consultationFee: doctor.consultationFeeRaw,
+        durationMinutes: sessionDuration,
         paymentMethod: "jazzcash",
       });
       onSuccess();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to book appointment";
+      const message = mapBookingErrorMessage(err);
       setError(message);
-      // If it was a race-condition collision, refresh booked slots so the
-      // UI immediately reflects the newly-taken slot
-      if (message.includes("just been booked") || message.includes("already booked") || message.includes("unavailable")) {
-        getBookedSlotsForDate(doctor.id, bookDate)
-          .then((result) => { setBookedSlots(result.booked); setBlockedSlots(result.blocked); })
-          .catch(() => {});
+      if (shouldRefreshSlotsAfterBookingError(message)) {
+        refreshSlots();
       }
     } finally {
       setBooking(false);
     }
   };
+
+  const slotsLoading = loadingAvailability || loadingSlots;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -155,43 +153,14 @@ export function BookingModal({ doctor, onClose, onSuccess }: BookingModalProps) 
 
           <div>
             <label className="mb-1 block text-xs font-semibold text-slate-500">Time</label>
-            {loadingSlots || loadingBooked ? (
-              <div className="flex h-10 items-center gap-2 text-sm text-slate-500">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {loadingSlots ? "Loading available slots…" : "Checking availability…"}
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {timeOptions.map((time) => {
-                  const isBooked = bookedSlots.includes(time);
-                  const isBlocked = blockedSlots.includes(time);
-                  const isUnavailable = isBooked || isBlocked;
-                  const isSelected = bookTime === time;
-                  return (
-                    <button
-                      key={time}
-                      type="button"
-                      disabled={isUnavailable}
-                      onClick={() => !isUnavailable && setBookTime(time)}
-                      title={isBlocked ? "Doctor unavailable" : isBooked ? "Already booked" : undefined}
-                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                        isBlocked
-                          ? "cursor-not-allowed border-orange-100 bg-orange-50 text-orange-300 line-through"
-                          : isBooked
-                            ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300 line-through"
-                            : isSelected
-                              ? "border-brand-500 bg-brand-500 text-white"
-                              : "border-slate-200 text-slate-700 hover:border-brand-200"
-                      }`}
-                    >
-                      {time}
-                      {isBlocked && <span className="ml-1 text-[10px] normal-case no-underline">Off</span>}
-                      {isBooked && !isBlocked && <span className="ml-1 text-[10px] normal-case no-underline">Booked</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+            <SlotTimePicker
+              timeOptions={timeOptions}
+              bookedSlots={bookedSlots}
+              blockedSlots={blockedSlots}
+              selectedTime={bookTime}
+              onSelect={setBookTime}
+              loading={slotsLoading}
+            />
           </div>
 
           <div>
@@ -222,8 +191,9 @@ export function BookingModal({ doctor, onClose, onSuccess }: BookingModalProps) 
             />
           </div>
 
-          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            Consultation fee: <strong>{doctor.consultationFee}</strong>. After booking, pay to the admin account and upload your payment screenshot from My Appointments to confirm.
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            Consultation fee: <strong>{doctor.consultationFee}</strong>. After booking, pay to the
+            admin account and upload your payment screenshot from My Appointments to confirm.
           </p>
 
           <div className="flex gap-3 pt-2">
@@ -233,7 +203,13 @@ export function BookingModal({ doctor, onClose, onSuccess }: BookingModalProps) 
             <Button
               type="submit"
               className="flex-1 bg-brand-500 text-white hover:bg-brand-600"
-              disabled={booking || loadingSlots}
+              disabled={
+                booking ||
+                slotsLoading ||
+                !hasAvailabilityConfigured ||
+                timeOptions.length === 0 ||
+                !isSlotSelectable(bookTime, bookedSlots, blockedSlots)
+              }
             >
               {booking ? "Booking…" : "Confirm Booking"}
             </Button>

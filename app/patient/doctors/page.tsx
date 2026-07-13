@@ -9,7 +9,15 @@ import { bookAppointment, getApprovedDoctors, submitPaymentProof } from "@/lib/p
 import { mapToDoctorCard } from "@/lib/patient/mappers";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { PaymentProofUpload } from "@/components/patient/PaymentProofUpload";
+import { SlotTimePicker } from "@/components/booking/SlotTimePicker";
 import { BOOKING_PAYMENT_METHODS, PLATFORM_PAYMENT_ACCOUNTS, type BookablePaymentMethod } from "@/lib/payment/config";
+import { pkDateTimeToUtcIso } from "@/lib/booking/timezone";
+import {
+  isSlotSelectable,
+  mapBookingErrorMessage,
+  shouldRefreshSlotsAfterBookingError,
+} from "@/lib/booking/slot-status";
+import { useDoctorSlotAvailability } from "@/lib/hooks/useDoctorSlotAvailability";
 import type { DoctorWithProfile } from "@/lib/patient/types";
 import type { AppointmentType } from "@/types";
 
@@ -29,6 +37,48 @@ export default function PatientDoctorsPage() {
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [booking, setBooking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const {
+    bookedSlots,
+    blockedSlots,
+    timeOptions,
+    sessionDuration,
+    loadingAvailability,
+    loadingSlots,
+    hasAvailabilityConfigured,
+    refreshSlots,
+    fetchSlotsNow,
+    findFirstAvailable,
+  } = useDoctorSlotAvailability({
+    doctorId: bookingDoctor?.id ?? "",
+    date: bookDate,
+    enabled: Boolean(bookingDoctor),
+  });
+
+  useEffect(() => {
+    if (!bookingDoctor || bookStep !== 1) return;
+    const firstFree = findFirstAvailable();
+    if (firstFree) {
+      if (
+        !timeOptions.includes(bookTime) ||
+        !isSlotSelectable(bookTime, bookedSlots, blockedSlots)
+      ) {
+        setBookTime(firstFree);
+      }
+      return;
+    }
+    if (timeOptions.length > 0) {
+      setBookTime(timeOptions[0]);
+    }
+  }, [
+    bookingDoctor,
+    bookStep,
+    timeOptions,
+    bookedSlots,
+    blockedSlots,
+    bookTime,
+    findFirstAvailable,
+  ]);
 
   useEffect(() => {
     getApprovedDoctors()
@@ -71,6 +121,16 @@ export default function PatientDoctorsPage() {
   const handleBookDetails = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!hasAvailabilityConfigured || timeOptions.length === 0) {
+      setError("This doctor has no bookable slots for the selected date.");
+      return;
+    }
+    if (!isSlotSelectable(bookTime, bookedSlots, blockedSlots)) {
+      setError("This slot is no longer available. Please choose a different time.");
+      return;
+    }
+
     setBookStep(2);
   };
 
@@ -79,14 +139,23 @@ export default function PatientDoctorsPage() {
     if (!bookingDoctor) return;
     setBooking(true);
     setError(null);
+
+    const latest = await fetchSlotsNow();
+    if (!isSlotSelectable(bookTime, latest.booked, latest.blocked)) {
+      setError("This slot is no longer available. Please choose a different time.");
+      setBooking(false);
+      return;
+    }
+
     try {
-      const scheduledAt = new Date(`${bookDate}T${bookTime}:00`).toISOString();
+      const scheduledAt = pkDateTimeToUtcIso(bookDate, bookTime);
       const { paymentId } = await bookAppointment({
         doctorProfileId: bookingDoctor.id,
         scheduledAt,
         appointmentType: bookType,
         patientNotes: bookNotes,
         consultationFee: bookingDoctor.consultationFeeRaw,
+        durationMinutes: sessionDuration,
         paymentMethod,
       });
       if (proofFile) {
@@ -98,7 +167,11 @@ export default function PatientDoctorsPage() {
         router.push("/patient/appointments?booked=awaiting");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to book appointment");
+      const message = mapBookingErrorMessage(err);
+      setError(message);
+      if (shouldRefreshSlotsAfterBookingError(message)) {
+        refreshSlots();
+      }
     } finally {
       setBooking(false);
     }
@@ -265,12 +338,13 @@ export default function PatientDoctorsPage() {
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground mb-1 block">Time</label>
-                  <input
-                    type="time"
-                    required
-                    value={bookTime}
-                    onChange={(e) => setBookTime(e.target.value)}
-                    className="w-full h-10 px-4 rounded-lg border border-border text-sm"
+                  <SlotTimePicker
+                    timeOptions={timeOptions}
+                    bookedSlots={bookedSlots}
+                    blockedSlots={blockedSlots}
+                    selectedTime={bookTime}
+                    onSelect={setBookTime}
+                    loading={loadingAvailability || loadingSlots}
                   />
                 </div>
                 <div>
@@ -305,7 +379,7 @@ export default function PatientDoctorsPage() {
                   <Button type="button" variant="outline" className="flex-1" onClick={() => setBookingDoctor(null)}>
                     Cancel
                   </Button>
-                  <Button type="submit" className="flex-1 bg-brand-500 hover:bg-brand-600 text-white">
+                  <Button type="submit" className="flex-1 bg-brand-500 hover:bg-brand-600 text-white" disabled={loadingAvailability || loadingSlots || !hasAvailabilityConfigured || timeOptions.length === 0 || !isSlotSelectable(bookTime, bookedSlots, blockedSlots)}>
                     Continue to Payment
                   </Button>
                 </div>

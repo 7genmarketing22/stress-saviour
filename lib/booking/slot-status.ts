@@ -1,0 +1,86 @@
+/** Statuses that occupy a doctor's calendar slot (not bookable by others). */
+export const SLOT_OCCUPYING_STATUSES = [
+  "scheduled",
+  "ongoing",
+  "completed",
+  "pending_payment",
+] as const;
+
+/** Statuses that free a slot for re-booking. */
+export const SLOT_FREEING_STATUSES = [
+  "cancelled",
+  "no_show",
+  "expired_no_show",
+] as const;
+
+export type SlotOccupyingStatus = (typeof SLOT_OCCUPYING_STATUSES)[number];
+export type SlotFreeingStatus = (typeof SLOT_FREEING_STATUSES)[number];
+
+export type SlotUiStatus = "available" | "booked" | "blocked";
+
+export function isSlotOccupyingStatus(status: string): boolean {
+  return (SLOT_OCCUPYING_STATUSES as readonly string[]).includes(status);
+}
+
+export function isSlotFreeingStatus(status: string): boolean {
+  return (SLOT_FREEING_STATUSES as readonly string[]).includes(status);
+}
+
+export function getSlotUiStatus(
+  time: string,
+  bookedSlots: string[],
+  blockedSlots: string[],
+): SlotUiStatus {
+  if (blockedSlots.includes(time)) return "blocked";
+  if (bookedSlots.includes(time)) return "booked";
+  return "available";
+}
+
+export function isSlotSelectable(
+  time: string,
+  bookedSlots: string[],
+  blockedSlots: string[],
+): boolean {
+  return getSlotUiStatus(time, bookedSlots, blockedSlots) === "available";
+}
+
+export function findFirstAvailableSlot(
+  timeOptions: string[],
+  bookedSlots: string[],
+  blockedSlots: string[],
+): string | null {
+  return (
+    timeOptions.find((time) => isSlotSelectable(time, bookedSlots, blockedSlots)) ??
+    null
+  );
+}
+
+/** Map Postgres unique-violation or trigger errors to user-facing messages. */
+export function mapBookingErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) return "Failed to book appointment";
+
+  const msg = error.message;
+  if (
+    (error as { code?: string }).code === "23505" ||
+    msg.includes("just booked") ||
+    msg.includes("duplicate key")
+  ) {
+    return "This slot was just booked by another patient. Please choose a different time.";
+  }
+  if (msg.includes("SLOT_BLOCKED")) {
+    return "This doctor is unavailable at the selected time. Please choose a different slot.";
+  }
+  if (msg.includes("SLOT_OUTSIDE_HOURS")) {
+    return "The selected time is outside the doctor's working hours. Please choose another slot.";
+  }
+  return msg;
+}
+
+export function shouldRefreshSlotsAfterBookingError(message: string): boolean {
+  return (
+    message.includes("just booked") ||
+    message.includes("already booked") ||
+    message.includes("unavailable") ||
+    message.includes("working hours")
+  );
+}

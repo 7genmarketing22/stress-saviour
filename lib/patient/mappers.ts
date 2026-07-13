@@ -1,6 +1,11 @@
 import type { AppointmentStatus, PaymentMethod, PaymentStatus, RefundStatus } from "@/types";
 import { parseClinicalNotes } from "@/lib/doctor/notes";
 import {
+  getAppointmentSessionTiming,
+  mapTimingToDisplayStatus,
+  type AppointmentSessionTiming,
+} from "@/lib/appointments/session-timing";
+import {
   calcAge,
   formatCurrency,
   formatDate,
@@ -25,7 +30,7 @@ export interface PatientUIAppointment {
   timeRange: string;
   duration: string;
   type: string;
-  status: "Confirmed" | "Pending" | "Completed" | "Cancelled" | "No Show" | "Ready" | "Awaiting Payment" | "Payment Review";
+  status: "Confirmed" | "Pending" | "Completed" | "Cancelled" | "No Show" | "Expired / No Show" | "Ready" | "Starting Soon" | "Expired" | "Awaiting Payment" | "Payment Review";
   paymentStatus: PaymentStatus | null;
   paymentId: string | null;
   paymentMethod: PaymentMethod | null;
@@ -42,6 +47,8 @@ export interface PatientUIAppointment {
   scheduledAt: string;
   consultationFee: number;
   rawStatus: AppointmentStatus;
+  timing: AppointmentSessionTiming;
+  canJoin: boolean;
   refundStatus: RefundStatus | null;
   refundAmount: number | null;
   refundProcessedAt: string | null;
@@ -51,7 +58,8 @@ export interface PatientUIAppointment {
 export function mapPatientStatus(
   status: AppointmentStatus,
   scheduledAt: string,
-  payment?: { status: PaymentStatus; proof_url: string | null; rejection_reason?: string | null } | null
+  payment?: { status: PaymentStatus; proof_url: string | null; rejection_reason?: string | null } | null,
+  durationMinutes = 30
 ): PatientUIAppointment["status"] {
   if (status === "pending_payment") {
     if (!payment) return "Awaiting Payment";
@@ -60,15 +68,18 @@ export function mapPatientStatus(
     if (payment.rejection_reason) return "Awaiting Payment";
     return "Awaiting Payment";
   }
+  if (status === "expired_no_show") return "Expired / No Show";
   if (status === "completed") return "Completed";
   if (status === "cancelled") return "Cancelled";
   if (status === "no_show") return "No Show";
   if (status === "ongoing") return "Ready";
 
-  const diffMinutes = (new Date(scheduledAt).getTime() - Date.now()) / 60_000;
-  if (diffMinutes <= 15 && diffMinutes >= -30) return "Ready";
-  if (status === "scheduled") return "Confirmed";
-  return "Pending";
+  const timing = getAppointmentSessionTiming({
+    scheduledAt,
+    durationMinutes,
+    status,
+  });
+  return mapTimingToDisplayStatus(status, timing) as PatientUIAppointment["status"];
 }
 
 export function mapToPatientAppointment(apt: AppointmentWithDoctor): PatientUIAppointment {
@@ -78,6 +89,12 @@ export function mapToPatientAppointment(apt: AppointmentWithDoctor): PatientUIAp
   const review = Array.isArray(apt.review) ? apt.review[0] : apt.review;
   const paymentList = apt.payments ?? (apt.payment ? [apt.payment] : []);
   const payment = Array.isArray(paymentList) ? paymentList[0] : paymentList;
+
+  const timing = getAppointmentSessionTiming({
+    scheduledAt: apt.scheduled_at,
+    durationMinutes: apt.duration_minutes,
+    status: apt.status,
+  });
 
   return {
     id: apt.id,
@@ -91,7 +108,12 @@ export function mapToPatientAppointment(apt: AppointmentWithDoctor): PatientUIAp
     timeRange: formatTimeRange(apt.scheduled_at, apt.duration_minutes),
     duration: `${apt.duration_minutes} min`,
     type: mapAppointmentType(apt.appointment_type),
-    status: mapPatientStatus(apt.status, apt.scheduled_at, payment),
+    status: mapPatientStatus(apt.status, apt.scheduled_at, payment, apt.duration_minutes),
+    timing,
+    canJoin:
+      timing.canJoin &&
+      ["scheduled", "ongoing"].includes(apt.status) &&
+      payment?.status === "completed",
     paymentStatus: payment?.status ?? null,
     paymentId: payment?.id ?? null,
     paymentMethod: payment?.payment_method ?? null,
@@ -100,9 +122,8 @@ export function mapToPatientAppointment(apt: AppointmentWithDoctor): PatientUIAp
     isPaid: payment?.status === "completed",
     reason: apt.patient_notes?.trim() || "General consultation",
     notes: parsed.clinicalNote,
-    roomUrl:
-      apt.video_room_url ??
-      `https://meet.jit.si/stress-saviours-${apt.id.slice(0, 8)}`,
+    // In-app secure video page (issues per-user Jitsi tokens server-side).
+    roomUrl: `/video/${apt.id}`,
     prescription: parsed.prescription,
     rating: review?.rating,
     reviewComment: review?.comment ?? undefined,
@@ -204,9 +225,10 @@ export function getUpcomingAppointments(appointments: PatientUIAppointment[]) {
   return appointments
     .filter(
       (apt) =>
-        (["Confirmed", "Pending", "Ready", "Payment Review"].includes(apt.status) ||
+        (["Confirmed", "Pending", "Ready", "Starting Soon", "Payment Review"].includes(apt.status) ||
           (apt.status === "Awaiting Payment" && apt.paymentProofUrl)) &&
         ["scheduled", "ongoing", "pending_payment"].includes(apt.rawStatus) &&
+        apt.rawStatus !== "expired_no_show" &&
         new Date(apt.scheduledAt).getTime() >= now - 30 * 60_000
     )
     .sort(

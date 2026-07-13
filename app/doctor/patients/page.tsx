@@ -225,10 +225,40 @@ export default function DoctorPatientsPage() {
     return true;
   });
 
-  const indexOfLastPatient = currentPage * patientsPerPage;
+  const totalPages = Math.max(1, Math.ceil(filteredPatients.length / patientsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const indexOfLastPatient = safePage * patientsPerPage;
   const indexOfFirstPatient = indexOfLastPatient - patientsPerPage;
   const currentPatients = filteredPatients.slice(indexOfFirstPatient, indexOfLastPatient);
-  const totalPages = Math.ceil(filteredPatients.length / patientsPerPage);
+
+  // Reset to first page whenever the result set changes (search / filter).
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, patientFilter]);
+
+  // Clamp the current page if the filtered list shrinks below it.
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const getPageNumbers = (): (number | "ellipsis")[] => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const pages: (number | "ellipsis")[] = [1];
+    if (safePage > 3) pages.push("ellipsis");
+    const start = Math.max(2, safePage - 1);
+    const end = Math.min(totalPages - 1, safePage + 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+    if (safePage < totalPages - 2) pages.push("ellipsis");
+    pages.push(totalPages);
+    return pages;
+  };
+
+  const firstItemIndex = filteredPatients.length === 0 ? 0 : indexOfFirstPatient + 1;
+  const lastItemIndex = Math.min(indexOfLastPatient, filteredPatients.length);
 
   if (isLoading) {
     return (
@@ -352,29 +382,63 @@ export default function DoctorPatientsPage() {
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 py-4">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 w-9 p-0"
-            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-            disabled={currentPage === 1}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            Page <span className="font-semibold text-foreground mx-1">{currentPage}</span> of <span className="font-semibold text-foreground">{totalPages}</span>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 w-9 p-0"
-            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-            disabled={currentPage === totalPages}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+      {filteredPatients.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-2">
+          <p className="text-xs text-muted-foreground order-2 sm:order-1">
+            Showing <span className="font-semibold text-foreground">{firstItemIndex}</span>
+            {"\u2013"}
+            <span className="font-semibold text-foreground">{lastItemIndex}</span> of{" "}
+            <span className="font-semibold text-foreground">{filteredPatients.length}</span>{" "}
+            {filteredPatients.length === 1 ? "patient" : "patients"}
+          </p>
+
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5 order-1 sm:order-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 w-9 p-0"
+                onClick={() => setCurrentPage(Math.max(1, safePage - 1))}
+                disabled={safePage === 1}
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+
+              {getPageNumbers().map((page, i) =>
+                page === "ellipsis" ? (
+                  <span
+                    key={`ellipsis-${i}`}
+                    className="h-9 w-9 flex items-center justify-center text-sm text-muted-foreground select-none"
+                  >
+                    &hellip;
+                  </span>
+                ) : (
+                  <Button
+                    key={page}
+                    variant={page === safePage ? "default" : "outline"}
+                    size="sm"
+                    className={`h-9 w-9 p-0 ${page === safePage ? "bg-brand-500 hover:bg-brand-600 text-white" : ""}`}
+                    onClick={() => setCurrentPage(page)}
+                    aria-current={page === safePage ? "page" : undefined}
+                  >
+                    {page}
+                  </Button>
+                )
+              )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 w-9 p-0"
+                onClick={() => setCurrentPage(Math.min(totalPages, safePage + 1))}
+                disabled={safePage === totalPages}
+                aria-label="Next page"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

@@ -3,7 +3,7 @@ export type { Database } from "./database";
 export type UserRole = "patient" | "doctor" | "admin" | "super_admin";
 export type AccountStatus = "pending" | "approved" | "rejected";
 export type DoctorStatus = "pending" | "approved" | "rejected" | "suspended";
-export type AppointmentStatus = "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show" | "pending_payment";
+export type AppointmentStatus = "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show" | "expired_no_show" | "pending_payment";
 export type AppointmentType = "video" | "chat" | "in_person";
 export type PaymentStatus = "pending" | "completed" | "failed" | "refunded";
 export type PayoutStatus = "pending" | "paid";

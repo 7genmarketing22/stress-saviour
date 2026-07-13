@@ -21,6 +21,8 @@ import {
   mapToPatientAppointment,
   type PatientUIAppointment,
 } from "@/lib/patient/mappers";
+import { AppointmentSessionAlert } from "@/components/shared/AppointmentSessionAlert";
+import { useAppointmentSessionSync } from "@/lib/hooks/useAppointmentSessionSync";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { AppointmentFinancialDetails } from "@/components/shared/AppointmentFinancialDetails";
 import { PaymentProofUpload } from "@/components/patient/PaymentProofUpload";
@@ -82,6 +84,8 @@ export default function PatientAppointmentsPage() {
   useEffect(() => {
     loadAppointments();
   }, [loadAppointments]);
+
+  useAppointmentSessionSync(!loading, loadAppointments);
 
   const getFilteredAppointments = () => {
     let filtered = [...appointments];
@@ -340,6 +344,7 @@ export default function PatientAppointmentsPage() {
                           Please pay the consultation fee and upload your payment screenshot to confirm this booking.
                         </p>
                       )}
+                      <AppointmentSessionAlert timing={apt.timing} className="mt-2" />
                     </div>
                   </div>
 
@@ -353,13 +358,13 @@ export default function PatientAppointmentsPage() {
                         Add Screenshot
                       </Button>
                     )}
-                    {apt.isPaid && ["Confirmed", "Ready"].includes(apt.status) && (
-                      <a href={apt.roomUrl} target="_blank" rel="noopener noreferrer">
+                    {apt.isPaid && apt.canJoin && ["Confirmed", "Ready", "Starting Soon"].includes(apt.status) && (
+                      <Link href={apt.roomUrl}>
                         <Button className="bg-brand-500 hover:bg-brand-600 text-white w-full sm:w-auto">
                           <Video className="h-4 w-4 mr-2" />
                           Join Consultation
                         </Button>
-                      </a>
+                      </Link>
                     )}
                     <div className="flex items-center gap-2">
                       <Button
@@ -570,13 +575,13 @@ export default function PatientAppointmentsPage() {
                   )}
                 </div>
               )}
-              {selectedAppointment.isPaid && ["Confirmed", "Ready"].includes(selectedAppointment.status) && (
-                <a href={selectedAppointment.roomUrl} target="_blank" rel="noopener noreferrer">
+              {selectedAppointment.isPaid && selectedAppointment.canJoin && ["Confirmed", "Ready", "Starting Soon"].includes(selectedAppointment.status) && (
+                <Link href={selectedAppointment.roomUrl}>
                   <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white">
                     <Video className="h-4 w-4 mr-2" />
                     Join Consultation
                   </Button>
-                </a>
+                </Link>
               )}
             </div>
           </div>

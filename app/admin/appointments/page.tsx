@@ -36,6 +36,7 @@ const STATUS_LABEL: Record<AppointmentStatus, string> = {
   completed: "Completed",
   cancelled: "Cancelled",
   no_show: "No Show",
+  expired_no_show: "Expired / No Show",
   pending_payment: "Awaiting Payment",
 };
 
@@ -46,6 +47,7 @@ function statusBadgeClass(status: AppointmentStatus) {
     completed: "bg-blue-100 text-blue-800",
     cancelled: "bg-red-100 text-red-800",
     no_show: "bg-gray-100 text-gray-800",
+    expired_no_show: "bg-rose-100 text-rose-800",
     pending_payment: "bg-orange-100 text-orange-800",
   };
   return map[status];
@@ -164,7 +166,7 @@ export default function AdminAppointmentsPage() {
     if (!inDateRange(apt.scheduled_at, dateRange)) return false;
     if (activeTab === "Upcoming" && !(apt.status === "scheduled" || apt.status === "ongoing")) return false;
     if (activeTab === "Completed" && apt.status !== "completed") return false;
-    if (activeTab === "Cancelled" && apt.status !== "cancelled" && apt.status !== "no_show") return false;
+    if (activeTab === "Cancelled" && apt.status !== "cancelled" && apt.status !== "no_show" && apt.status !== "expired_no_show") return false;
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();

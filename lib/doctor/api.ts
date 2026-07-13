@@ -237,15 +237,6 @@ export async function saveClinicalRecords(
   });
 }
 
-export async function startAppointmentCall(appointmentId: string, roomUrl?: string) {
-  const url =
-    roomUrl ?? `https://meet.jit.si/stress-saviours-${appointmentId.slice(0, 8)}`;
-  return updateAppointment(appointmentId, {
-    status: "ongoing",
-    video_room_url: url,
-  });
-}
-
 export async function getDoctorPayments(
   doctorProfileId: string
 ): Promise<PaymentWithPatient[]> {

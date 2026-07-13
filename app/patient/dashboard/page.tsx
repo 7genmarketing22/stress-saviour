@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { usePatient } from "@/contexts/PatientContext";
 import { UserAvatar } from "@/components/shared/UserAvatar";
+import { AppointmentSessionAlert } from "@/components/shared/AppointmentSessionAlert";
+import { useAppointmentSessionSync } from "@/lib/hooks/useAppointmentSessionSync";
 import {
   buildPrescriptions,
   getPatientAppointments,
@@ -35,33 +37,34 @@ export default function PatientDashboardPage() {
 
   const [rawAppointments, setRawAppointments] = useState<Awaited<ReturnType<typeof getPatientAppointments>>>([]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [apts, payments] = await Promise.all([
-          getPatientAppointments(),
-          getPatientPayments(),
-        ]);
-        if (cancelled) return;
-        setRawAppointments(apts);
-        const mapped = apts.map(mapToPatientAppointment);
-        setAppointments(mapped);
-        setPrescriptionCount(buildPrescriptions(apts).length);
-        setDashboardStats(buildPatientDashboardStats(payments, apts));
-      } catch {
-        if (!cancelled) {
-          setRawAppointments([]);
-          setAppointments([]);
-          setDashboardStats(null);
-          setPrescriptionCount(0);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+  const loadDashboard = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const [apts, payments] = await Promise.all([
+        getPatientAppointments(),
+        getPatientPayments(),
+      ]);
+      setRawAppointments(apts);
+      setAppointments(apts.map(mapToPatientAppointment));
+      setPrescriptionCount(buildPrescriptions(apts).length);
+      setDashboardStats(buildPatientDashboardStats(payments, apts));
+    } catch {
+      setRawAppointments([]);
+      setAppointments([]);
+      setDashboardStats(null);
+      setPrescriptionCount(0);
+    } finally {
+      if (!silent) setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  useAppointmentSessionSync(true, () => {
+    loadDashboard(true);
+  });
 
   const upcoming = useMemo(() => getUpcomingAppointments(appointments), [appointments]);
   const nextApt = upcoming[0] ?? null;
@@ -300,13 +303,23 @@ export default function PatientDashboardPage() {
                       <span>{nextApt.duration}</span>
                     </div>
                   </div>
+                  <AppointmentSessionAlert timing={nextApt.timing} className="mb-3" />
                   <div className="flex flex-col xs:flex-row gap-2 sm:gap-3">
-                    <a href={nextApt.roomUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
-                      <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white gap-2 h-9 sm:h-10 text-xs sm:text-sm shadow-lg shadow-brand-400/20">
-                        <Video className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                        <span>Join Consultation</span>
-                      </Button>
-                    </a>
+                    {nextApt.canJoin && ["Ready", "Starting Soon", "Confirmed"].includes(nextApt.status) ? (
+                      <Link href={nextApt.roomUrl} className="flex-1">
+                        <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white gap-2 h-9 sm:h-10 text-xs sm:text-sm shadow-lg shadow-brand-400/20">
+                          <Video className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                          <span>Join Consultation</span>
+                        </Button>
+                      </Link>
+                    ) : (
+                      <div className="flex-1">
+                        <Button disabled className="w-full h-9 sm:h-10 text-xs sm:text-sm opacity-60">
+                          <Video className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
+                          Join unavailable
+                        </Button>
+                      </div>
+                    )}
                     <Link href="/patient/appointments" className="flex-1 xs:flex-none">
                       <Button variant="outline" className="w-full h-9 sm:h-10 text-xs sm:text-sm">
                         View All

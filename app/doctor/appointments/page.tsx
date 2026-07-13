@@ -23,12 +23,12 @@ import {
   List,
   CalendarDays
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useDoctor } from "@/contexts/DoctorContext";
 import {
   addDocBlockedSlot,
   getDoctorAppointments,
   saveClinicalRecords,
-  startAppointmentCall,
   updateAppointment,
 } from "@/lib/doctor/api";
 import { mapStatusToDb, mapToUIAppointment } from "@/lib/doctor/mappers";
@@ -45,7 +45,7 @@ interface Appointment {
   time: string;
   duration: string;
   type: "Video" | "Audio" | "Chat";
-  status: "Confirmed" | "Pending" | "Completed" | "Cancelled" | "No Show";
+  status: "Confirmed" | "Pending" | "Ready" | "Completed" | "Cancelled" | "No Show";
   reason: string;
   notes: string;
   roomUrl: string;
@@ -54,6 +54,7 @@ interface Appointment {
 }
 
 export default function DoctorAppointmentsPage() {
+  const router = useRouter();
   const { doctorProfile } = useDoctor();
   const [activeTab, setActiveTab] = useState<"Upcoming" | "Completed" | "Cancelled" | "All">("Upcoming");
   const [searchQuery, setSearchQuery] = useState("");
@@ -115,7 +116,7 @@ export default function DoctorAppointmentsPage() {
     
     if (activeTab !== "All") {
       filtered = filtered.filter(apt => apt.status === activeTab || 
-        (activeTab === "Upcoming" && ["Confirmed", "Pending"].includes(apt.status)));
+        (activeTab === "Upcoming" && ["Confirmed", "Pending", "Ready"].includes(apt.status)));
     }
 
     if (searchQuery) {
@@ -215,16 +216,9 @@ export default function DoctorAppointmentsPage() {
     }
   };
 
-  const handleJoinCall = async (apt: Appointment) => {
-    try {
-      const updated = await startAppointmentCall(apt.id, apt.roomUrl || undefined);
-      const roomUrl = (updated as { video_room_url: string | null }).video_room_url ?? apt.roomUrl;
-      if (roomUrl) window.open(roomUrl, "_blank", "noopener,noreferrer");
-      showToast(`Joining call with ${apt.patientName}.`);
-      await loadAppointments();
-    } catch {
-      showToast("Failed to start video call.");
-    }
+  const handleJoinCall = (apt: Appointment) => {
+    // The secure video page marks the appointment ongoing and joins as host.
+    router.push(`/video/${apt.id}`);
   };
 
   const formatDate = (dateStr: string) => {
@@ -377,7 +371,7 @@ export default function DoctorAppointmentsPage() {
                       </div>
 
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
-                        {["Confirmed", "Pending"].includes(apt.status) && (
+                        {["Confirmed", "Pending", "Ready"].includes(apt.status) && (
                           <Button
                             className="bg-brand-500 hover:bg-brand-600 text-white w-full sm:w-auto font-semibold"
                             onClick={() => handleJoinCall(apt)}
@@ -415,7 +409,7 @@ export default function DoctorAppointmentsPage() {
                                     Confirm Appointment
                                   </button>
                                 )}
-                                {["Confirmed", "Pending"].includes(apt.status) && (
+                                {["Confirmed", "Pending", "Ready"].includes(apt.status) && (
                                   <>
                                     <button
                                       className="flex w-full items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors text-amber-600 text-left font-semibold cursor-pointer"
@@ -739,13 +733,14 @@ export default function DoctorAppointmentsPage() {
                 </div>
               )}
 
-              {selectedAppointment.roomUrl && ["Confirmed", "Pending"].includes(selectedAppointment.status) && (
-                <a href={selectedAppointment.roomUrl} target="_blank" rel="noreferrer" className="block w-full">
-                  <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold">
-                    <Video className="h-4 w-4 mr-2" />
-                    Launch Telehealth Room
-                  </Button>
-                </a>
+              {["Confirmed", "Pending", "Ready"].includes(selectedAppointment.status) && (
+                <Button
+                  className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold"
+                  onClick={() => router.push(`/video/${selectedAppointment.id}`)}
+                >
+                  <Video className="h-4 w-4 mr-2" />
+                  Launch Telehealth Room
+                </Button>
               )}
             </div>
           </div>

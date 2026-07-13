@@ -1,6 +1,11 @@
 import type { AppointmentStatus, AppointmentType, Gender } from "@/types";
 import type { AppointmentWithPatient } from "./types";
 import { parseClinicalNotes } from "./notes";
+import {
+  getAppointmentSessionTiming,
+  mapTimingToDisplayStatus,
+  type AppointmentSessionTiming,
+} from "@/lib/appointments/session-timing";
 
 export interface UIPatient {
   id: string;
@@ -154,18 +159,17 @@ export function mapAppointmentType(type: AppointmentType): string {
   return map[type] ?? type;
 }
 
-export function mapStatusToUI(status: AppointmentStatus, scheduledAt: string): string {
-  if (status === "completed") return "Completed";
-  if (status === "cancelled") return "Cancelled";
-  if (status === "no_show") return "No Show";
-  if (status === "ongoing") return "Ready";
-
-  const now = Date.now();
-  const start = new Date(scheduledAt).getTime();
-  const diffMinutes = (start - now) / 60_000;
-
-  if (diffMinutes <= 15 && diffMinutes >= -30) return "Ready";
-  return "Confirmed";
+export function mapStatusToUI(
+  status: AppointmentStatus,
+  scheduledAt: string,
+  durationMinutes = 30
+): string {
+  const timing = getAppointmentSessionTiming({
+    scheduledAt,
+    durationMinutes,
+    status,
+  });
+  return mapTimingToDisplayStatus(status, timing);
 }
 
 export function mapStatusToDb(status: string): AppointmentStatus {
@@ -176,6 +180,8 @@ export function mapStatusToDb(status: string): AppointmentStatus {
     Completed: "completed",
     Cancelled: "cancelled",
     "No Show": "no_show",
+    "Expired / No Show": "expired_no_show",
+    Expired: "expired_no_show",
   };
   return map[status] ?? "scheduled";
 }
@@ -261,6 +267,10 @@ export interface DashboardSession {
   time: string;
   type: string;
   status: string;
+  rawStatus: AppointmentStatus;
+  timing: AppointmentSessionTiming;
+  canStartCall: boolean;
+  canJoin: boolean;
   initials: string;
   patientAge: number | null;
   patientGender: string;
@@ -296,7 +306,7 @@ export function mapToUIAppointment(appointment: AppointmentWithPatient) {
     time: `${scheduled.getHours().toString().padStart(2, "0")}:${scheduled.getMinutes().toString().padStart(2, "0")}`,
     duration: `${appointment.duration_minutes} min`,
     type: mapAppointmentType(appointment.appointment_type) as "Video" | "Audio" | "Chat",
-    status: mapStatusToUI(appointment.status, appointment.scheduled_at) as
+    status: mapStatusToUI(appointment.status, appointment.scheduled_at, appointment.duration_minutes) as
       | "Confirmed"
       | "Pending"
       | "Completed"
@@ -304,9 +314,8 @@ export function mapToUIAppointment(appointment: AppointmentWithPatient) {
       | "No Show",
     reason: appointment.patient_notes?.trim() || "General consultation",
     notes: parsed.clinicalNote,
-    roomUrl:
-      appointment.video_room_url ??
-      `https://meet.jit.si/stress-saviours-${appointment.id.slice(0, 8)}`,
+    // In-app secure video page (issues per-user Jitsi tokens server-side).
+    roomUrl: `/video/${appointment.id}`,
     prescription: parsed.prescription,
     createdAt: appointment.created_at,
   };
@@ -320,19 +329,35 @@ export function mapToDashboardSession(
   const parsed = parseClinicalNotes(appointment.doctor_notes);
   const patientId = appointment.patient_id;
 
+  const timing = getAppointmentSessionTiming({
+    scheduledAt: appointment.scheduled_at,
+    durationMinutes: appointment.duration_minutes,
+    status: appointment.status,
+  });
+
   return {
     id: appointment.id,
     patientName,
     patientAvatarUrl: appointment.patient?.avatar_url ?? null,
     time: formatTimeRange(appointment.scheduled_at, appointment.duration_minutes),
     type: appointment.patient_notes?.trim() || mapAppointmentType(appointment.appointment_type),
-    status: mapStatusToUI(appointment.status, appointment.scheduled_at),
+    status: mapTimingToDisplayStatus(appointment.status, timing),
+    rawStatus: appointment.status,
+    timing,
+    canStartCall:
+      timing.canStartCall &&
+      appointment.status === "scheduled",
+    canJoin:
+      timing.canJoin &&
+      ["scheduled", "ongoing"].includes(appointment.status),
     initials: getInitials(patientName),
     patientAge: calcAge(appointment.patient?.date_of_birth ?? null),
     patientGender: formatGender(appointment.patient?.gender ?? null),
     lastVisit: lastVisitByPatient[patientId] ?? "First visit",
     notes: parsed.clinicalNote,
-    completed: appointment.status === "completed",
+    completed:
+      appointment.status === "completed" ||
+      appointment.status === "expired_no_show",
     prescription: parsed.prescription,
     videoRoomUrl: appointment.video_room_url,
     scheduledAt: appointment.scheduled_at,
