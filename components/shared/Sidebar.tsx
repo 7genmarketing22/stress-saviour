@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { signOut } from "@/lib/auth/session";
+import { logout } from "@/lib/auth/session";
 import {
   LayoutDashboard,
   Calendar,
@@ -23,7 +23,7 @@ import {
   MessageSquare,
   ClipboardList,
 } from "lucide-react";
-import { useContext } from "react";
+import { useContext, useState } from "react";
 // ChatContext is optional here — it may not be mounted on all portals yet
 import { ChatContext } from "@/contexts/ChatContext";
 
@@ -35,7 +35,7 @@ interface SidebarProps {
 
 export function Sidebar({ role, isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   // Safely read unread count — ChatContext may not be mounted in all portals
   const chatCtx = useContext(ChatContext as React.Context<{ totalUnread: number } | null>);
   const totalUnread = chatCtx?.totalUnread ?? 0;
@@ -79,13 +79,17 @@ export function Sidebar({ role, isOpen = false, onClose }: SidebarProps) {
   const navItems = navigationMap[role] || [];
 
   const handleLogout = async () => {
-    await signOut();
-    router.push("/login");
-    router.refresh();
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    try {
+      await logout("/login");
+    } catch {
+      setIsLoggingOut(false);
+    }
   };
 
   const sidebarContent = (
-    <div className="flex h-full flex-col border-r border-border bg-card px-4 py-6">
+    <div className="flex h-full flex-col overflow-y-auto border-r border-border bg-card px-4 py-6">
       {/* Brand Logo */}
       <div className="flex items-center justify-between px-2 mb-8">
         <Link href="/" className="flex items-center" aria-label="Stress Saviors home">
@@ -141,11 +145,13 @@ export function Sidebar({ role, isOpen = false, onClose }: SidebarProps) {
       {/* Logout Footer */}
       <div className="border-t border-border pt-4">
         <button
+          type="button"
           onClick={handleLogout}
-          className="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-destructive hover:bg-destructive/10 transition-all duration-200 cursor-pointer"
+          disabled={isLoggingOut}
+          className="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-destructive hover:bg-destructive/10 transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
         >
           <LogOut className="h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" />
-          <span>Log Out</span>
+          <span>{isLoggingOut ? "Logging out..." : "Log Out"}</span>
         </button>
       </div>
     </div>
@@ -154,7 +160,7 @@ export function Sidebar({ role, isOpen = false, onClose }: SidebarProps) {
   return (
     <>
       {/* Desktop Sidebar (Permanent) */}
-      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20">
+      <aside className="hidden md:fixed md:inset-y-0 md:z-30 md:flex md:w-64 md:flex-col">
         {sidebarContent}
       </aside>
 

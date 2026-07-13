@@ -7,7 +7,7 @@ import { Clock, LogOut, ShieldAlert, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
 import { getAccountAccess, resolveDashboardPath } from "@/lib/auth/account-status";
-import { signOut } from "@/lib/auth/session";
+import { logout } from "@/lib/auth/session";
 
 export default function PendingReviewPage() {
   const router = useRouter();
@@ -50,9 +50,7 @@ export default function PendingReviewPage() {
   }, [router]);
 
   const handleLogout = async () => {
-    await signOut();
-    router.push("/login");
-    router.refresh();
+    await logout("/login");
   };
 
   if (loading) {

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Sidebar } from "@/components/shared/Sidebar";
 import { Header } from "@/components/shared/Header";
 import { usePathname } from "next/navigation";
+import { AuthSessionListener } from "@/components/auth/AuthSessionListener";
 import { PatientProvider, usePatient } from "@/contexts/PatientContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { ChatProvider } from "@/contexts/ChatContext";
@@ -30,6 +31,7 @@ function PatientLayoutShell({ children }: { children: React.ReactNode }) {
     <NotificationProvider userId={profile.id}>
       <ChatProvider myId={profile.id} myName={profile.full_name}>
         <div className="min-h-screen bg-muted/30">
+          <AuthSessionListener />
           <Sidebar
             role="patient"
             isOpen={isSidebarOpen}

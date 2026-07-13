@@ -150,6 +150,15 @@ export function formatCurrency(amount: number): string {
   return `PKR ${Math.round(amount).toLocaleString("en-PK")}`;
 }
 
+/** Avoid duplicate "PMDC-PMDC-..." when the stored number already includes the prefix. */
+export function formatPmdcBadge(pmdcNumber: string | null | undefined): string {
+  const trimmed = (pmdcNumber ?? "").trim();
+  if (!trimmed || trimmed.startsWith("PENDING-")) return "PMDC Verified";
+  const upper = trimmed.toUpperCase();
+  if (upper.startsWith("PMDC")) return `${trimmed} Verified`;
+  return `PMDC ${trimmed} Verified`;
+}
+
 export function mapAppointmentType(type: AppointmentType): string {
   const map: Record<AppointmentType, string> = {
     video: "Video",

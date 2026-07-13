@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { DoctorProvider, useDoctor } from "@/contexts/DoctorContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { ChatProvider } from "@/contexts/ChatContext";
+import { AuthSessionListener } from "@/components/auth/AuthSessionListener";
 import { ProfileOptimizationModal } from "@/components/doctor/ProfileOptimizationModal";
 import { checkProfileCompleteness } from "@/lib/doctor/profileCompleteness";
 
@@ -32,14 +33,15 @@ function DoctorLayoutShell({ children }: { children: React.ReactNode }) {
   return (
     <NotificationProvider userId={profile.id}>
       <ChatProvider myId={profile.id} myName={profile.full_name}>
-        <div className="min-h-screen bg-muted/30">
+        <div className="min-h-screen overflow-x-hidden bg-muted/30">
+          <AuthSessionListener />
           <Sidebar
             role="doctor"
             isOpen={isSidebarOpen}
             onClose={() => setIsSidebarOpen(false)}
           />
 
-          <div className="flex flex-col md:pl-64 min-h-screen transition-all duration-200">
+          <div className="flex min-h-screen min-w-0 flex-col transition-all duration-200 md:pl-64">
             <Header
               title={getPageTitle(pathname)}
               user={{
@@ -50,8 +52,8 @@ function DoctorLayoutShell({ children }: { children: React.ReactNode }) {
               }}
               onMenuClick={() => setIsSidebarOpen(true)}
             />
-            <main className="flex-1 p-4 md:p-6 container max-w-7xl mx-auto">
-              {children}
+            <main className="min-w-0 flex-1 overflow-x-hidden p-4 md:p-6">
+              <div className="mx-auto w-full max-w-7xl">{children}</div>
             </main>
           </div>
 

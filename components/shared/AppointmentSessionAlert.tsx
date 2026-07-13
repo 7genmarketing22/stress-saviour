@@ -14,10 +14,12 @@ export function AppointmentSessionAlert({ timing, className = "" }: Props) {
   useMinuteTick();
 
   if (!timing.showWarning && !timing.countdownLabel) return null;
-  if (timing.phase === "terminal" || timing.phase === "expired_no_show") return null;
+  if (timing.phase === "terminal") return null;
 
   const isUrgent =
-    timing.phase === "grace_warning" || timing.phase === "expired_pending";
+    timing.phase === "grace_warning" ||
+    timing.phase === "expired_pending" ||
+    timing.phase === "expired_no_show";
 
   return (
     <div

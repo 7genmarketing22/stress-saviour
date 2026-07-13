@@ -6,7 +6,7 @@ import {
   Bell, User, Settings, LogOut, ChevronDown, Menu,
   Calendar, CreditCard, ShieldCheck, Info, X, CheckCheck,
 } from "lucide-react";
-import { signOut } from "@/lib/auth/session";
+import { logout } from "@/lib/auth/session";
 import { timeAgo } from "@/lib/doctor/mappers";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { useNotifications } from "@/contexts/NotificationContext";
@@ -77,6 +77,7 @@ function LiveToastBanner() {
 export function Header({ title, user, onMenuClick }: HeaderProps) {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -96,9 +97,15 @@ export function Header({ title, user, onMenuClick }: HeaderProps) {
   };
 
   const handleLogout = async () => {
-    await signOut();
-    router.push("/login");
-    router.refresh();
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    setShowProfileDropdown(false);
+    setShowNotifications(false);
+    try {
+      await logout("/login");
+    } catch {
+      setIsLoggingOut(false);
+    }
   };
 
   const handleOpenNotifications = () => {
@@ -131,7 +138,7 @@ export function Header({ title, user, onMenuClick }: HeaderProps) {
     <>
       <LiveToastBanner />
 
-      <header className="sticky top-0 z-10 flex h-16 w-full items-center justify-between border-b border-border bg-background/80 backdrop-blur-md px-4 md:px-6">
+      <header className="sticky top-0 z-20 flex h-16 w-full items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-md md:px-6">
         {/* Left side */}
         <div className="flex items-center gap-4">
           <button
@@ -293,11 +300,13 @@ export function Header({ title, user, onMenuClick }: HeaderProps) {
                   </div>
                   <div className="border-t border-border py-1">
                     <button
+                      type="button"
                       onClick={handleLogout}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-destructive hover:bg-destructive/10 cursor-pointer"
+                      disabled={isLoggingOut}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-destructive hover:bg-destructive/10 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <LogOut className="h-4 w-4" />
-                      <span>Log Out</span>
+                      <span>{isLoggingOut ? "Logging out..." : "Log Out"}</span>
                     </button>
                   </div>
                 </div>

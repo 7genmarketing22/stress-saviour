@@ -11,16 +11,44 @@ import type {
 } from "./types";
 import { createNotification } from "@/lib/notifications/api";
 import { initiateRefundForCancelledAppointment } from "@/lib/refunds/process";
-import {
-  attachTaxonomyToDoctor,
-  DOCTOR_TAXONOMY_SELECT,
-} from "@/lib/doctor/taxonomy";
+import { DOCTOR_TAXONOMY_SELECT } from "@/lib/doctor/taxonomy";
+import { resolveDoctorRow, resolveDoctorRows } from "@/lib/public/doctor-select";
 
 type TableName = keyof Database["public"]["Tables"];
 
 function table(name: TableName) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return createClient().from(name) as any;
+}
+
+const DOCTOR_ADMIN_PROFILE_SELECT = `
+  profile:profiles!doctor_profiles_user_id_fkey (
+    id, full_name, email, phone, city, avatar_url, is_active, created_at
+  )
+`;
+
+const DOCTOR_ADMIN_SELECT = `
+  *,
+  ${DOCTOR_ADMIN_PROFILE_SELECT},
+  ${DOCTOR_TAXONOMY_SELECT}
+`;
+
+const DOCTOR_ADMIN_SELECT_BASE = `
+  *,
+  ${DOCTOR_ADMIN_PROFILE_SELECT}
+`;
+
+async function fetchAdminDoctorById(doctorProfileId: string): Promise<AdminDoctor> {
+  const row = await resolveDoctorRow(
+    await table("doctor_profiles").select(DOCTOR_ADMIN_SELECT).eq("id", doctorProfileId).single(),
+    async () =>
+      await table("doctor_profiles")
+        .select(DOCTOR_ADMIN_SELECT_BASE)
+        .eq("id", doctorProfileId)
+        .single(),
+  );
+  if (!row) throw new Error("Doctor not found");
+  return row as unknown as AdminDoctor;
 }
 
 export type AdminContextFailureReason =
@@ -33,13 +61,6 @@ export type AdminContextResult =
   | { ok: true; data: { profile: Profile } }
   | { ok: false; reason: AdminContextFailureReason; message: string };
 
-const DOCTOR_ADMIN_SELECT = `
-  *,
-  profile:profiles!doctor_profiles_user_id_fkey (
-    id, full_name, email, phone, city, avatar_url, is_active, created_at
-  ),
-  ${DOCTOR_TAXONOMY_SELECT}
-`;
 
 const APPOINTMENT_ADMIN_SELECT = `
   *,
@@ -117,14 +138,16 @@ export async function getAdminContext(): Promise<AdminContextResult> {
 }
 
 export async function getAdminDoctors(): Promise<AdminDoctor[]> {
-  const { data, error } = await table("doctor_profiles")
-    .select(DOCTOR_ADMIN_SELECT)
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-  return ((data ?? []) as Record<string, unknown>[]).map((row) =>
-    attachTaxonomyToDoctor(row),
-  ) as unknown as AdminDoctor[];
+  const rows = await resolveDoctorRows(
+    await table("doctor_profiles")
+      .select(DOCTOR_ADMIN_SELECT)
+      .order("created_at", { ascending: false }),
+    async () =>
+      await table("doctor_profiles")
+        .select(DOCTOR_ADMIN_SELECT_BASE)
+        .order("created_at", { ascending: false }),
+  );
+  return rows as unknown as AdminDoctor[];
 }
 
 export async function getAdminPatients(): Promise<Profile[]> {
@@ -263,13 +286,11 @@ export async function adminUpdateDoctorProfile(
   }
 
   if (hasDoctorChanges) {
-    const { data, error } = await table("doctor_profiles")
+    const { error } = await table("doctor_profiles")
       .update(doctorUpdates as Database["public"]["Tables"]["doctor_profiles"]["Update"])
-      .eq("id", doctorProfileId)
-      .select(DOCTOR_ADMIN_SELECT)
-      .single();
+      .eq("id", doctorProfileId);
     if (error) throw error;
-    updatedDoctor = data as AdminDoctor;
+    updatedDoctor = await fetchAdminDoctorById(doctorProfileId);
   }
 
   return { updatedProfile, updatedDoctor };
@@ -287,14 +308,12 @@ async function setDoctorStatus(
     is_available: boolean;
   }>
 ) {
-  const { data, error } = await table("doctor_profiles")
+  const { error } = await table("doctor_profiles")
     .update(updates as Database["public"]["Tables"]["doctor_profiles"]["Update"])
-    .eq("id", doctorProfileId)
-    .select(DOCTOR_ADMIN_SELECT)
-    .single();
+    .eq("id", doctorProfileId);
 
   if (error) throw error;
-  return data as AdminDoctor;
+  return fetchAdminDoctorById(doctorProfileId);
 }
 
 export function approveDoctor(doctorProfileId: string, adminId: string) {

@@ -49,6 +49,7 @@ import { isDoctorNetEarning } from "@/lib/doctor/stats";
 import {
   DashboardSession,
   formatCurrency,
+  formatPmdcBadge,
   formatTime,
   isToday,
   mapToDashboardSession,
@@ -392,7 +393,7 @@ export default function DoctorDashboardPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-10">
+    <div className="w-full space-y-6 pb-10">
       {/* Toast Alert */}
       {toastMessage && (
         <div className="fixed top-20 right-4 z-50 flex items-center gap-2 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-sm font-medium border border-slate-800 animate-in slide-in-from-right duration-200">
@@ -402,38 +403,43 @@ export default function DoctorDashboardPage() {
       )}
 
       {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-brand-500 to-brand-300 p-6 md:p-8 text-white shadow-md">
-        <div className="relative z-10 max-w-xl space-y-2">
-          <div className="flex items-start gap-4">
-            <UserAvatar
-              name={profile.full_name}
-              avatarUrl={profile.avatar_url}
-              size="lg"
-              ring
-              className="border-white/30 bg-white/10 text-white shrink-0"
-            />
-            <div className="min-w-0 flex-1 space-y-2">
-          <div className="flex items-center justify-between mb-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-md">
-              <ShieldCheck className="h-3.5 w-3.5 fill-white text-brand-500" />
-              PMDC-{doctorProfile.pmdc_number} Verified
-            </span>
-            <span className="relative flex h-2 w-2 mr-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-300 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-200"></span>
-            </span>
-          </div>
-          <h2 className="text-2xl font-bold md:text-3xl">
-            Welcome Back, {profile.full_name}
-          </h2>
-          <p className="text-white/85 text-sm leading-relaxed">
-            Your clinical room is open. You have {todaySessions.filter((s) => !s.completed).length} consultations scheduled on your agenda today.
-          </p>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-brand-500 to-brand-300 p-6 text-white shadow-md md:p-8">
+        <div className="relative z-10 flex flex-col gap-5 sm:flex-row sm:items-center">
+          <UserAvatar
+            name={profile.full_name}
+            avatarUrl={profile.avatar_url}
+            size="lg"
+            ring
+            className="shrink-0 border-white/30 bg-white/10 text-white"
+          />
+          <div className="min-w-0 flex-1 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-md">
+                <ShieldCheck className="h-3.5 w-3.5 fill-white text-brand-500" />
+                {formatPmdcBadge(doctorProfile.pmdc_number)}
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-medium text-white/90">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-200 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-100" />
+                </span>
+                Online
+              </span>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold md:text-3xl">
+                Welcome Back, {profile.full_name}
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/85">
+                Your clinical room is open. You have{" "}
+                {todaySessions.filter((s) => !s.completed).length} consultations scheduled on your
+                agenda today.
+              </p>
             </div>
           </div>
         </div>
-        <div className="absolute right-0 bottom-0 top-0 hidden lg:flex items-center justify-center w-1/3 opacity-20 pointer-events-none">
-          <Brain className="h-44 w-44 text-white animate-pulse" />
+        <div className="pointer-events-none absolute bottom-0 right-0 top-0 hidden w-1/3 items-center justify-center opacity-20 lg:flex">
+          <Brain className="h-44 w-44 animate-pulse text-white" />
         </div>
       </div>
 
@@ -460,60 +466,78 @@ export default function DoctorDashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-12">
         {/* Main Content Column */}
-        <div className="lg:col-span-8 space-y-6">
+        <div className="lg:col-span-8 space-y-6 min-w-0">
           {/* Consultations List */}
-          <Card>
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between pb-4">
+          <Card className="overflow-hidden">
+            <CardHeader className="flex flex-col justify-between gap-4 pb-4 sm:flex-row sm:items-center">
               <div>
                 <CardTitle>Clinical Consultation Queue</CardTitle>
                 <CardDescription>Launch call rooms or add clinical records</CardDescription>
               </div>
-              <div className="flex bg-muted p-1 rounded-lg mt-3 sm:mt-0">
+              <div className="flex rounded-lg bg-muted p-1">
                 <button
+                  type="button"
                   onClick={() => setActiveTab("upcoming")}
-                  className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${activeTab === "upcoming" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-                    }`}
+                  className={`rounded-md px-4 py-1.5 text-xs font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-brand-400/40 ${
+                    activeTab === "upcoming"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
                 >
-                  Upcoming ({sessions.filter(s => !s.completed).length})
+                  Upcoming ({sessions.filter((s) => !s.completed).length})
                 </button>
                 <button
+                  type="button"
                   onClick={() => setActiveTab("completed")}
-                  className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${activeTab === "completed" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-                    }`}
+                  className={`rounded-md px-4 py-1.5 text-xs font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-brand-400/40 ${
+                    activeTab === "completed"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
                 >
-                  Completed ({sessions.filter(s => s.completed).length})
+                  Completed ({sessions.filter((s) => s.completed).length})
                 </button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {filteredSessions.length > 0 ? filteredSessions.map((session) => (
+            <CardContent className="space-y-3">
+              {filteredSessions.length > 0 ? (
+                filteredSessions.map((session) => {
+                  const isExpired =
+                    session.status === "Expired" ||
+                    session.status === "Expired / No Show";
+
+                  return (
                 <div
                   key={session.id}
-                  className="rounded-xl border border-border overflow-visible transition-all duration-200 hover:shadow-sm"
+                  className={`overflow-hidden rounded-xl border transition-all duration-200 ${
+                    isExpired
+                      ? "border-rose-200 bg-rose-50/40"
+                      : "border-border bg-card hover:shadow-sm"
+                  }`}
                 >
                   <div
-                    className="flex flex-col sm:flex-row sm:items-center justify-between p-4 hover:bg-accent/40 cursor-pointer transition-all duration-200"
+                    className="flex cursor-pointer flex-col gap-4 p-4 transition-colors hover:bg-accent/30 lg:flex-row lg:items-start lg:justify-between"
                     onClick={() =>
                       setExpandedSession(
                         expandedSession === session.id ? null : session.id
                       )
                     }
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
                       <UserAvatar
                         name={session.patientName}
                         avatarUrl={session.patientAvatarUrl}
                         size="sm"
                         className={session.completed ? "opacity-80" : ""}
                       />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-semibold text-sm">{session.patientName}</h4>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="text-sm font-semibold">{session.patientName}</h4>
                           <span
                             className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                               session.status === "Ready" || session.status === "Starting Soon"
                                 ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
-                                : session.status === "Expired" || session.status === "Expired / No Show"
+                                : isExpired
                                   ? "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400"
                                   : session.status === "Completed"
                                     ? "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300"
@@ -523,23 +547,26 @@ export default function DoctorDashboardPage() {
                             {session.status}
                           </span>
                         </div>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
+                        <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
                             {session.time}
                           </span>
                           <span>{session.type}</span>
                         </div>
-                        <AppointmentSessionAlert timing={session.timing} className="mt-2" />
+                        <AppointmentSessionAlert timing={session.timing} className="mt-3" />
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 mt-4 sm:mt-0" onClick={(e) => e.stopPropagation()}>
+                    <div
+                      className="flex shrink-0 flex-wrap items-center gap-2 lg:justify-end"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {!session.completed && session.canStartCall && (
                         <>
                           <Button
                             size="sm"
-                            className="flex items-center gap-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs"
+                            className="flex items-center gap-1 bg-brand-500 text-xs font-semibold text-white hover:bg-brand-600"
                             onClick={(e) => startConsultation(session, e)}
                           >
                             <Video className="h-3.5 w-3.5" />
@@ -549,7 +576,7 @@ export default function DoctorDashboardPage() {
                             variant="outline"
                             size="sm"
                             title="Complete session notes"
-                            className="text-emerald-600 hover:bg-emerald-50 cursor-pointer"
+                            className="cursor-pointer text-emerald-600 hover:bg-emerald-50"
                             onClick={(e) => openNotesModal(session, e)}
                           >
                             <Check className="h-3.5 w-3.5" />
@@ -557,7 +584,7 @@ export default function DoctorDashboardPage() {
                         </>
                       )}
                       {!session.completed && !session.canStartCall && session.rawStatus === "scheduled" && (
-                        <span className="text-[10px] font-semibold text-rose-600 px-2 py-1 rounded-md bg-rose-50 border border-rose-200">
+                        <span className="rounded-md border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10px] font-semibold text-rose-700">
                           Join window closed
                         </span>
                       )}
@@ -565,7 +592,7 @@ export default function DoctorDashboardPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="flex items-center gap-1 font-semibold text-xs text-brand-500 hover:bg-brand-50 cursor-pointer"
+                          className="flex cursor-pointer items-center gap-1 text-xs font-semibold text-brand-500 hover:bg-brand-50"
                           onClick={(e) => openNotesModal(session, e)}
                         >
                           <FileText className="h-3.5 w-3.5" />
@@ -573,7 +600,8 @@ export default function DoctorDashboardPage() {
                         </Button>
                       )}
                       <button
-                        className="p-1 hover:bg-muted rounded-full cursor-pointer ml-1"
+                        type="button"
+                        className="ml-1 rounded-full p-1 hover:bg-muted"
                         onClick={() =>
                           setExpandedSession(
                             expandedSession === session.id ? null : session.id
@@ -626,7 +654,9 @@ export default function DoctorDashboardPage() {
                     </div>
                   )}
                 </div>
-              )) : (
+                  );
+                })
+              ) : (
                 <div className="flex flex-col items-center justify-center py-10 text-center border border-dashed rounded-xl bg-muted/20">
                   <CheckCircle className="h-10 w-10 text-muted-foreground/40 mb-3" />
                   <h4 className="font-medium text-sm">No {activeTab} sessions</h4>
@@ -686,7 +716,7 @@ export default function DoctorDashboardPage() {
                 <CardDescription>Revenue over the last 7 days</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-[180px] w-full mt-4">
+                <div className="mt-4 h-[180px] w-full min-w-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={earningsData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} dy={10} />
@@ -735,7 +765,7 @@ export default function DoctorDashboardPage() {
         </div>
 
         {/* Quick Actions & Recent Activity Sidebars */}
-        <div className="lg:col-span-4 flex flex-col gap-6">
+        <div className="flex flex-col gap-6 lg:col-span-4 min-w-0">
           
           {/* Payout & Wallet Ledger Widget */}
           <Card>

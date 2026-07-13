@@ -19,6 +19,9 @@ import type {
   PaymentWithDoctor,
 } from "./types";
 import {
+  attachTaxonomyToDoctor,
+} from "@/lib/doctor/taxonomy";
+import {
   BASE_DOCTOR_SELECT,
   DOCTOR_SELECT_WITH_TAXONOMY,
   resolveDoctorRow,
@@ -44,17 +47,86 @@ export type PatientContextResult =
 
 const DOCTOR_SELECT = DOCTOR_SELECT_WITH_TAXONOMY;
 
-const APPOINTMENT_SELECT = `
-  *,
-  doctor:doctor_profiles!appointments_doctor_id_fkey (
-    ${DOCTOR_SELECT}
-  ),
+const APPOINTMENT_RELATIONS = `
   review:reviews!reviews_appointment_id_fkey ( rating, comment ),
   payments (
     id, status, proof_url, payment_method, rejection_reason, amount,
     refund_status, refund_amount, refund_initiated_at, refund_processed_at, refund_note, refunded_at
   )
 `;
+
+const APPOINTMENT_SELECT = `
+  *,
+  doctor:doctor_profiles!appointments_doctor_id_fkey (
+    ${DOCTOR_SELECT}
+  ),
+  ${APPOINTMENT_RELATIONS}
+`;
+
+const APPOINTMENT_SELECT_BASE = `
+  *,
+  doctor:doctor_profiles!appointments_doctor_id_fkey (
+    ${BASE_DOCTOR_SELECT}
+  ),
+  ${APPOINTMENT_RELATIONS}
+`;
+
+function mapAppointmentRow(row: Record<string, unknown>): AppointmentWithDoctor {
+  const doctor = row.doctor as Record<string, unknown> | null | undefined;
+  if (!doctor) {
+    return row as unknown as AppointmentWithDoctor;
+  }
+  return {
+    ...(row as unknown as AppointmentWithDoctor),
+    doctor: attachTaxonomyToDoctor(doctor) as unknown as AppointmentWithDoctor["doctor"],
+  };
+}
+
+function mapAppointmentRowWithoutTaxonomy(row: Record<string, unknown>): AppointmentWithDoctor {
+  const doctor = row.doctor as Record<string, unknown> | null | undefined;
+  return {
+    ...(row as unknown as AppointmentWithDoctor),
+    doctor: doctor
+      ? ({ ...doctor, taxonomy_tags: [] } as unknown as AppointmentWithDoctor["doctor"])
+      : null,
+  };
+}
+
+async function resolvePatientAppointments(
+  withTaxonomyQuery: () => ReturnType<ReturnType<typeof table>["select"]>,
+  withoutTaxonomyQuery: () => ReturnType<ReturnType<typeof table>["select"]>,
+): Promise<AppointmentWithDoctor[]> {
+  const primary = await withTaxonomyQuery();
+  if (!primary.error) {
+    return ((primary.data ?? []) as Record<string, unknown>[]).map(mapAppointmentRow);
+  }
+
+  const fallback = await withoutTaxonomyQuery();
+  if (!fallback.error) {
+    return ((fallback.data ?? []) as Record<string, unknown>[]).map(
+      mapAppointmentRowWithoutTaxonomy,
+    );
+  }
+
+  throw primary.error ?? fallback.error;
+}
+
+async function resolvePatientAppointmentRow(
+  withTaxonomyQuery: () => ReturnType<ReturnType<typeof table>["select"]>,
+  withoutTaxonomyQuery: () => ReturnType<ReturnType<typeof table>["select"]>,
+): Promise<AppointmentWithDoctor> {
+  const primary = await withTaxonomyQuery();
+  if (!primary.error && primary.data) {
+    return mapAppointmentRow(primary.data as Record<string, unknown>);
+  }
+
+  const fallback = await withoutTaxonomyQuery();
+  if (!fallback.error && fallback.data) {
+    return mapAppointmentRowWithoutTaxonomy(fallback.data as Record<string, unknown>);
+  }
+
+  throw primary.error ?? fallback.error;
+}
 
 const PRESCRIPTION_APPOINTMENT_SELECT = `
   *,
@@ -117,12 +189,13 @@ export async function getPatientContext(): Promise<PatientContextResult> {
 }
 
 export async function getPatientAppointments(): Promise<AppointmentWithDoctor[]> {
-  const { data, error } = await table("appointments")
-    .select(APPOINTMENT_SELECT)
-    .order("scheduled_at", { ascending: false });
-
-  if (error) throw error;
-  return (data ?? []) as AppointmentWithDoctor[];
+  return resolvePatientAppointments(
+    () => table("appointments").select(APPOINTMENT_SELECT).order("scheduled_at", { ascending: false }),
+    () =>
+      table("appointments")
+        .select(APPOINTMENT_SELECT_BASE)
+        .order("scheduled_at", { ascending: false }),
+  );
 }
 
 export async function getPatientPrescriptionAppointments(): Promise<AppointmentWithDoctor[]> {
@@ -260,7 +333,7 @@ export async function bookAppointment(params: {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in");
 
-  const { data: appointment, error: aptError } = await table("appointments")
+  const { data: inserted, error: aptError } = await table("appointments")
     .insert({
       patient_id: user.id,
       doctor_id: params.doctorProfileId,
@@ -271,7 +344,7 @@ export async function bookAppointment(params: {
       patient_notes: params.patientNotes?.trim() || null,
       consultation_fee: params.consultationFee,
     } as Database["public"]["Tables"]["appointments"]["Insert"])
-    .select(APPOINTMENT_SELECT)
+    .select("id")
     .single();
 
   if (aptError) {
@@ -312,7 +385,11 @@ export async function bookAppointment(params: {
     throw aptError;
   }
 
-  const booked = appointment as AppointmentWithDoctor;
+  const booked = await resolvePatientAppointmentRow(
+    () => table("appointments").select(APPOINTMENT_SELECT).eq("id", inserted.id).single(),
+    () =>
+      table("appointments").select(APPOINTMENT_SELECT_BASE).eq("id", inserted.id).single(),
+  );
   const platformFee = Math.round(params.consultationFee * 0.1 * 100) / 100;
   const doctorEarning = params.consultationFee - platformFee;
 
@@ -479,18 +556,21 @@ export async function cancelPatientAppointment(
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in");
 
-  const { data, error } = await table("appointments")
+  const { error } = await table("appointments")
     .update({
       status: "cancelled" as AppointmentStatus,
       cancellation_reason: reason?.trim() || "Cancelled by patient",
       cancelled_by: user.id,
     } as Database["public"]["Tables"]["appointments"]["Update"])
-    .eq("id", appointmentId)
-    .select(APPOINTMENT_SELECT)
-    .single();
+    .eq("id", appointmentId);
 
   if (error) throw error;
-  const cancelled = data as AppointmentWithDoctor;
+
+  const cancelled = await resolvePatientAppointmentRow(
+    () => table("appointments").select(APPOINTMENT_SELECT).eq("id", appointmentId).single(),
+    () =>
+      table("appointments").select(APPOINTMENT_SELECT_BASE).eq("id", appointmentId).single(),
+  );
 
   await initiateRefundForCancelledAppointment({
     appointmentId,

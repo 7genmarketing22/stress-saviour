@@ -400,10 +400,7 @@ export async function markNotificationRead(notificationId: string) {
   if (error) throw error;
 }
 
-export async function signOut() {
-  const supabase = createClient();
-  await supabase.auth.signOut();
-}
+export { signOut, logout } from "@/lib/auth/session";
 
 export async function updatePassword(newPassword: string) {
   const supabase = createClient();
