@@ -72,7 +72,6 @@ export function mapPatientStatus(
   if (status === "completed") return "Completed";
   if (status === "cancelled") return "Cancelled";
   if (status === "no_show") return "No Show";
-  if (status === "ongoing") return "Ready";
 
   const timing = getAppointmentSessionTiming({
     scheduledAt,

@@ -52,7 +52,7 @@ export default function PatientDoctorsPage() {
   } = useDoctorSlotAvailability({
     doctorId: bookingDoctor?.id ?? "",
     date: bookDate,
-    enabled: Boolean(bookingDoctor),
+    enabled: Boolean(bookingDoctor && bookDate),
   });
 
   useEffect(() => {

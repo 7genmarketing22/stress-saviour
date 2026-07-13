@@ -69,6 +69,10 @@ export function getAppointmentSessionTiming(params: {
     shouldSendReminder: false,
   };
 
+  // Stale DB row: marked ongoing before the scheduled start time.
+  const effectiveStatus =
+    params.status === "ongoing" && now < startMs ? "scheduled" : params.status;
+
   if (params.status === "expired_no_show") {
     return {
       ...base,
@@ -83,7 +87,7 @@ export function getAppointmentSessionTiming(params: {
     };
   }
 
-  if (params.status === "ongoing") {
+  if (effectiveStatus === "ongoing") {
     return {
       ...base,
       phase: "ongoing",
@@ -98,7 +102,7 @@ export function getAppointmentSessionTiming(params: {
   }
 
   if (
-    ["completed", "cancelled", "no_show", "pending_payment"].includes(params.status)
+    ["completed", "cancelled", "no_show", "pending_payment"].includes(effectiveStatus)
   ) {
     return {
       ...base,
@@ -113,7 +117,7 @@ export function getAppointmentSessionTiming(params: {
     };
   }
 
-  // status === scheduled
+  // status === scheduled (or stale ongoing corrected above)
   if (now < reminderMs) {
     return {
       ...base,
@@ -122,8 +126,7 @@ export function getAppointmentSessionTiming(params: {
       canStartCall: false,
       showWarning: false,
       warningMessage: null,
-      countdownLabel:
-        minutesUntilStart > 0 ? `Starts in ${minutesUntilStart} min` : null,
+      countdownLabel: null,
       shouldSendReminder: false,
     };
   }
@@ -186,7 +189,7 @@ export function mapTimingToDisplayStatus(
   if (status === "completed") return "Completed";
   if (status === "cancelled") return "Cancelled";
   if (status === "no_show") return "No Show";
-  if (status === "ongoing") return "Ready";
+  if (timing.phase === "ongoing") return "Ready";
 
   if (timing.phase === "expired_pending") return "Expired";
   if (timing.phase === "grace_warning" || timing.phase === "joinable") return "Ready";

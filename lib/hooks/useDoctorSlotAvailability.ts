@@ -30,12 +30,15 @@ export function useDoctorSlotAvailability({
   const [refreshKey, setRefreshKey] = useState(0);
 
   const sessionDuration = useMemo(
-    () => getSessionDurationForDate(availabilitySlots, date),
+    () =>
+      date
+        ? getSessionDurationForDate(availabilitySlots, date)
+        : 30,
     [availabilitySlots, date],
   );
 
   const timeOptions = useMemo(() => {
-    if (availabilitySlots.length === 0) return [];
+    if (!date || availabilitySlots.length === 0) return [];
     return generateTimeSlotsForDate(availabilitySlots, date, sessionDuration);
   }, [availabilitySlots, date, sessionDuration]);
 

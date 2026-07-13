@@ -16,11 +16,25 @@ const WEEKDAY_MAP: Record<string, number> = {
   Sat: 6,
 };
 
+/** YYYY-MM-DD booking date used by slot pickers. */
+export function isValidBookingDate(date: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  const parsed = new Date(`${date}T12:00:00+05:00`);
+  return !Number.isNaN(parsed.getTime());
+}
+
+function parseBookingDate(date: string): Date | null {
+  if (!isValidBookingDate(date)) return null;
+  return new Date(`${date}T12:00:00+05:00`);
+}
+
 function getPkDayOfWeek(date: string): number {
+  const parsed = parseBookingDate(date);
+  if (!parsed) return 0;
   const weekday = new Intl.DateTimeFormat("en-US", {
     timeZone: CLINIC_TIMEZONE,
     weekday: "short",
-  }).format(new Date(`${date}T12:00:00+05:00`));
+  }).format(parsed);
   return WEEKDAY_MAP[weekday] ?? 0;
 }
 
@@ -50,6 +64,7 @@ export function generateTimeSlotsForDate(
   date: string,
   durationMinutes = 30
 ): string[] {
+  if (!isValidBookingDate(date)) return [];
   const dayOfWeek = getPkDayOfWeek(date);
   const daySlots = slots.filter((s) => s.day_of_week === dayOfWeek);
   const times: string[] = [];
@@ -74,6 +89,7 @@ export function getSessionDurationForDate(
   date: string,
   fallbackMinutes = 30,
 ): number {
+  if (!isValidBookingDate(date)) return fallbackMinutes;
   const dayOfWeek = getPkDayOfWeek(date);
   const daySlots = slots.filter((s) => s.day_of_week === dayOfWeek);
   if (daySlots.length === 0) return fallbackMinutes;

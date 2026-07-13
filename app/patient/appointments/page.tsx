@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
-  Video, Clock, Search, Calendar, User, ChevronLeft, ChevronRight,
+  Video, Clock, Search, Calendar, ChevronLeft, ChevronRight,
   XCircle, Plus, Filter, MoreHorizontal, X, Star, Loader2, Upload, BadgeCheck, AlertCircle,
 } from "lucide-react";
 import {
@@ -63,8 +63,8 @@ export default function PatientAppointmentsPage() {
     }
   }, [searchParams]);
 
-  const loadAppointments = useCallback(async () => {
-    setLoading(true);
+  const loadAppointments = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const [data, accounts] = await Promise.all([
@@ -74,10 +74,12 @@ export default function PatientAppointmentsPage() {
       setAppointments(data.map(mapToPatientAppointment));
       if (accounts.length > 0) setPlatformAccounts(accounts);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load appointments");
-      setAppointments([]);
+      if (!silent) {
+        setError(err instanceof Error ? err.message : "Failed to load appointments");
+        setAppointments([]);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -85,7 +87,9 @@ export default function PatientAppointmentsPage() {
     loadAppointments();
   }, [loadAppointments]);
 
-  useAppointmentSessionSync(!loading, loadAppointments);
+  useAppointmentSessionSync(true, () => {
+    loadAppointments(true);
+  });
 
   const getFilteredAppointments = () => {
     let filtered = [...appointments];
@@ -271,35 +275,34 @@ export default function PatientAppointmentsPage() {
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {currentItems.length > 0 ? (
           currentItems.map((apt) => (
-            <Card key={apt.id} className="relative z-0 hover:z-20 focus-within:z-20 transition-all">
-              <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                  <div className="flex items-start gap-4 flex-1">
+            <Card key={apt.id}>
+              <CardContent className="p-5">
+                <div className="flex flex-col lg:flex-row lg:items-center gap-5">
+                  {/* Doctor & appointment info */}
+                  <div className="flex gap-4 flex-1 min-w-0">
                     <UserAvatar
                       name={apt.doctorName}
                       avatarUrl={apt.doctorAvatarUrl}
                       size="md"
+                      className="shrink-0"
                     />
-                    <div className="space-y-2 flex-1">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <h3 className="font-semibold text-base">{apt.doctorName}</h3>
-                        <span className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-2 py-0.5 rounded">
-                          {apt.id.slice(0, 8)}
-                        </span>
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusBadgeClass(apt.status)}`}>
+                    <div className="flex-1 min-w-0 space-y-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-semibold text-base text-foreground">{apt.doctorName}</h3>
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusBadgeClass(apt.status)}`}>
                           {apt.status}
                         </span>
                         {apt.isPaid && (
-                          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-emerald-600 text-white">
+                          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-800">
                             <BadgeCheck className="h-3 w-3" />
                             Paid
                           </span>
                         )}
                         {apt.rating ? (
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-0.5">
                             {[...Array(5)].map((_, i) => (
                               <Star
                                 key={i}
@@ -309,49 +312,54 @@ export default function PatientAppointmentsPage() {
                           </div>
                         ) : null}
                       </div>
-                      <p className="text-sm font-medium text-brand-500">
-                        {apt.doctorSpecialization} • {apt.type} • {apt.duration}
+
+                      <p className="text-sm text-muted-foreground">
+                        {apt.doctorSpecialization} · {apt.type} · {apt.duration}
                       </p>
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1.5">
-                          <Calendar className="h-3.5 w-3.5" />
-                          {formatDate(apt.date, { year: "numeric", month: "long", day: "numeric" })}
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          <Clock className="h-3.5 w-3.5" />
-                          {apt.timeRange}
-                        </span>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Calendar className="h-4 w-4 shrink-0" />
+                          <span>{formatDate(apt.date, { year: "numeric", month: "long", day: "numeric" })}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Clock className="h-4 w-4 shrink-0" />
+                          <span>{apt.timeRange}</span>
+                        </div>
                       </div>
+
                       {apt.reason && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          <span className="font-medium text-foreground">Reason: </span>
-                          {apt.reason}
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Reason: </span>
+                          <span className="text-foreground">{apt.reason}</span>
                         </p>
                       )}
+
                       {apt.paymentRejectionReason && (
-                        <p className="text-xs text-red-600 flex items-start gap-1.5 mt-1">
+                        <p className="text-xs text-red-600 flex items-start gap-1.5">
                           <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                           {apt.paymentRejectionReason}
                         </p>
                       )}
                       {apt.status === "Payment Review" && (
-                        <p className="text-xs text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2 mt-1">
+                        <p className="text-xs text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
                           Payment proof submitted. Waiting for admin approval to confirm your booking.
                         </p>
                       )}
                       {apt.status === "Awaiting Payment" && (
-                        <p className="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 mt-1">
+                        <p className="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
                           Please pay the consultation fee and upload your payment screenshot to confirm this booking.
                         </p>
                       )}
-                      <AppointmentSessionAlert timing={apt.timing} className="mt-2" />
+                      <AppointmentSessionAlert timing={apt.timing} />
                     </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  {/* Actions */}
+                  <div className="flex flex-row lg:flex-col items-center gap-2 shrink-0 lg:min-w-[160px]">
                     {apt.status === "Awaiting Payment" && apt.paymentId && (
                       <Button
-                        className="bg-orange-600 hover:bg-orange-700 text-white w-full sm:w-auto"
+                        className="bg-orange-600 hover:bg-orange-700 text-white flex-1 lg:flex-none lg:w-full"
                         onClick={() => openUploadForAppointment(apt)}
                       >
                         <Upload className="h-4 w-4 mr-2" />
@@ -359,24 +367,24 @@ export default function PatientAppointmentsPage() {
                       </Button>
                     )}
                     {apt.isPaid && apt.canJoin && ["Confirmed", "Ready", "Starting Soon"].includes(apt.status) && (
-                      <Link href={apt.roomUrl}>
-                        <Button className="bg-brand-500 hover:bg-brand-600 text-white w-full sm:w-auto">
+                      <Link href={apt.roomUrl} className="flex-1 lg:flex-none lg:w-full">
+                        <Button className="bg-brand-500 hover:bg-brand-600 text-white w-full">
                           <Video className="h-4 w-4 mr-2" />
                           Join Consultation
                         </Button>
                       </Link>
                     )}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-1 lg:flex-none lg:w-full">
                       <Button
                         variant="outline"
                         size="sm"
+                        className="flex-1"
                         onClick={() => { setSelectedAppointment(apt); setUploadProofFile(null); setShowDetailsModal(true); }}
                       >
-                        <User className="h-3.5 w-3.5 mr-1.5" />
                         Details
                       </Button>
                       <div className="relative group">
-                        <Button variant="ghost" size="icon" className="h-9 w-9">
+                        <Button variant="outline" size="icon" className="h-9 w-9 shrink-0">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                         <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
@@ -458,7 +466,7 @@ export default function PatientAppointmentsPage() {
             <div className="p-6 border-b flex items-center justify-between sticky top-0 bg-card z-10">
               <div>
                 <h3 className="text-lg font-bold">Appointment Details</h3>
-                <p className="text-xs text-muted-foreground">{selectedAppointment.id.slice(0, 8)}</p>
+                <p className="text-xs text-muted-foreground">{selectedAppointment.doctorSpecialization}</p>
               </div>
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setShowDetailsModal(false)}>
                 <XCircle className="h-4 w-4" />
