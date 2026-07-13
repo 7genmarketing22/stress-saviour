@@ -16,6 +16,9 @@ import {
   updatePassword,
   updateUserProfile,
 } from "@/lib/doctor/api";
+import { getDoctorTaxonomyIds, setDoctorTaxonomy } from "@/lib/doctor/taxonomy-api";
+import { MENTAL_CONDITIONS, MENTAL_SYMPTOMS } from "@/lib/public/catalog";
+import { TaxonomyTagPicker } from "@/components/shared/TaxonomyTagPicker";
 import { uploadDoctorCertificate, removeDoctorCertificate, validateCertificateFile } from "@/lib/storage/certificates";
 import type { DoctorCertificate } from "@/lib/doctor/types";
 
@@ -30,6 +33,7 @@ export default function DoctorProfilePage() {
   );
   const [certUploading, setCertUploading] = useState(false);
   const [certDragging, setCertDragging] = useState(false);
+  const [taxonomyTags, setTaxonomyTags] = useState<string[]>([]);
   const certInputRef = useRef<HTMLInputElement>(null);
 
   const [profileForm, setProfileForm] = useState({
@@ -68,6 +72,12 @@ export default function DoctorProfilePage() {
     emailAlerts: true,
     smsAlerts: false,
   });
+
+  useEffect(() => {
+    getDoctorTaxonomyIds(doctorProfile.id)
+      .then(setTaxonomyTags)
+      .catch(() => setTaxonomyTags([]));
+  }, [doctorProfile.id]);
 
   useEffect(() => {
     setCertificates(documents.certificates ?? []);
@@ -156,6 +166,7 @@ export default function DoctorProfilePage() {
         experience_years: parseInt(profileForm.experience, 10) || doctorProfile.experience_years,
         bio: profileForm.bio || null,
       });
+      await setDoctorTaxonomy(doctorProfile.id, taxonomyTags);
       setProfile(updatedProfile);
       setDoctorProfile(updatedDoctor);
       showToast("Profile credentials updated successfully.");
@@ -441,6 +452,23 @@ export default function DoctorProfilePage() {
                           className="w-full h-10 pl-9 pr-4 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand-400/20 focus:border-brand-400 transition-all"
                         />
                       </div>
+                    </div>
+
+                    <div className="space-y-2 sm:col-span-2">
+                      <label className="text-xs font-semibold text-muted-foreground">
+                        Symptoms & conditions you treat
+                      </label>
+                      <TaxonomyTagPicker
+                        items={[...MENTAL_SYMPTOMS, ...MENTAL_CONDITIONS]}
+                        symptoms={MENTAL_SYMPTOMS}
+                        conditions={MENTAL_CONDITIONS}
+                        selectedIds={taxonomyTags}
+                        onChange={setTaxonomyTags}
+                        groupByKind
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        These tags control which patients can find you from the landing page categories.
+                      </p>
                     </div>
 
                     {/* Qualification */}

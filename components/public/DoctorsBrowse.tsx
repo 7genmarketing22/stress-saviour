@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { getApprovedDoctors } from "@/lib/patient/api";
 import { mapToDoctorCard } from "@/lib/patient/mappers";
@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   buildFilterTitle,
   filterDoctors,
+  getActiveTaxonomyFilter,
   parseDoctorSearchParams,
 } from "@/lib/public/doctor-filters";
 import type { DoctorWithProfile } from "@/lib/patient/types";
@@ -81,6 +82,7 @@ export function DoctorsBrowse({
   }, [doctors, filters, limit]);
 
   const pageTitle = title ?? buildFilterTitle(filters);
+  const activeTaxonomy = getActiveTaxonomyFilter(filters);
   const pageSubtitle =
     subtitle ??
     (filters.city
@@ -120,6 +122,20 @@ export function DoctorsBrowse({
           {pageTitle}
         </h1>
         <p className="mt-2 max-w-2xl text-slate-600">{pageSubtitle}</p>
+        {activeTaxonomy && (
+          <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3 py-1.5 text-sm text-brand-700">
+            <span>
+              Showing doctors for: <strong>{activeTaxonomy.label}</strong>
+            </span>
+            <Link
+              href="/doctors"
+              className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-brand-600 hover:bg-brand-100"
+            >
+              <X className="h-3 w-3" />
+              Clear
+            </Link>
+          </div>
+        )}
       </div>
 
       {showFilters && !limit && <DoctorSearchFilters resultCount={filteredDoctors.length} />}
@@ -151,10 +167,14 @@ export function DoctorsBrowse({
             <p className="mt-2 text-sm text-slate-500">
               {doctors.length === 0
                 ? "No approved doctors on the platform yet. Check back soon."
-                : "Try adjusting your city, specialty, or filter options."}
+                : activeTaxonomy
+                  ? `No doctors are currently available for ${activeTaxonomy.label}. Try browsing all doctors or choose another category.`
+                  : "Try adjusting your city, specialty, or filter options."}
             </p>
             <Link href="/doctors" className="mt-4 inline-block">
-              <Button variant="outline">Clear all filters</Button>
+              <Button variant="outline">
+                {activeTaxonomy ? "Browse all doctors" : "Clear all filters"}
+              </Button>
             </Link>
           </div>
         )}

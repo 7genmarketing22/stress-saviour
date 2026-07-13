@@ -11,6 +11,10 @@ import type {
 } from "./types";
 import { createNotification } from "@/lib/notifications/api";
 import { initiateRefundForCancelledAppointment } from "@/lib/refunds/process";
+import {
+  attachTaxonomyToDoctor,
+  DOCTOR_TAXONOMY_SELECT,
+} from "@/lib/doctor/taxonomy";
 
 type TableName = keyof Database["public"]["Tables"];
 
@@ -33,7 +37,8 @@ const DOCTOR_ADMIN_SELECT = `
   *,
   profile:profiles!doctor_profiles_user_id_fkey (
     id, full_name, email, phone, city, avatar_url, is_active, created_at
-  )
+  ),
+  ${DOCTOR_TAXONOMY_SELECT}
 `;
 
 const APPOINTMENT_ADMIN_SELECT = `
@@ -117,7 +122,9 @@ export async function getAdminDoctors(): Promise<AdminDoctor[]> {
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return (data ?? []) as AdminDoctor[];
+  return ((data ?? []) as Record<string, unknown>[]).map((row) =>
+    attachTaxonomyToDoctor(row),
+  ) as unknown as AdminDoctor[];
 }
 
 export async function getAdminPatients(): Promise<Profile[]> {

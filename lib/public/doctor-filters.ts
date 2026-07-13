@@ -1,6 +1,12 @@
 import { mapToDoctorCard } from "@/lib/patient/mappers";
 import type { DoctorWithProfile } from "@/lib/patient/types";
-import { findCatalogItem, MENTAL_CONDITIONS, MENTAL_SYMPTOMS } from "./catalog";
+import { matchesDoctorTaxonomyTag } from "@/lib/doctor/taxonomy";
+import {
+  findTaxonomyItemById,
+  getTaxonomyFilterLabel,
+  MENTAL_CONDITIONS,
+  MENTAL_SYMPTOMS,
+} from "./catalog";
 
 export const ALL_CITIES_LABEL = "All Cities";
 
@@ -50,8 +56,8 @@ export function buildDoctorSearchUrl(filters: DoctorSearchFilters): string {
   return query ? `/doctors?${query}` : "/doctors";
 }
 
-function normalizeSearchText(text: string): string {
-  return text
+function normalizeSearchText(text: string | null | undefined): string {
+  return (text ?? "")
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -61,24 +67,9 @@ function normalizeSearchText(text: string): string {
 }
 
 function doctorCities(doc: DoctorWithProfile): string[] {
-  if (doc.cities?.length) return doc.cities;
-  if (doc.profile?.city) return [doc.profile.city];
-  return [];
-}
-
-function getDoctorSearchHaystack(doc: DoctorWithProfile): string {
-  return normalizeSearchText(
-    [
-      doc.profile?.full_name ?? "",
-      doc.specialization,
-      doc.sub_specialization ?? "",
-      ...(doc.qualification ?? []),
-      doc.bio ?? "",
-      ...doctorCities(doc),
-      ...(doc.languages ?? []),
-      ...(doc.hospital_affiliations ?? []),
-    ].join(" ")
-  );
+  const fromArray = doc.cities?.length ? doc.cities : [];
+  const fromProfile = doc.profile?.city ? [doc.profile.city] : [];
+  return [...new Set([...fromArray, ...fromProfile])];
 }
 
 function getQueryWords(q: string): string[] {
@@ -87,12 +78,58 @@ function getQueryWords(q: string): string[] {
     .filter((word) => word.length > 0);
 }
 
+function getTextTokens(...parts: (string | null | undefined)[]): string[] {
+  return parts
+    .map((part) => normalizeSearchText(part))
+    .filter(Boolean)
+    .flatMap((text) => text.split(/\s+/))
+    .filter((token) => token.length > 0);
+}
+
+/** Whole-token or prefix match while typing — never match inside another word (e.g. ali ≠ clinical). */
+function tokenMatchesWord(token: string, word: string): boolean {
+  if (!word) return false;
+  if (token === word) return true;
+  if (word.length >= 2 && token.startsWith(word)) return true;
+  return false;
+}
+
+function anyTokenMatchesWord(tokens: string[], word: string): boolean {
+  return tokens.some((token) => tokenMatchesWord(token, word));
+}
+
+function getNameTokens(doc: DoctorWithProfile): string[] {
+  return getTextTokens(doc.profile?.full_name ?? "");
+}
+
+/** Case-insensitive name match; word order does not matter (first/last name). */
+function matchesDoctorName(doc: DoctorWithProfile, q: string): boolean {
+  const queryWords = getQueryWords(q);
+  if (queryWords.length === 0) return false;
+
+  const nameTokens = getNameTokens(doc);
+  if (nameTokens.length === 0) return false;
+
+  return queryWords.every((word) => anyTokenMatchesWord(nameTokens, word));
+}
+
+function getDoctorFieldTokens(doc: DoctorWithProfile): string[] {
+  return getTextTokens(
+    doc.specialization,
+    doc.sub_specialization,
+    doc.bio,
+    ...(doc.qualification ?? []),
+    ...doctorCities(doc),
+    ...(doc.languages ?? []),
+    ...(doc.hospital_affiliations ?? []),
+    ...(doc.taxonomy_tags ?? []).map((tag) => tag.label)
+  );
+}
+
 function matchesCatalogWord(doc: DoctorWithProfile, word: string): boolean {
   for (const item of [...MENTAL_SYMPTOMS, ...MENTAL_CONDITIONS]) {
     const terms = [item.label, ...item.keywords].map(normalizeSearchText);
-    const termHit = terms.some(
-      (term) => term.includes(word) || word.includes(term)
-    );
+    const termHit = terms.some((term) => anyTokenMatchesWord(getTextTokens(term), word));
     if (!termHit) continue;
 
     const specialtyMatch = item.specialty
@@ -112,28 +149,54 @@ function matchesFreeTextQuery(doc: DoctorWithProfile, q: string): boolean {
   const words = getQueryWords(q);
   if (words.length === 0) return true;
 
-  const haystack = getDoctorSearchHaystack(doc);
+  if (matchesDoctorName(doc, q)) return true;
+
+  const fieldTokens = getDoctorFieldTokens(doc);
   return words.every(
-    (word) => haystack.includes(word) || matchesCatalogWord(doc, word)
+    (word) => anyTokenMatchesWord(fieldTokens, word) || matchesCatalogWord(doc, word)
   );
 }
 
 function matchesKeywords(doc: DoctorWithProfile, keywords: string[]): boolean {
-  const haystack = getDoctorSearchHaystack(doc);
-  return keywords.some((kw) => haystack.includes(normalizeSearchText(kw)));
+  const fieldTokens = getDoctorFieldTokens(doc);
+  return keywords.some((kw) => anyTokenMatchesWord(fieldTokens, normalizeSearchText(kw)));
 }
 
 function matchesCity(doc: DoctorWithProfile, city: string): boolean {
   const cityNorm = normalizeSearchText(city);
-  return doctorCities(doc).some((c) => normalizeSearchText(c) === cityNorm);
+  return doctorCities(doc).some((c) => {
+    const docCity = normalizeSearchText(c);
+    return (
+      docCity === cityNorm ||
+      docCity.includes(cityNorm) ||
+      cityNorm.includes(docCity)
+    );
+  });
+}
+
+function matchesTaxonomyTag(doc: DoctorWithProfile, tagId: string): boolean {
+  const item = findTaxonomyItemById(tagId);
+  return matchesDoctorTaxonomyTag(doc, tagId, item);
 }
 
 function matchesSpecialty(doc: DoctorWithProfile, specialty: string): boolean {
   const spec = normalizeSearchText(specialty);
-  return (
-    normalizeSearchText(doc.specialization).includes(spec) ||
-    normalizeSearchText(doc.sub_specialization ?? "").includes(spec)
-  );
+  const docSpec = normalizeSearchText(doc.specialization ?? "");
+  const docSubSpec = normalizeSearchText(doc.sub_specialization ?? "");
+
+  if (
+    docSpec.includes(spec) ||
+    spec.includes(docSpec) ||
+    docSubSpec.includes(spec) ||
+    spec.includes(docSubSpec)
+  ) {
+    return true;
+  }
+
+  return (doc.taxonomy_tags ?? []).some((tag) => {
+    const label = normalizeSearchText(tag.label);
+    return label.includes(spec) || spec.includes(label);
+  });
 }
 
 export function filterDoctors(
@@ -155,29 +218,11 @@ export function filterDoctors(
   }
 
   if (filters.symptom) {
-    const item = findCatalogItem("symptom", filters.symptom);
-    if (item) {
-      result = result.filter((doc) => {
-        const keywordMatch = matchesKeywords(doc, item.keywords);
-        const specialtyMatch = item.specialty
-          ? doc.specialization.toLowerCase().includes(item.specialty.toLowerCase())
-          : false;
-        return keywordMatch || specialtyMatch;
-      });
-    }
+    result = result.filter((doc) => matchesTaxonomyTag(doc, filters.symptom!));
   }
 
   if (filters.condition) {
-    const item = findCatalogItem("condition", filters.condition);
-    if (item) {
-      result = result.filter((doc) => {
-        const keywordMatch = matchesKeywords(doc, item.keywords);
-        const specialtyMatch = item.specialty
-          ? doc.specialization.toLowerCase().includes(item.specialty.toLowerCase())
-          : false;
-        return keywordMatch || specialtyMatch;
-      });
-    }
+    result = result.filter((doc) => matchesTaxonomyTag(doc, filters.condition!));
   }
 
   if (filters.maxFee) {
@@ -223,17 +268,26 @@ export function getActiveFilterCount(filters: DoctorSearchFilters): number {
   return count;
 }
 
+export function getActiveTaxonomyFilter(filters: DoctorSearchFilters) {
+  const id = filters.symptom ?? filters.condition;
+  if (!id) return null;
+  const item = findTaxonomyItemById(id);
+  if (!item) return null;
+  return {
+    id,
+    label: item.label,
+    kind: item.kind,
+  };
+}
+
 export function buildFilterTitle(filters: DoctorSearchFilters): string {
   const parts: string[] = [];
+  const taxonomyLabel = getTaxonomyFilterLabel(filters);
 
   if (filters.specialty && filters.specialty !== "All") {
     parts.push(`Best ${filters.specialty}s`);
-  } else if (filters.symptom) {
-    parts.push(`Doctors for ${findCatalogItem("symptom", filters.symptom)?.label ?? "Symptoms"}`);
-  } else if (filters.condition) {
-    parts.push(
-      `Doctors for ${findCatalogItem("condition", filters.condition)?.label ?? "Conditions"}`
-    );
+  } else if (taxonomyLabel) {
+    parts.push(`Doctors for ${taxonomyLabel}`);
   } else {
     parts.push("Best Mental Health Doctors");
   }

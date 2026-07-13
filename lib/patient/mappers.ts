@@ -157,6 +157,8 @@ export function mapToDoctorCard(doc: DoctorWithProfile) {
     imageInitials: getInitials(name),
     avatarUrl: doc.profile?.avatar_url ?? null,
     bio: doc.bio,
+    taxonomyTags: doc.taxonomy_tags?.map((tag) => tag.label) ?? [],
+    taxonomyTagIds: doc.taxonomy_tags?.map((tag) => tag.id) ?? [],
   };
 }
 

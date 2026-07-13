@@ -37,7 +37,10 @@ export function DoctorListCard({
 }: DoctorListCardProps) {
   const satisfaction =
     doctor.rating > 0 ? Math.round((doctor.rating / 5) * 100) : null;
-  const tags = CONDITION_TAGS.slice(0, 4);
+  const tags =
+    doctor.taxonomyTags.length > 0
+      ? doctor.taxonomyTags.slice(0, 4)
+      : CONDITION_TAGS.slice(0, 4);
 
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:border-brand-100 hover:shadow-md">

@@ -19,6 +19,7 @@ import { UserAvatar } from "@/components/shared/UserAvatar";
 import { BookingModal } from "@/components/public/BookingModal";
 import { createClient } from "@/lib/supabase/client";
 import { mapToDoctorCard } from "@/lib/patient/mappers";
+import { groupTaxonomyByKind } from "@/lib/doctor/taxonomy";
 import { DAY_LABELS, formatSlotRange } from "@/lib/booking/slots";
 import type { DoctorWithProfile } from "@/lib/patient/types";
 import type { UserRole } from "@/types";
@@ -58,6 +59,7 @@ export function DoctorProfileClient({ doctor, availabilitySlots }: DoctorProfile
   const router = useRouter();
   const searchParams = useSearchParams();
   const card = mapToDoctorCard(doctor);
+  const taxonomy = groupTaxonomyByKind(doctor.taxonomy_tags ?? []);
 
   const [showBooking, setShowBooking] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
@@ -186,6 +188,48 @@ export function DoctorProfileClient({ doctor, availabilitySlots }: DoctorProfile
                 </div>
               )}
             </section>
+
+            {(taxonomy.symptoms.length > 0 || taxonomy.conditions.length > 0) && (
+              <section>
+                <h2 className="text-lg font-bold text-slate-900">Areas of Focus</h2>
+                <div className="mt-4 space-y-3">
+                  {taxonomy.symptoms.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Symptoms
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {taxonomy.symptoms.map((tag) => (
+                          <span
+                            key={tag.id}
+                            className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700"
+                          >
+                            {tag.label}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {taxonomy.conditions.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Conditions
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {taxonomy.conditions.map((tag) => (
+                          <span
+                            key={tag.id}
+                            className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700"
+                          >
+                            {tag.label}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
 
             <section>
               <h2 className="text-lg font-bold text-slate-900">Services Offered</h2>

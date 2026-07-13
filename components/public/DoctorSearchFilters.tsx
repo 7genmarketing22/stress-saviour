@@ -7,6 +7,7 @@ import {
   ALL_CITIES_LABEL,
   buildDoctorSearchUrl,
   getActiveFilterCount,
+  getActiveTaxonomyFilter,
   parseDoctorSearchParams,
   type DoctorSearchFilters,
 } from "@/lib/public/doctor-filters";
@@ -24,6 +25,7 @@ export function DoctorSearchFilters({ resultCount, className }: DoctorSearchFilt
   const searchParams = useSearchParams();
   const filters = parseDoctorSearchParams(searchParams);
   const activeCount = getActiveFilterCount(filters);
+  const activeTaxonomy = getActiveTaxonomyFilter(filters);
 
   const updateFilters = (patch: Partial<DoctorSearchFilters>, resetKeys?: (keyof DoctorSearchFilters)[]) => {
     const next = { ...filters, ...patch };
@@ -103,6 +105,17 @@ export function DoctorSearchFilters({ resultCount, className }: DoctorSearchFilt
             <X className="h-3.5 w-3.5" />
             Clear Filters
           </button>
+        )}
+
+        {activeTaxonomy && (
+          <FilterChip
+            active
+            onClick={() =>
+              updateFilters({}, ["symptom", "condition"])
+            }
+          >
+            {activeTaxonomy.label}
+          </FilterChip>
         )}
 
         <FilterChip

@@ -16,9 +16,7 @@ const services = [
     description: "Consult a doctor online from home",
     icon: Video,
     href: "/doctors?availableNow=true",
-    gradient: "from-brand-400 to-brand-300",
-    glow: "group-hover:shadow-brand-100/60",
-    iconRing: "group-hover:ring-brand-100",
+    iconClassName: "text-brand-500",
   },
   {
     title: "Book Appointment",
@@ -26,9 +24,7 @@ const services = [
     description: "Book an in-person consultation",
     icon: Building2,
     href: "/doctors",
-    gradient: "from-[#102c7b] to-[#2d5a8a]",
-    glow: "group-hover:shadow-blue-200/60",
-    iconRing: "group-hover:ring-blue-200",
+    iconClassName: "text-brand-800",
   },
   {
     title: "Chat Consultation",
@@ -36,9 +32,7 @@ const services = [
     description: "Flexible async messaging support",
     icon: MessageSquare,
     href: "/doctors?specialty=Psychologist",
-    gradient: "from-violet-500 to-purple-600",
-    glow: "group-hover:shadow-violet-200/60",
-    iconRing: "group-hover:ring-violet-200",
+    iconClassName: "text-violet-600",
   },
   {
     title: "Talk to Us",
@@ -46,9 +40,7 @@ const services = [
     description: "Get help choosing the right doctor",
     icon: Phone,
     href: "/#faq",
-    gradient: "from-emerald-500 to-brand-500",
-    glow: "group-hover:shadow-emerald-200/60",
-    iconRing: "group-hover:ring-emerald-200",
+    iconClassName: "text-emerald-600",
   },
 ];
 
@@ -62,40 +54,19 @@ export function ServiceQuickLinks({ className }: { className?: string }) {
             key={service.title}
             href={service.href}
             className={cn(
-              "group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition-all duration-300",
-              "hover:-translate-y-1 hover:border-transparent hover:shadow-xl",
-              service.glow
+              "group rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition-all duration-200",
+              "hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
             )}
           >
-            {/* Soft gradient wash on hover */}
-            <span
-              className={cn(
-                "pointer-events-none absolute inset-0 bg-gradient-to-br opacity-0 transition-opacity duration-300 group-hover:opacity-[0.06]",
-                service.gradient
-              )}
-            />
-            {/* Decorative corner blob */}
-            <span
-              className={cn(
-                "pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-gradient-to-br opacity-10 blur-xl transition-all duration-500 group-hover:scale-150 group-hover:opacity-20",
-                service.gradient
-              )}
-            />
-
-            <div className="relative flex items-start justify-between">
-              <span
-                className={cn(
-                  "flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-md ring-2 ring-transparent transition-all duration-300 group-hover:scale-110",
-                  service.gradient,
-                  service.iconRing
-                )}
-              >
-                <Icon className="h-6 w-6" />
-              </span>
-              <ArrowUpRight className="h-5 w-5 -translate-y-1 translate-x-1 text-slate-300 opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:translate-y-0 group-hover:text-slate-500 group-hover:opacity-100" />
+            <div className="flex items-start justify-between">
+              <Icon
+                className={cn("h-8 w-8", service.iconClassName)}
+                strokeWidth={1.75}
+              />
+              <ArrowUpRight className="h-5 w-5 -translate-y-1 translate-x-1 text-slate-300 opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:translate-y-0 group-hover:text-slate-500 group-hover:opacity-100" />
             </div>
 
-            <div className="relative mt-5">
+            <div className="mt-5">
               <h3 className="font-bold text-slate-900">{service.title}</h3>
               <p className="mt-0.5 text-xs font-semibold text-brand-600">{service.subtitle}</p>
               <p className="mt-2 text-sm leading-relaxed text-slate-500">{service.description}</p>

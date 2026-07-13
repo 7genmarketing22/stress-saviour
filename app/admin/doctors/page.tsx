@@ -20,6 +20,9 @@ import {
   reinstateDoctor,
   adminUpdateDoctorProfile,
 } from "@/lib/admin/api";
+import { setDoctorTaxonomy } from "@/lib/doctor/taxonomy-api";
+import { MENTAL_CONDITIONS, MENTAL_SYMPTOMS } from "@/lib/public/catalog";
+import { TaxonomyTagPicker } from "@/components/shared/TaxonomyTagPicker";
 import type { AdminAppointment, AdminDoctor, AdminPayment } from "@/lib/admin/types";
 import type { DoctorStatus } from "@/types";
 import { SPECIALIZATIONS, PAKISTAN_CITIES } from "@/types";
@@ -47,6 +50,7 @@ export default function AdminDoctorsPage() {
     specialization: "", qualification: "", bio: "",
     experienceYears: 0, consultationFee: 0, followUpFee: 0,
     pmdcNumber: "", isAvailable: true,
+    taxonomyTags: [] as string[],
   });
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -104,6 +108,7 @@ export default function AdminDoctorsPage() {
       followUpFee: Number(doc.follow_up_fee) ?? 0,
       pmdcNumber: doc.pmdc_number ?? "",
       isAvailable: doc.is_available ?? true,
+      taxonomyTags: doc.taxonomy_tags?.map((tag) => tag.id) ?? [],
     });
     setEditError(null);
     setEditSuccess(false);
@@ -131,6 +136,7 @@ export default function AdminDoctorsPage() {
           is_available: editForm.isAvailable,
         }
       );
+      await setDoctorTaxonomy(editingDoctor.id, editForm.taxonomyTags);
       setEditSuccess(true);
       await loadData();
       setTimeout(() => setEditingDoctor(null), 1200);
@@ -508,6 +514,17 @@ export default function AdminDoctorsPage() {
                       onChange={(e) => setEditForm({ ...editForm, qualification: e.target.value })}
                       placeholder="MBBS, FCPS, PhD…" />
                   </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Symptoms & conditions treated</Label>
+                    <TaxonomyTagPicker
+                      items={[...MENTAL_SYMPTOMS, ...MENTAL_CONDITIONS]}
+                      symptoms={MENTAL_SYMPTOMS}
+                      conditions={MENTAL_CONDITIONS}
+                      selectedIds={editForm.taxonomyTags}
+                      onChange={(taxonomyTags) => setEditForm({ ...editForm, taxonomyTags })}
+                      groupByKind
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -624,6 +641,23 @@ export default function AdminDoctorsPage() {
                     <div className="text-sm text-slate-700">{selectedDoctor.bio}</div>
                   </div>
                 )}
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <div className="text-xs text-muted-foreground mb-2">Treats (review before approval)</div>
+                  {(selectedDoctor.taxonomy_tags ?? []).length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedDoctor.taxonomy_tags!.map((tag) => (
+                        <span
+                          key={tag.id}
+                          className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700"
+                        >
+                          {tag.label}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-amber-700">No symptom/condition tags submitted yet.</p>
+                  )}
+                </div>
                 {selectedDoctor.rejection_reason && selectedDoctor.status !== "approved" && (
                   <div className="p-3 bg-red-50 border border-red-100 rounded-lg">
                     <div className="text-xs text-red-600 mb-1">Status note</div>

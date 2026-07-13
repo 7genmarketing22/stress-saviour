@@ -6,6 +6,7 @@ import type {
   Payment,
   Profile,
 } from "@/types";
+import type { TaxonomyTag } from "@/lib/doctor/taxonomy";
 
 export interface AdminAppointmentPayment {
   id: string;
@@ -29,6 +30,7 @@ export interface AdminDoctor extends DoctorProfile {
     Profile,
     "id" | "full_name" | "email" | "phone" | "city" | "avatar_url" | "is_active" | "created_at"
   > | null;
+  taxonomy_tags?: TaxonomyTag[];
 }
 
 export interface AdminAppointment extends Appointment {

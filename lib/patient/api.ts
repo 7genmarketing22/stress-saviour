@@ -18,6 +18,12 @@ import type {
   PatientPrescription,
   PaymentWithDoctor,
 } from "./types";
+import {
+  BASE_DOCTOR_SELECT,
+  DOCTOR_SELECT_WITH_TAXONOMY,
+  resolveDoctorRow,
+  resolveDoctorRows,
+} from "@/lib/public/doctor-select";
 
 type TableName = keyof Database["public"]["Tables"];
 
@@ -36,12 +42,7 @@ export type PatientContextResult =
   | { ok: true; data: PatientContextData }
   | { ok: false; reason: PatientContextFailureReason; message: string };
 
-const DOCTOR_SELECT = `
-  id, user_id, status, specialization, qualification, experience_years,
-  pmdc_number, bio, consultation_fee, follow_up_fee, rating, total_reviews,
-  is_available, cities,
-  profile:profiles!doctor_profiles_user_id_fkey ( full_name, avatar_url, city, phone )
-`;
+const DOCTOR_SELECT = DOCTOR_SELECT_WITH_TAXONOMY;
 
 const APPOINTMENT_SELECT = `
   *,
@@ -135,24 +136,33 @@ export async function getPatientPrescriptionAppointments(): Promise<AppointmentW
 }
 
 export async function getApprovedDoctors(): Promise<DoctorWithProfile[]> {
-  const { data, error } = await table("doctor_profiles")
-    .select(DOCTOR_SELECT)
-    .eq("status", "approved")
-    .order("rating", { ascending: false });
-
-  if (error) throw error;
-  return (data ?? []) as DoctorWithProfile[];
+  return resolveDoctorRows(
+    await table("doctor_profiles")
+      .select(DOCTOR_SELECT)
+      .eq("status", "approved")
+      .order("rating", { ascending: false }),
+    async () =>
+      await table("doctor_profiles")
+        .select(BASE_DOCTOR_SELECT)
+        .eq("status", "approved")
+        .order("rating", { ascending: false }),
+  );
 }
 
 export async function getDoctorById(id: string): Promise<DoctorWithProfile | null> {
-  const { data, error } = await table("doctor_profiles")
-    .select(DOCTOR_SELECT)
-    .eq("id", id)
-    .eq("status", "approved")
-    .maybeSingle();
-
-  if (error) throw error;
-  return (data as DoctorWithProfile | null) ?? null;
+  return resolveDoctorRow(
+    await table("doctor_profiles")
+      .select(DOCTOR_SELECT)
+      .eq("id", id)
+      .eq("status", "approved")
+      .maybeSingle(),
+    async () =>
+      await table("doctor_profiles")
+        .select(BASE_DOCTOR_SELECT)
+        .eq("id", id)
+        .eq("status", "approved")
+        .maybeSingle(),
+  );
 }
 
 export async function getDoctorAvailability(doctorProfileId: string) {

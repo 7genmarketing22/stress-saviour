@@ -217,3 +217,21 @@ export function findCatalogItem(type: "symptom" | "condition", id: string) {
   const list = type === "symptom" ? MENTAL_SYMPTOMS : MENTAL_CONDITIONS;
   return list.find((item) => item.id === id);
 }
+
+export const ALL_TAXONOMY_ITEMS: Array<CatalogItem & { kind: "symptom" | "condition" }> = [
+  ...MENTAL_SYMPTOMS.map((item) => ({ ...item, kind: "symptom" as const })),
+  ...MENTAL_CONDITIONS.map((item) => ({ ...item, kind: "condition" as const })),
+];
+
+export function findTaxonomyItemById(id: string) {
+  return ALL_TAXONOMY_ITEMS.find((item) => item.id === id);
+}
+
+export function getTaxonomyFilterLabel(filters: {
+  symptom?: string;
+  condition?: string;
+}): string | null {
+  const id = filters.symptom ?? filters.condition;
+  if (!id) return null;
+  return findTaxonomyItemById(id)?.label ?? null;
+}

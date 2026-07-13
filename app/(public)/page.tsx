@@ -142,12 +142,14 @@ export default async function HomePage() {
 
       <main>
         {/* Hero + Search */}
-        <section className="relative overflow-hidden border-b border-brand-100/80 bg-gradient-to-b from-white via-brand-50/30 to-brand-50/40">
-          <div className="absolute -right-32 top-0 h-96 w-96 rounded-full bg-brand-100/20 blur-3xl" />
-          <div className="absolute -left-20 bottom-0 h-64 w-64 rounded-full bg-brand-100/30 blur-3xl" />
+        <section className="relative z-20 border-b border-brand-100/80 bg-gradient-to-b from-white via-brand-50/30 to-brand-50/40">
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute -right-32 top-0 h-96 w-96 rounded-full bg-brand-100/20 blur-3xl" />
+            <div className="absolute -left-20 bottom-0 h-64 w-64 rounded-full bg-brand-100/30 blur-3xl" />
+          </div>
 
           <div className="relative mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:py-20">
-            <DoctorSearchHero doctorCount={doctorCount} />
+            <DoctorSearchHero doctorCount={doctorCount} doctors={doctors} />
           </div>
         </section>
 
@@ -214,13 +216,13 @@ export default async function HomePage() {
               title="Symptoms"
               items={MENTAL_SYMPTOMS}
               type="symptom"
-              viewAllHref="/doctors"
+              viewAllHref="/browse/symptoms"
             />
             <ConditionBrowse
               title="Conditions"
               items={MENTAL_CONDITIONS}
               type="condition"
-              viewAllHref="/doctors"
+              viewAllHref="/browse/conditions"
             />
           </div>
         </section>

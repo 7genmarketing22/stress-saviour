@@ -1,7 +1,9 @@
 import type { Appointment, DoctorProfile, Payment, Profile } from "@/types";
+import type { TaxonomyTag } from "@/lib/doctor/taxonomy";
 
 export interface DoctorWithProfile extends DoctorProfile {
   profile: Pick<Profile, "full_name" | "avatar_url" | "city" | "phone"> | null;
+  taxonomy_tags?: TaxonomyTag[];
 }
 
 export interface AppointmentWithDoctor extends Appointment {

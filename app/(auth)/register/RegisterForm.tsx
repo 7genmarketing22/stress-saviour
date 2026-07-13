@@ -23,6 +23,9 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { createClient } from "@/lib/supabase/client";
 import { PAKISTAN_CITIES, SPECIALIZATIONS } from "@/types";
+import { MENTAL_CONDITIONS, MENTAL_SYMPTOMS } from "@/lib/public/catalog";
+import { TaxonomyTagPicker } from "@/components/shared/TaxonomyTagPicker";
+import { setDoctorTaxonomy } from "@/lib/doctor/taxonomy-api";
 import { cn } from "@/lib/utils";
 
 const accountFieldsSchema = z.object({
@@ -52,6 +55,7 @@ const doctorSchema = accountFieldsSchema
   .extend({
     pmdcNumber: z.string().min(4, "Enter your PMDC registration number"),
     specialization: z.string().min(1, "Select your specialization"),
+    taxonomyTags: z.array(z.string()).min(1, "Select at least one symptom or condition you treat"),
     qualification: z.string().min(2, "Enter your primary qualification"),
     experienceYears: z.number().min(0, "Experience must be 0 or more"),
     consultationFee: z.number().min(0, "Fee must be 0 or more"),
@@ -75,6 +79,7 @@ export default function RegisterForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [needsEmailConfirm, setNeedsEmailConfirm] = useState(false);
+  const [doctorTaxonomyTags, setDoctorTaxonomyTags] = useState<string[]>([]);
   const supabase = createClient();
 
   const switchAccountType = useCallback(
@@ -100,6 +105,7 @@ export default function RegisterForm() {
       specialization: "Psychiatrist",
       experienceYears: 0,
       consultationFee: 3000,
+      taxonomyTags: [],
     },
   });
 
@@ -111,7 +117,7 @@ export default function RegisterForm() {
     setError(null);
 
     try {
-      const metadata: Record<string, string | number> = {
+      const metadata: Record<string, string | number | string[]> = {
         full_name: data.fullName,
         role,
         phone: data.phone,
@@ -125,6 +131,7 @@ export default function RegisterForm() {
         metadata.qualification = doc.qualification;
         metadata.experience_years = doc.experienceYears;
         metadata.consultation_fee = doc.consultationFee;
+        metadata.taxonomy_tags = doc.taxonomyTags;
         if (doc.bio?.trim()) metadata.bio = doc.bio.trim();
       }
 
@@ -157,6 +164,19 @@ export default function RegisterForm() {
         setNeedsEmailConfirm(true);
         setSuccess(true);
         return;
+      }
+
+      if (role === "doctor") {
+        const doc = data as DoctorFormValues;
+        const { data: doctorProfile } = await supabase
+          .from("doctor_profiles")
+          .select("id")
+          .eq("user_id", authData.user.id)
+          .maybeSingle<{ id: string }>();
+
+        if (doctorProfile?.id && doc.taxonomyTags.length > 0) {
+          await setDoctorTaxonomy(doctorProfile.id, doc.taxonomyTags);
+        }
       }
 
       router.refresh();
@@ -242,7 +262,9 @@ export default function RegisterForm() {
           </form>
         ) : (
           <form
-            onSubmit={doctorForm.handleSubmit((data) => registerAccount(data, "doctor"))}
+            onSubmit={doctorForm.handleSubmit((data) =>
+              registerAccount({ ...data, taxonomyTags: doctorTaxonomyTags }, "doctor"),
+            )}
             className="space-y-4"
           >
             <AccountFields
@@ -279,6 +301,26 @@ export default function RegisterForm() {
                 </div>
               </Field>
             </div>
+
+            <Field
+              label="Symptoms & conditions you treat"
+              error={doctorForm.formState.errors.taxonomyTags?.message}
+            >
+              <TaxonomyTagPicker
+                items={[...MENTAL_SYMPTOMS, ...MENTAL_CONDITIONS]}
+                symptoms={MENTAL_SYMPTOMS}
+                conditions={MENTAL_CONDITIONS}
+                selectedIds={doctorTaxonomyTags}
+                onChange={(ids) => {
+                  setDoctorTaxonomyTags(ids);
+                  doctorForm.setValue("taxonomyTags", ids, { shouldValidate: true });
+                }}
+                groupByKind
+              />
+              <p className="mt-2 text-xs text-slate-500">
+                Select every area you are qualified to treat. Admins review these during approval.
+              </p>
+            </Field>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Qualification" error={doctorForm.formState.errors.qualification?.message}>
