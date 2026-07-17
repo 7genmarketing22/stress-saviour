@@ -46,4 +46,18 @@ describe("getAppointmentSessionTiming", () => {
     assert.equal(timing.phase, "ongoing");
     assert.equal(timing.canJoin, true);
   });
+
+  it("allows doctor to start during the 10-minute early window", () => {
+    const scheduledAt = "2026-07-13T10:00:00.000Z";
+    const start = new Date(scheduledAt).getTime();
+    const timing = getAppointmentSessionTiming({
+      scheduledAt,
+      durationMinutes: DURATION,
+      status: "scheduled",
+      now: start - 5 * 60_000,
+    });
+    assert.equal(timing.phase, "reminder");
+    assert.equal(timing.canJoin, true);
+    assert.equal(timing.canStartCall, true);
+  });
 });

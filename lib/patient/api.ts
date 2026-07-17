@@ -9,7 +9,7 @@ import type { Database } from "@/types/database";
 import { parseClinicalNotes } from "@/lib/doctor/notes";
 import { uploadPaymentProof } from "@/lib/storage/paymentProof";
 import { createNotification, notifyAllAdmins } from "@/lib/notifications/api";
-import { initiateRefundForCancelledAppointment } from "@/lib/refunds/process";
+import { finalizeAppointmentCancellation } from "@/lib/appointments/cancel";
 import { getOrCreateConversation, sendMessage } from "@/lib/chat/api";
 import type {
   AppointmentWithDoctor,
@@ -556,11 +556,14 @@ export async function cancelPatientAppointment(
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in");
 
+  const cancellationReason = reason?.trim() || "Cancelled by patient";
+
   const { error } = await table("appointments")
     .update({
       status: "cancelled" as AppointmentStatus,
-      cancellation_reason: reason?.trim() || "Cancelled by patient",
+      cancellation_reason: cancellationReason,
       cancelled_by: user.id,
+      video_room_url: null,
     } as Database["public"]["Tables"]["appointments"]["Update"])
     .eq("id", appointmentId);
 
@@ -572,24 +575,15 @@ export async function cancelPatientAppointment(
       table("appointments").select(APPOINTMENT_SELECT_BASE).eq("id", appointmentId).single(),
   );
 
-  await initiateRefundForCancelledAppointment({
+  await finalizeAppointmentCancellation({
     appointmentId,
+    patientId: cancelled.patient_id,
+    doctorUserId: cancelled.doctor?.user_id ?? null,
+    scheduledAt: cancelled.scheduled_at,
     cancelledBy: "patient",
-    cancellationReason: reason?.trim() || "Cancelled by patient",
-  }).catch(() => {});
-
-  // Notify the doctor the appointment was cancelled
-  await safeNotify(async () => {
-    const doctorUserId = cancelled.doctor?.user_id;
-    if (doctorUserId) {
-      await createNotification(
-        doctorUserId,
-        "Appointment cancelled",
-        `A patient cancelled their appointment scheduled for ${new Date(cancelled.scheduled_at).toLocaleString("en-PK", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}.`,
-        "appointment",
-        { appointment_id: cancelled.id }
-      );
-    }
+    cancellationReason,
+    notifyPatient: false,
+    notifyDoctor: true,
   });
 
   return cancelled;

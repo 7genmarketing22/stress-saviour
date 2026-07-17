@@ -10,7 +10,7 @@ import type {
   AdminStats,
 } from "./types";
 import { createNotification } from "@/lib/notifications/api";
-import { initiateRefundForCancelledAppointment } from "@/lib/refunds/process";
+import { finalizeAppointmentCancellation } from "@/lib/appointments/cancel";
 import { DOCTOR_TAXONOMY_SELECT } from "@/lib/doctor/taxonomy";
 import { resolveDoctorRow, resolveDoctorRows } from "@/lib/public/doctor-select";
 
@@ -66,7 +66,7 @@ const APPOINTMENT_ADMIN_SELECT = `
   *,
   patient:profiles!appointments_patient_id_fkey ( id, full_name, email, phone, city, avatar_url ),
   doctor:doctor_profiles!appointments_doctor_id_fkey (
-    id, specialization,
+    id, user_id, specialization,
     profile:profiles!doctor_profiles_user_id_fkey ( full_name, avatar_url )
   ),
   payments (
@@ -498,6 +498,7 @@ export async function updateAppointmentStatusAdmin(
   if (status === "cancelled") {
     updates.cancellation_reason = reason?.trim() || "Cancelled by administrator.";
     if (adminId) updates.cancelled_by = adminId;
+    updates.video_room_url = null;
   }
   if (status === "completed") {
     updates.completed_at = new Date().toISOString();
@@ -513,11 +514,16 @@ export async function updateAppointmentStatusAdmin(
   const appointment = data as AdminAppointment;
 
   if (status === "cancelled") {
-    await initiateRefundForCancelledAppointment({
+    await finalizeAppointmentCancellation({
       appointmentId,
+      patientId: appointment.patient_id,
+      doctorUserId: appointment.doctor?.user_id ?? null,
+      scheduledAt: appointment.scheduled_at,
       cancelledBy: "admin",
       cancellationReason: (updates.cancellation_reason as string) ?? "",
-    }).catch(() => {});
+      notifyPatient: true,
+      notifyDoctor: true,
+    });
   }
 
   return appointment;

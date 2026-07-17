@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
-import { initiateRefundForCancelledAppointment } from "@/lib/refunds/process";
+import { finalizeAppointmentCancellation } from "@/lib/appointments/cancel";
 import type { DoctorProfile, Profile, AppointmentStatus } from "@/types";
 import type { Database } from "@/types/database";
 import { formatClinicalNotes } from "./notes";
@@ -211,16 +211,61 @@ export async function updateAppointment(
     .single();
 
   if (error) throw error;
+  return data;
+}
 
-  if (updates.status === "cancelled") {
-    await initiateRefundForCancelledAppointment({
-      appointmentId,
-      cancelledBy: "doctor",
-      cancellationReason: updates.cancellation_reason?.trim() || "Cancelled by doctor",
-    }).catch(() => {});
+/**
+ * Doctor emergency/normal cancellation: updates status, clears the meeting room,
+ * initiates refund policy, and notifies the patient.
+ */
+export async function cancelDoctorAppointment(
+  appointmentId: string,
+  reason?: string
+): Promise<{ refundError?: string }> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not signed in");
+
+  const cancellationReason =
+    reason?.trim() || "Cancelled by doctor due to an emergency or scheduling conflict";
+
+  const { data: existing, error: fetchError } = await table("appointments")
+    .select("id, patient_id, scheduled_at, status")
+    .eq("id", appointmentId)
+    .single();
+
+  if (fetchError) throw fetchError;
+  if (!existing) throw new Error("Appointment not found");
+  if (["cancelled", "completed", "expired_no_show", "no_show"].includes(existing.status)) {
+    throw new Error("This appointment can no longer be cancelled.");
   }
 
-  return data;
+  const { data, error } = await table("appointments")
+    .update({
+      status: "cancelled" as AppointmentStatus,
+      cancellation_reason: cancellationReason,
+      cancelled_by: user.id,
+      video_room_url: null,
+    } as Database["public"]["Tables"]["appointments"]["Update"])
+    .eq("id", appointmentId)
+    .select("id, patient_id, scheduled_at")
+    .single();
+
+  if (error) throw error;
+
+  const result = await finalizeAppointmentCancellation({
+    appointmentId,
+    patientId: data.patient_id,
+    scheduledAt: data.scheduled_at,
+    cancelledBy: "doctor",
+    cancellationReason,
+    notifyPatient: true,
+    notifyDoctor: false,
+  });
+
+  return { refundError: result.refundError };
 }
 
 export async function saveClinicalRecords(

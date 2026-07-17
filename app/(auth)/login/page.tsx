@@ -27,6 +27,7 @@ import {
   getAccountAccess,
   resolveDashboardPath,
 } from "@/lib/auth/account-status";
+import { resolvePostLoginPath } from "@/lib/auth/safe-redirect";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -156,7 +157,9 @@ function LoginForm() {
       // Administrators always go to the admin portal (there is no admin card).
       if (actualRole === "admin" || actualRole === "super_admin") {
         router.refresh();
-        router.push("/admin/dashboard");
+        router.push(
+          resolvePostLoginPath(actualRole, redirectTo, "/admin/dashboard")
+        );
         return;
       }
 
@@ -187,14 +190,13 @@ function LoginForm() {
       }
 
       router.refresh();
-
-      if (actualRole === "doctor") {
-        router.push("/doctor/dashboard");
-      } else if (redirectTo) {
-        router.push(redirectTo);
-      } else {
-        router.push(resolveDashboardPath(actualRole));
-      }
+      router.push(
+        resolvePostLoginPath(
+          actualRole,
+          redirectTo,
+          resolveDashboardPath(actualRole)
+        )
+      );
     } catch {
       await supabase.auth.signOut();
       setError("An unexpected error occurred. Please try again.");

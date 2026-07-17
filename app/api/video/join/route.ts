@@ -106,8 +106,12 @@ export async function POST(request: Request) {
     }
 
     if (["cancelled", "no_show", "expired_no_show"].includes(apt.status)) {
+      const label =
+        apt.status === "cancelled"
+          ? "This appointment has been cancelled and the meeting room is closed."
+          : "This appointment is no longer available.";
       return NextResponse.json(
-        { error: "This appointment has been cancelled." },
+        { error: label, message: label },
         { status: 409 }
       );
     }

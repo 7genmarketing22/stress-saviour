@@ -63,7 +63,7 @@ export async function initiateRefundForCancelledAppointment(params: {
 
   if (rpcErr) {
     console.warn("apply_cancellation_refund failed:", rpcErr.message);
-    return null;
+    throw new Error(rpcErr.message || "Failed to apply cancellation refund");
   }
 
   // Fire-and-forget notification + email

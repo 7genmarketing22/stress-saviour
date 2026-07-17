@@ -95,19 +95,29 @@ export async function updateSession(request: NextRequest) {
 
     const access = await loadProfile(user.id);
     if (access.profile && access.canAccessDashboard) {
-      return NextResponse.redirect(
-        new URL(resolveDashboardPath(access.profile.role as UserRole), request.url)
-      );
+      const redirectParam = request.nextUrl.searchParams.get("redirect");
+      const fallback = resolveDashboardPath(access.profile.role as UserRole);
+      const target =
+        redirectParam &&
+        redirectParam.startsWith("/") &&
+        !redirectParam.startsWith("//") &&
+        !redirectParam.includes("://")
+          ? redirectParam
+          : fallback;
+      return NextResponse.redirect(new URL(target, request.url));
     }
   }
 
-  // Protected routes require authentication
+  // Protected routes require authentication — preserve return URL for post-login.
   if (
     !user &&
     !publicRoutes.some((route) => path === route || path.startsWith(route)) &&
     !authRoutes.some((route) => path.startsWith(route))
   ) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const returnPath = `${path}${request.nextUrl.search}`;
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", returnPath);
+    return NextResponse.redirect(loginUrl);
   }
 
   // Role-based access control

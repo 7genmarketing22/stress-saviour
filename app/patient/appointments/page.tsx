@@ -102,7 +102,7 @@ export default function PatientAppointmentsPage() {
       filtered = filtered.filter((apt) => apt.status === "Completed");
     } else if (activeTab === "Cancelled") {
       filtered = filtered.filter((apt) =>
-        ["Cancelled", "No Show"].includes(apt.status)
+        ["Cancelled", "No Show", "Expired / No Show", "Expired"].includes(apt.status)
       );
     }
 

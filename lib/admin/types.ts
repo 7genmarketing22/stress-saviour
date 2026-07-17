@@ -36,7 +36,7 @@ export interface AdminDoctor extends DoctorProfile {
 export interface AdminAppointment extends Appointment {
   patient: Pick<Profile, "id" | "full_name" | "email" | "phone" | "city" | "avatar_url"> | null;
   doctor:
-    | (Pick<DoctorProfile, "id" | "specialization"> & {
+    | (Pick<DoctorProfile, "id" | "user_id" | "specialization"> & {
         profile: Pick<Profile, "full_name" | "avatar_url"> | null;
       })
     | null;

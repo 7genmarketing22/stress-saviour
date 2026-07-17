@@ -96,6 +96,11 @@ export default function VideoConsultationPage() {
       const result = await requestJoin();
       if (stopped) return;
       if (!result.ok) {
+        if (result.status === 401) {
+          const returnTo = `/video/${appointmentId}`;
+          router.replace(`/login?redirect=${encodeURIComponent(returnTo)}`);
+          return;
+        }
         if (result.status === 425 && result.opensAt) {
           setPhase({ kind: "too_early", opensAt: result.opensAt, message: result.message ?? "" });
         } else {
@@ -114,14 +119,22 @@ export default function VideoConsultationPage() {
     return () => {
       stopped = true;
     };
-  }, [requestJoin, enterCall]);
+  }, [requestJoin, enterCall, appointmentId, router]);
 
-  // Waiting room: poll until the doctor starts the meeting.
+  // Waiting room: poll until the doctor starts the meeting (or cancels).
   useEffect(() => {
     if (phase.kind !== "waiting_for_doctor") return;
     pollRef.current = setInterval(async () => {
       const result = await requestJoin();
-      if (result.ok && result.info.status === "ongoing") {
+      if (!result.ok) {
+        if (pollRef.current) clearInterval(pollRef.current);
+        setPhase({
+          kind: "error",
+          message: result.message ?? result.error ?? "This appointment is no longer available.",
+        });
+        return;
+      }
+      if (result.info.status === "ongoing") {
         if (pollRef.current) clearInterval(pollRef.current);
         enterCall(result.info);
       }
@@ -249,6 +262,11 @@ export default function VideoConsultationPage() {
           <span className="text-slate-500">
             {phase.info.doctorName} / {phase.info.patientName}
           </span>
+          {!phase.info.jwtConfigured && (
+            <span className="hidden sm:inline rounded border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+              Host login may appear — configure Jitsi JWT for seamless join
+            </span>
+          )}
         </div>
         <Button
           size="sm"

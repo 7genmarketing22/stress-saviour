@@ -570,7 +570,9 @@ export default function DoctorDashboardPage() {
                             onClick={(e) => startConsultation(session, e)}
                           >
                             <Video className="h-3.5 w-3.5" />
-                            <span>Start call</span>
+                            <span>
+                              {session.rawStatus === "ongoing" ? "Rejoin call" : "Start call"}
+                            </span>
                           </Button>
                           <Button
                             variant="outline"
@@ -583,7 +585,10 @@ export default function DoctorDashboardPage() {
                           </Button>
                         </>
                       )}
-                      {!session.completed && !session.canStartCall && session.rawStatus === "scheduled" && (
+                      {!session.completed &&
+                        !session.canStartCall &&
+                        session.rawStatus === "scheduled" &&
+                        session.timing.phase === "expired_pending" && (
                         <span className="rounded-md border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10px] font-semibold text-rose-700">
                           Join window closed
                         </span>

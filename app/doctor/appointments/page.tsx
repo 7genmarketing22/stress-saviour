@@ -27,6 +27,7 @@ import { useRouter } from "next/navigation";
 import { useDoctor } from "@/contexts/DoctorContext";
 import {
   addDocBlockedSlot,
+  cancelDoctorAppointment,
   getDoctorAppointments,
   saveClinicalRecords,
   updateAppointment,
@@ -45,7 +46,7 @@ interface Appointment {
   time: string;
   duration: string;
   type: "Video" | "Audio" | "Chat";
-  status: "Confirmed" | "Pending" | "Ready" | "Completed" | "Cancelled" | "No Show";
+  status: "Confirmed" | "Pending" | "Ready" | "Starting Soon" | "Completed" | "Cancelled" | "No Show" | "Expired / No Show" | "Expired";
   reason: string;
   notes: string;
   roomUrl: string;
@@ -63,6 +64,8 @@ export default function DoctorAppointmentsPage() {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showAddNoteModal, setShowAddNoteModal] = useState(false);
   const [showBlockTimeModal, setShowBlockTimeModal] = useState(false);
@@ -116,7 +119,8 @@ export default function DoctorAppointmentsPage() {
     
     if (activeTab !== "All") {
       filtered = filtered.filter(apt => apt.status === activeTab || 
-        (activeTab === "Upcoming" && ["Confirmed", "Pending", "Ready"].includes(apt.status)));
+        (activeTab === "Upcoming" && ["Confirmed", "Pending", "Ready", "Starting Soon"].includes(apt.status)) ||
+        (activeTab === "Cancelled" && ["Cancelled", "No Show", "Expired / No Show", "Expired"].includes(apt.status)));
     }
 
     if (searchQuery) {
@@ -166,16 +170,42 @@ export default function DoctorAppointmentsPage() {
   const handleStatusChange = async (id: string, newStatus: Appointment["status"]) => {
     try {
       const dbStatus = mapStatusToDb(newStatus);
-      await updateAppointment(id, {
-        status: dbStatus,
-        ...(dbStatus === "cancelled"
-          ? { cancellation_reason: "Cancelled by doctor" }
-          : {}),
-      });
+      if (dbStatus === "cancelled") {
+        throw new Error("Use cancelAppointmentWithReason for cancellations");
+      }
+      await updateAppointment(id, { status: dbStatus });
       showToast(`Appointment status updated to ${newStatus}.`);
       await loadAppointments();
     } catch {
       showToast("Failed to update appointment status.");
+    }
+  };
+
+  const handleCancelAppointment = async () => {
+    if (!selectedAppointment) return;
+    const reason = cancelReason.trim();
+    if (reason.length < 5) {
+      showToast("Please provide a brief cancellation reason (at least 5 characters).");
+      return;
+    }
+
+    setIsCancelling(true);
+    try {
+      const result = await cancelDoctorAppointment(selectedAppointment.id, reason);
+      setShowCancelModal(false);
+      setCancelReason("");
+      if (result.refundError) {
+        showToast(
+          "Appointment cancelled. Patient notified, but refund setup needs admin attention."
+        );
+      } else {
+        showToast("Appointment cancelled. Patient has been notified.");
+      }
+      await loadAppointments();
+    } catch {
+      showToast("Failed to cancel appointment.");
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -371,7 +401,7 @@ export default function DoctorAppointmentsPage() {
                       </div>
 
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
-                        {["Confirmed", "Pending", "Ready"].includes(apt.status) && (
+                        {["Confirmed", "Pending", "Ready", "Starting Soon"].includes(apt.status) && (
                           <Button
                             className="bg-brand-500 hover:bg-brand-600 text-white w-full sm:w-auto font-semibold"
                             onClick={() => handleJoinCall(apt)}
@@ -792,38 +822,57 @@ export default function DoctorAppointmentsPage() {
       {/* Cancel Appointment Modal */}
       {showCancelModal && selectedAppointment && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-card rounded-2xl max-w-sm w-full shadow-2xl">
+          <div className="bg-card rounded-2xl max-w-md w-full shadow-2xl">
             <div className="p-6 border-b border-border flex items-center justify-between">
               <h3 className="text-lg font-bold">Cancel Appointment</h3>
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0"
-                onClick={() => setShowCancelModal(false)}
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setCancelReason("");
+                }}
               >
                 <XCircle className="h-4 w-4" />
               </Button>
             </div>
-            <div className="p-6">
-              <p className="text-sm text-muted-foreground mb-6">
-                Are you sure you want to cancel this appointment with {selectedAppointment.patientName}?
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Cancel the appointment with {selectedAppointment.patientName}? The patient will be
+                notified immediately. If they already paid, a full refund will be initiated.
               </p>
+              <div className="space-y-2">
+                <label htmlFor="cancel-reason" className="text-sm font-medium">
+                  Reason (required)
+                </label>
+                <textarea
+                  id="cancel-reason"
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. Emergency — unable to attend this session"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
               <div className="flex gap-3">
                 <Button
                   variant="outline"
                   className="flex-1"
-                  onClick={() => setShowCancelModal(false)}
+                  disabled={isCancelling}
+                  onClick={() => {
+                    setShowCancelModal(false);
+                    setCancelReason("");
+                  }}
                 >
-                  No, Keep
+                  Keep appointment
                 </Button>
                 <Button
                   className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold"
-                  onClick={() => {
-                    handleStatusChange(selectedAppointment.id, "Cancelled");
-                    setShowCancelModal(false);
-                  }}
+                  disabled={isCancelling}
+                  onClick={handleCancelAppointment}
                 >
-                  Yes, Cancel
+                  {isCancelling ? "Cancelling…" : "Cancel appointment"}
                 </Button>
               </div>
             </div>

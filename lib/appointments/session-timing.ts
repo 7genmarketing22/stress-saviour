@@ -133,11 +133,13 @@ export function getAppointmentSessionTiming(params: {
 
   if (now < startMs) {
     const shouldSendReminder = !params.reminderSentAt;
+    // Align with /api/video/join early window: doctor may start up to 10 min early.
+    const withinEarlyWindow = minutesUntilStart <= REMINDER_MINUTES_BEFORE;
     return {
       ...base,
       phase: "reminder",
-      canJoin: minutesUntilStart <= REMINDER_MINUTES_BEFORE,
-      canStartCall: false,
+      canJoin: withinEarlyWindow,
+      canStartCall: withinEarlyWindow,
       showWarning: true,
       warningMessage: `Your consultation starts in ${minutesUntilStart} minute${minutesUntilStart === 1 ? "" : "s"}. Please be ready to join.`,
       countdownLabel: `Starts in ${minutesUntilStart} min`,

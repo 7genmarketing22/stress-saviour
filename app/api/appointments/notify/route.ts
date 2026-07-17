@@ -72,18 +72,134 @@ export async function POST(request: Request) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json() as {
+      type?: "booked" | "cancelled";
       appointmentId: string;
       patientId: string;
-      doctorProfileId: string;
+      doctorProfileId?: string;
       scheduledAt: string;
-      appointmentType: AppointmentType;
-      consultationFee: number;
+      appointmentType?: AppointmentType;
+      consultationFee?: number;
       patientNotes?: string;
+      reason?: string;
+      cancelledBy?: "patient" | "doctor" | "admin" | "system";
     };
 
     const resendKey = process.env.RESEND_API_KEY;
     if (!resendKey) {
       return NextResponse.json({ sent: false, reason: "RESEND_API_KEY not configured" });
+    }
+
+    // ── Cancellation emails ───────────────────────────────────────
+    if (body.type === "cancelled") {
+      const { data: patientRow } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", body.patientId)
+        .single();
+
+      const { data: aptRow } = await (supabase as any)
+        .from("appointments")
+        .select(
+          `
+          doctor_id,
+          doctor:doctor_profiles!appointments_doctor_id_fkey (
+            profile:profiles!doctor_profiles_user_id_fkey ( full_name, email )
+          )
+        `
+        )
+        .eq("id", body.appointmentId)
+        .maybeSingle();
+
+      if (!patientRow) {
+        return NextResponse.json({ sent: false, reason: "Patient not found" });
+      }
+
+      const patient = patientRow as { full_name: string; email: string };
+      const doctorProfile = (
+        aptRow as {
+          doctor?: { profile?: { full_name: string; email: string } | null } | null;
+        } | null
+      )?.doctor?.profile;
+      const dateFormatted = fmtDate(body.scheduledAt);
+      const reasonText = body.reason?.trim() || "No reason provided";
+      const cancelledBy = body.cancelledBy ?? "system";
+      const patientDashUrl = `${SITE_URL}/patient/appointments`;
+      const doctorDashUrl = `${SITE_URL}/doctor/appointments`;
+
+      const actorLabel =
+        cancelledBy === "doctor"
+          ? "your doctor"
+          : cancelledBy === "admin"
+            ? "an administrator"
+            : cancelledBy === "patient"
+              ? "the patient"
+              : "the system";
+
+      const sends: Promise<void>[] = [];
+
+      if (cancelledBy !== "patient" && patient.email) {
+        const patientHtml = baseLayout(`
+          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px 20px;margin-bottom:24px">
+            <p style="color:#991b1b;font-weight:700;margin:0;font-size:15px">Appointment Cancelled</p>
+          </div>
+          <p style="color:#334155;font-size:15px">Hi <strong>${patient.full_name}</strong>,</p>
+          <p style="color:#475569;line-height:1.7">
+            Your appointment on <strong>${dateFormatted}</strong> was cancelled by ${actorLabel}.
+          </p>
+          <p style="color:#475569;line-height:1.7"><strong>Reason:</strong> ${reasonText}</p>
+          <p style="color:#475569;line-height:1.7">
+            If you already paid, a refund will be processed according to our cancellation policy
+            (full refund when cancelled by the doctor or admin). You can track refund status in My Appointments.
+          </p>
+          <a href="${patientDashUrl}" style="display:inline-block;background:#0d9488;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-top:4px">View My Appointments</a>
+        `);
+        sends.push(
+          sendEmail(
+            patient.email,
+            `Appointment cancelled — Stress Saviors`,
+            patientHtml,
+            resendKey
+          )
+        );
+      }
+
+      if (cancelledBy !== "doctor" && doctorProfile?.email) {
+        const doctorHtml = baseLayout(`
+          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px 20px;margin-bottom:24px">
+            <p style="color:#991b1b;font-weight:700;margin:0;font-size:15px">Appointment Cancelled</p>
+          </div>
+          <p style="color:#334155;font-size:15px">Hi <strong>Dr. ${doctorProfile.full_name}</strong>,</p>
+          <p style="color:#475569;line-height:1.7">
+            An appointment with <strong>${patient.full_name}</strong> on <strong>${dateFormatted}</strong>
+            was cancelled by ${actorLabel}.
+          </p>
+          <p style="color:#475569;line-height:1.7"><strong>Reason:</strong> ${reasonText}</p>
+          <a href="${doctorDashUrl}" style="display:inline-block;background:#0d9488;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-top:4px">View My Appointments</a>
+        `);
+        sends.push(
+          sendEmail(
+            doctorProfile.email,
+            `Appointment cancelled — Stress Saviors`,
+            doctorHtml,
+            resendKey
+          )
+        );
+      }
+
+      const results = await Promise.allSettled(sends);
+      const errors = results
+        .filter((r): r is PromiseRejectedResult => r.status === "rejected")
+        .map((r) => String(r.reason));
+
+      return NextResponse.json({
+        sent: results.some((r) => r.status === "fulfilled"),
+        errors,
+      });
+    }
+
+    // ── Booking confirmation emails (default) ─────────────────────
+    if (!body.doctorProfileId || !body.appointmentType || body.consultationFee == null) {
+      return NextResponse.json({ error: "Missing booking notify fields" }, { status: 400 });
     }
 
     // Fetch patient + doctor info

@@ -318,9 +318,13 @@ export function mapToUIAppointment(appointment: AppointmentWithPatient) {
     status: mapStatusToUI(appointment.status, appointment.scheduled_at, appointment.duration_minutes) as
       | "Confirmed"
       | "Pending"
+      | "Ready"
+      | "Starting Soon"
       | "Completed"
       | "Cancelled"
-      | "No Show",
+      | "No Show"
+      | "Expired / No Show"
+      | "Expired",
     reason: appointment.patient_notes?.trim() || "General consultation",
     notes: parsed.clinicalNote,
     // In-app secure video page (issues per-user Jitsi tokens server-side).
@@ -355,7 +359,7 @@ export function mapToDashboardSession(
     timing,
     canStartCall:
       timing.canStartCall &&
-      appointment.status === "scheduled",
+      ["scheduled", "ongoing"].includes(appointment.status),
     canJoin:
       timing.canJoin &&
       ["scheduled", "ongoing"].includes(appointment.status),
