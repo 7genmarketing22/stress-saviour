@@ -11,6 +11,7 @@ import type {
 } from "./types";
 import { createNotification } from "@/lib/notifications/api";
 import { finalizeAppointmentCancellation } from "@/lib/appointments/cancel";
+import { GRACE_MINUTES_AFTER_START } from "@/lib/appointments/session-timing";
 import { DOCTOR_TAXONOMY_SELECT } from "@/lib/doctor/taxonomy";
 import { resolveDoctorRow, resolveDoctorRows } from "@/lib/public/doctor-select";
 
@@ -647,6 +648,27 @@ export async function approvePatientPayment(
   };
   if (row.status !== "pending") throw new Error("Only pending payments can be approved");
   if (!row.proof_url) throw new Error("No payment proof uploaded yet");
+
+  // A booking whose slot already started (past the join grace window) would
+  // become an expired appointment the moment it is confirmed. Block approval
+  // so the admin rejects/refunds instead of charging for a dead session.
+  const { data: aptData, error: aptFetchError } = await table("appointments")
+    .select("scheduled_at, status")
+    .eq("id", row.appointment_id)
+    .maybeSingle();
+  if (aptFetchError) throw aptFetchError;
+  const apt = aptData as { scheduled_at: string; status: string } | null;
+  if (!apt) throw new Error("Appointment for this payment was not found");
+  if (apt.status !== "pending_payment") {
+    throw new Error("This appointment is no longer awaiting payment confirmation");
+  }
+  const graceEndMs =
+    new Date(apt.scheduled_at).getTime() + GRACE_MINUTES_AFTER_START * 60_000;
+  if (Date.now() > graceEndMs) {
+    throw new Error(
+      "This appointment's scheduled time has already passed, so it cannot be confirmed. Reject the payment proof instead so the patient can re-book (and refund if the amount was received)."
+    );
+  }
 
   const txnId = `TXN-${row.id.slice(0, 8).toUpperCase()}`;
   const now = new Date().toISOString();

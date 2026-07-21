@@ -347,12 +347,12 @@ export default function PatientAppointmentsPage() {
                         </p>
                       )}
                       {apt.status === "Payment Review" && (
-                        <p className="text-xs text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
+                        <p className="inline-flex w-fit max-w-full text-xs text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-3 py-1.5">
                           Payment proof submitted. Waiting for admin approval to confirm your booking.
                         </p>
                       )}
                       {apt.status === "Awaiting Payment" && (
-                        <p className="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+                        <p className="inline-flex w-fit max-w-full text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-1.5">
                           Please pay the consultation fee and upload your payment screenshot to confirm this booking.
                         </p>
                       )}

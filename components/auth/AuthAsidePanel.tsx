@@ -59,7 +59,7 @@ function AuthAsideContent() {
       <div className="relative z-10 flex h-full min-h-screen flex-col p-10 text-white">
         <Link
           href="/"
-          className="inline-flex w-fit items-center rounded-xl bg-white/95 px-3 py-2 shadow-lg"
+          className="inline-flex w-fit items-center"
           aria-label="Stress Saviors home"
         >
           <Image
@@ -67,7 +67,7 @@ function AuthAsideContent() {
             alt="Stress Saviors"
             width={500}
             height={500}
-            className="h-10 w-auto"
+            className="h-16 w-auto drop-shadow-[0_2px_8px_rgba(255,255,255,0.65)]"
           />
         </Link>
 

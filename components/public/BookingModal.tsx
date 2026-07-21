@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { SlotTimePicker } from "@/components/booking/SlotTimePicker";
 import { bookAppointment } from "@/lib/patient/api";
 import { pkDateTimeToUtcIso } from "@/lib/booking/timezone";
+import { getPkDateWithOffset, getPkTodayDate, isSlotInPast } from "@/lib/booking/slots";
 import {
   isSlotSelectable,
   mapBookingErrorMessage,
@@ -28,11 +29,7 @@ interface BookingModalProps {
 }
 
 export function BookingModal({ doctor, onClose, onSuccess }: BookingModalProps) {
-  const tomorrow = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().split("T")[0];
-  }, []);
+  const tomorrow = useMemo(() => getPkDateWithOffset(1), []);
 
   const [bookDate, setBookDate] = useState(tomorrow);
   const [bookTime, setBookTime] = useState("10:00");
@@ -85,7 +82,10 @@ export function BookingModal({ doctor, onClose, onSuccess }: BookingModalProps) 
     }
 
     const latest = await fetchSlotsNow();
-    if (!isSlotSelectable(bookTime, latest.booked, latest.blocked)) {
+    if (
+      isSlotInPast(bookDate, bookTime) ||
+      !isSlotSelectable(bookTime, latest.booked, latest.blocked)
+    ) {
       setError("This slot is no longer available. Please choose a different time.");
       setBooking(false);
       return;
@@ -143,7 +143,7 @@ export function BookingModal({ doctor, onClose, onSuccess }: BookingModalProps) 
               <input
                 type="date"
                 required
-                min={new Date().toISOString().split("T")[0]}
+                min={getPkTodayDate()}
                 value={bookDate}
                 onChange={(e) => setBookDate(e.target.value)}
                 className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-4 text-sm"

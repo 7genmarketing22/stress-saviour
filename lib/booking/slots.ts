@@ -16,6 +16,56 @@ const WEEKDAY_MAP: Record<string, number> = {
   Sat: 6,
 };
 
+/** Today's calendar date (YYYY-MM-DD) in the clinic timezone. */
+export function getPkTodayDate(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: CLINIC_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
+/** Calendar date (YYYY-MM-DD) in the clinic timezone, offset by N days from now. */
+export function getPkDateWithOffset(days: number, now: Date = new Date()): string {
+  return getPkTodayDate(new Date(now.getTime() + days * 24 * 60 * 60 * 1000));
+}
+
+/** Minutes elapsed since midnight in the clinic timezone. */
+function getPkNowMinutes(now: Date = new Date()): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: CLINIC_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0) % 24;
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+  return hour * 60 + minute;
+}
+
+/**
+ * Drop slot times that have already started when the booking date is today
+ * (clinic timezone). Dates other than today are returned unchanged.
+ */
+export function filterPastSlotsForToday(
+  times: string[],
+  date: string,
+  now: Date = new Date(),
+): string[] {
+  if (date !== getPkTodayDate(now)) return times;
+  const nowMinutes = getPkNowMinutes(now);
+  return times.filter((time) => parseTimeToMinutes(time) > nowMinutes);
+}
+
+/** True when the given clinic-local date + HH:MM slot has already started. */
+export function isSlotInPast(date: string, time: string, now: Date = new Date()): boolean {
+  const today = getPkTodayDate(now);
+  if (date < today) return true;
+  if (date > today) return false;
+  return parseTimeToMinutes(time) <= getPkNowMinutes(now);
+}
+
 /** YYYY-MM-DD booking date used by slot pickers. */
 export function isValidBookingDate(date: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;

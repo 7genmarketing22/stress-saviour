@@ -67,6 +67,9 @@ export function mapBookingErrorMessage(error: unknown): string {
   ) {
     return "This slot was just booked by another patient. Please choose a different time.";
   }
+  if (msg.includes("SLOT_IN_PAST")) {
+    return "The selected time has already passed. Please choose an upcoming slot.";
+  }
   if (msg.includes("SLOT_BLOCKED")) {
     return "This doctor is unavailable at the selected time. Please choose a different slot.";
   }
@@ -81,6 +84,7 @@ export function shouldRefreshSlotsAfterBookingError(message: string): boolean {
     message.includes("just booked") ||
     message.includes("already booked") ||
     message.includes("unavailable") ||
-    message.includes("working hours")
+    message.includes("working hours") ||
+    message.includes("already passed")
   );
 }

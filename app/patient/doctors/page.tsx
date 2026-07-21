@@ -12,6 +12,7 @@ import { PaymentProofUpload } from "@/components/patient/PaymentProofUpload";
 import { SlotTimePicker } from "@/components/booking/SlotTimePicker";
 import { BOOKING_PAYMENT_METHODS, PLATFORM_PAYMENT_ACCOUNTS, type BookablePaymentMethod } from "@/lib/payment/config";
 import { pkDateTimeToUtcIso } from "@/lib/booking/timezone";
+import { getPkDateWithOffset, getPkTodayDate, isSlotInPast } from "@/lib/booking/slots";
 import {
   isSlotSelectable,
   mapBookingErrorMessage,
@@ -105,9 +106,7 @@ export default function PatientDoctorsPage() {
   });
 
   const openBooking = (doc: ReturnType<typeof mapToDoctorCard>) => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    setBookDate(tomorrow.toISOString().split("T")[0]);
+    setBookDate(getPkDateWithOffset(1));
     setBookTime("10:00");
     setBookType("video");
     setBookNotes("");
@@ -126,7 +125,10 @@ export default function PatientDoctorsPage() {
       setError("This doctor has no bookable slots for the selected date.");
       return;
     }
-    if (!isSlotSelectable(bookTime, bookedSlots, blockedSlots)) {
+    if (
+      isSlotInPast(bookDate, bookTime) ||
+      !isSlotSelectable(bookTime, bookedSlots, blockedSlots)
+    ) {
       setError("This slot is no longer available. Please choose a different time.");
       return;
     }
@@ -141,7 +143,10 @@ export default function PatientDoctorsPage() {
     setError(null);
 
     const latest = await fetchSlotsNow();
-    if (!isSlotSelectable(bookTime, latest.booked, latest.blocked)) {
+    if (
+      isSlotInPast(bookDate, bookTime) ||
+      !isSlotSelectable(bookTime, latest.booked, latest.blocked)
+    ) {
       setError("This slot is no longer available. Please choose a different time.");
       setBooking(false);
       return;
@@ -329,7 +334,7 @@ export default function PatientDoctorsPage() {
                     <input
                       type="date"
                       required
-                      min={new Date().toISOString().split("T")[0]}
+                      min={getPkTodayDate()}
                       value={bookDate}
                       onChange={(e) => setBookDate(e.target.value)}
                       className="w-full h-10 pl-9 pr-4 rounded-lg border border-border text-sm"

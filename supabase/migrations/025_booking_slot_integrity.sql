@@ -115,8 +115,8 @@ SET search_path = public
 AS $$
   -- Occupied appointment slots (includes completed — they must not reopen).
   SELECT DISTINCT
-    to_char(scheduled_at AT TIME ZONE 'Asia/Karachi', 'HH24:MI'),
-    FALSE
+    to_char(scheduled_at AT TIME ZONE 'Asia/Karachi', 'HH24:MI') AS slot_time,
+    FALSE AS is_blocked
   FROM public.appointments
   WHERE doctor_id = p_doctor_id
     AND (scheduled_at AT TIME ZONE 'Asia/Karachi')::DATE = p_date
@@ -133,8 +133,8 @@ AS $$
         0
       ),
       'HH24:MI'
-    ),
-    TRUE
+    ) AS slot_time,
+    TRUE AS is_blocked
   FROM public.doctor_blocked_slots dbs
   CROSS JOIN LATERAL (
     SELECT COALESCE(

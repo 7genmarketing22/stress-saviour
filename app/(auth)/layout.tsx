@@ -23,7 +23,7 @@ export default function AuthLayout({
               alt="Stress Saviors"
               width={500}
               height={500}
-              className="h-9 w-auto"
+              className="h-12 w-auto"
             />
           </Link>
           <Link
