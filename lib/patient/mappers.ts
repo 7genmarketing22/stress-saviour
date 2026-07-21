@@ -15,6 +15,7 @@ import {
   isToday,
   mapAppointmentType,
   timeAgo,
+  toLocalDateKey,
 } from "@/lib/doctor/mappers";
 import type { AppointmentWithDoctor, DoctorWithProfile, PaymentWithDoctor } from "./types";
 
@@ -87,7 +88,14 @@ export function mapToPatientAppointment(apt: AppointmentWithDoctor): PatientUIAp
   const doctorName = apt.doctor?.profile?.full_name ?? "Doctor";
   const review = Array.isArray(apt.review) ? apt.review[0] : apt.review;
   const paymentList = apt.payments ?? (apt.payment ? [apt.payment] : []);
-  const payment = Array.isArray(paymentList) ? paymentList[0] : paymentList;
+  const paymentRows = (Array.isArray(paymentList) ? paymentList : [paymentList]).filter(
+    Boolean
+  );
+  // Prefer the completed payment: a rejected/failed proof row must not hide a paid booking.
+  const payment =
+    paymentRows.find((p) => p?.status === "completed") ??
+    paymentRows.find((p) => p?.status === "pending") ??
+    paymentRows[0];
 
   const timing = getAppointmentSessionTiming({
     scheduledAt: apt.scheduled_at,
@@ -102,7 +110,7 @@ export function mapToPatientAppointment(apt: AppointmentWithDoctor): PatientUIAp
     doctorSpecialization: apt.doctor?.specialization ?? "Specialist",
     doctorPhone: apt.doctor?.profile?.phone ?? "—",
     doctorAvatarUrl: apt.doctor?.profile?.avatar_url ?? null,
-    date: scheduled.toISOString().split("T")[0],
+    date: toLocalDateKey(scheduled),
     time: formatTime(scheduled),
     timeRange: formatTimeRange(apt.scheduled_at, apt.duration_minutes),
     duration: `${apt.duration_minutes} min`,
@@ -226,11 +234,17 @@ export function getUpcomingAppointments(appointments: PatientUIAppointment[]) {
   return appointments
     .filter(
       (apt) =>
-        (["Confirmed", "Pending", "Ready", "Starting Soon", "Payment Review"].includes(apt.status) ||
-          (apt.status === "Awaiting Payment" && apt.paymentProofUrl)) &&
+        [
+          "Confirmed",
+          "Pending",
+          "Ready",
+          "Starting Soon",
+          "Awaiting Payment",
+          "Payment Review",
+        ].includes(apt.status) &&
         ["scheduled", "ongoing", "pending_payment"].includes(apt.rawStatus) &&
-        apt.rawStatus !== "expired_no_show" &&
-        new Date(apt.scheduledAt).getTime() >= now - 30 * 60_000
+        // Include sessions still within ~1h of start so grace/expiry sync can catch them.
+        new Date(apt.scheduledAt).getTime() >= now - 60 * 60_000
     )
     .sort(
       (a, b) =>

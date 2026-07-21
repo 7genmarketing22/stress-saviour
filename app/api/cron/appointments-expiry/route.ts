@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { processAppointmentSessions } from "@/lib/appointments/process-sessions";
 
 /**
- * Cron endpoint — call every minute via Vercel Cron or external scheduler.
+ * Cron endpoint — call every few minutes via Vercel Cron or external scheduler.
  * Authorization: Bearer {CRON_SECRET}
+ * Vercel Cron also sends x-vercel-cron: 1
  */
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -12,7 +13,8 @@ export async function GET(request: Request) {
   }
 
   const auth = request.headers.get("authorization");
-  if (auth !== `Bearer ${secret}`) {
+  const isVercelCron = request.headers.get("x-vercel-cron") === "1";
+  if (auth !== `Bearer ${secret}` && !isVercelCron) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

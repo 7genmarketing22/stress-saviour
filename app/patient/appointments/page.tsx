@@ -30,7 +30,7 @@ import { fetchPlatformPaymentAccounts, FALLBACK_PAYMENT_ACCOUNTS, type PaymentAc
 
 export default function PatientAppointmentsPage() {
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<"Upcoming" | "Completed" | "Cancelled" | "All">("Upcoming");
+  const [activeTab, setActiveTab] = useState<"Upcoming" | "Completed" | "Cancelled" | "Expired" | "All">("Upcoming");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -96,13 +96,15 @@ export default function PatientAppointmentsPage() {
 
     if (activeTab === "Upcoming") {
       filtered = filtered.filter((apt) =>
-        ["Confirmed", "Pending", "Ready", "Awaiting Payment", "Payment Review"].includes(apt.status)
+        ["Confirmed", "Pending", "Ready", "Starting Soon", "Awaiting Payment", "Payment Review"].includes(apt.status)
       );
     } else if (activeTab === "Completed") {
       filtered = filtered.filter((apt) => apt.status === "Completed");
     } else if (activeTab === "Cancelled") {
+      filtered = filtered.filter((apt) => apt.status === "Cancelled");
+    } else if (activeTab === "Expired") {
       filtered = filtered.filter((apt) =>
-        ["Cancelled", "No Show", "Expired / No Show", "Expired"].includes(apt.status)
+        ["Expired", "Expired / No Show", "No Show"].includes(apt.status)
       );
     }
 
@@ -162,12 +164,15 @@ export default function PatientAppointmentsPage() {
     const classes: Record<string, string> = {
       Confirmed: "bg-emerald-100 text-emerald-800",
       Ready: "bg-cyan-100 text-cyan-800",
+      "Starting Soon": "bg-teal-100 text-teal-800",
       Pending: "bg-amber-100 text-amber-800",
       "Awaiting Payment": "bg-orange-100 text-orange-800",
       "Payment Review": "bg-violet-100 text-violet-800",
       Completed: "bg-blue-100 text-blue-800",
       Cancelled: "bg-red-100 text-red-800",
       "No Show": "bg-gray-100 text-gray-800",
+      Expired: "bg-rose-100 text-rose-800",
+      "Expired / No Show": "bg-rose-100 text-rose-800",
     };
     return classes[status] ?? "bg-gray-100 text-gray-800";
   };
@@ -258,7 +263,7 @@ export default function PatientAppointmentsPage() {
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <Filter className="h-4 w-4 text-muted-foreground hidden sm:block" />
           <div className="flex gap-1 overflow-x-auto pb-1 sm:pb-0">
-            {(["Upcoming", "Completed", "Cancelled", "All"] as const).map((tab) => (
+            {(["Upcoming", "Completed", "Cancelled", "Expired", "All"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => { setActiveTab(tab); setCurrentPage(1); }}
@@ -366,13 +371,24 @@ export default function PatientAppointmentsPage() {
                         Add Screenshot
                       </Button>
                     )}
-                    {apt.isPaid && apt.canJoin && ["Confirmed", "Ready", "Starting Soon"].includes(apt.status) && (
-                      <Link href={apt.roomUrl} className="flex-1 lg:flex-none lg:w-full">
-                        <Button className="bg-brand-500 hover:bg-brand-600 text-white w-full">
+                    {apt.isPaid && ["Confirmed", "Ready", "Starting Soon"].includes(apt.status) && (
+                      apt.canJoin ? (
+                        <Link href={apt.roomUrl} className="flex-1 lg:flex-none lg:w-full">
+                          <Button className="bg-brand-500 hover:bg-brand-600 text-white w-full">
+                            <Video className="h-4 w-4 mr-2" />
+                            Join Consultation
+                          </Button>
+                        </Link>
+                      ) : (
+                        <Button
+                          disabled
+                          title="Joining opens 10 minutes before your scheduled time"
+                          className="flex-1 lg:flex-none lg:w-full bg-muted text-muted-foreground cursor-not-allowed"
+                        >
                           <Video className="h-4 w-4 mr-2" />
-                          Join Consultation
+                          Not available yet
                         </Button>
-                      </Link>
+                      )
                     )}
                     <div className="flex items-center gap-2 flex-1 lg:flex-none lg:w-full">
                       <Button
@@ -398,7 +414,7 @@ export default function PatientAppointmentsPage() {
                                 Add Payment Screenshot
                               </button>
                             )}
-                            {["Confirmed", "Pending", "Ready", "Awaiting Payment", "Payment Review"].includes(apt.status) && (
+                            {["Confirmed", "Pending", "Ready", "Starting Soon", "Awaiting Payment", "Payment Review"].includes(apt.status) && (
                               <button
                                 className="flex w-full items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted text-red-600"
                                 onClick={() => { setSelectedAppointment(apt); setShowCancelModal(true); }}
@@ -502,7 +518,10 @@ export default function PatientAppointmentsPage() {
                 <p className="text-sm">{selectedAppointment.reason}</p>
               </div>
 
-              {(selectedAppointment.isPaid || selectedAppointment.status === "Cancelled") && (
+              {(selectedAppointment.isPaid ||
+                selectedAppointment.status === "Cancelled" ||
+                selectedAppointment.status === "Expired" ||
+                selectedAppointment.status === "Expired / No Show") && (
                 <AppointmentFinancialDetails
                   info={{
                     consultationFee: selectedAppointment.consultationFee,
@@ -510,7 +529,10 @@ export default function PatientAppointmentsPage() {
                     refundAmount: selectedAppointment.refundAmount,
                     refundProcessedAt: selectedAppointment.refundProcessedAt,
                     paymentStatus: selectedAppointment.paymentStatus,
-                    isCancelled: selectedAppointment.status === "Cancelled",
+                    isCancelled:
+                      selectedAppointment.status === "Cancelled" ||
+                      selectedAppointment.status === "Expired" ||
+                      selectedAppointment.status === "Expired / No Show",
                   }}
                 />
               )}
@@ -583,14 +605,25 @@ export default function PatientAppointmentsPage() {
                   )}
                 </div>
               )}
-              {selectedAppointment.isPaid && selectedAppointment.canJoin && ["Confirmed", "Ready", "Starting Soon"].includes(selectedAppointment.status) && (
-                <Link href={selectedAppointment.roomUrl}>
-                  <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white">
+              {selectedAppointment.isPaid &&
+                ["Confirmed", "Ready", "Starting Soon"].includes(selectedAppointment.status) &&
+                (selectedAppointment.canJoin ? (
+                  <Link href={selectedAppointment.roomUrl}>
+                    <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white">
+                      <Video className="h-4 w-4 mr-2" />
+                      Join Consultation
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button
+                    disabled
+                    title="Joining opens 10 minutes before your scheduled time"
+                    className="w-full bg-muted text-muted-foreground cursor-not-allowed"
+                  >
                     <Video className="h-4 w-4 mr-2" />
-                    Join Consultation
+                    Not available yet
                   </Button>
-                </Link>
-              )}
+                ))}
             </div>
           </div>
         </div>

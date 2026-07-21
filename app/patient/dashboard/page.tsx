@@ -305,13 +305,23 @@ export default function PatientDashboardPage() {
                   </div>
                   <AppointmentSessionAlert timing={nextApt.timing} className="mb-3" />
                   <div className="flex flex-col xs:flex-row gap-2 sm:gap-3">
-                    {nextApt.canJoin && ["Ready", "Starting Soon", "Confirmed"].includes(nextApt.status) ? (
-                      <Link href={nextApt.roomUrl} className="flex-1">
-                        <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white gap-2 h-9 sm:h-10 text-xs sm:text-sm shadow-lg shadow-brand-400/20">
-                          <Video className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                          <span>Join Consultation</span>
-                        </Button>
-                      </Link>
+                    {nextApt.isPaid &&
+                    ["Ready", "Starting Soon", "Confirmed"].includes(nextApt.status) ? (
+                      nextApt.canJoin ? (
+                        <Link href={nextApt.roomUrl} className="flex-1">
+                          <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white gap-2 h-9 sm:h-10 text-xs sm:text-sm shadow-lg shadow-brand-400/20">
+                            <Video className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                            <span>Join Consultation</span>
+                          </Button>
+                        </Link>
+                      ) : (
+                        <div className="flex-1">
+                          <Button disabled className="w-full h-9 sm:h-10 text-xs sm:text-sm opacity-60">
+                            <Video className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
+                            Not available yet
+                          </Button>
+                        </div>
+                      )
                     ) : (
                       <div className="flex-1">
                         <Button disabled className="w-full h-9 sm:h-10 text-xs sm:text-sm opacity-60">
