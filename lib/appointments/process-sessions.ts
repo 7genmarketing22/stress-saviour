@@ -3,10 +3,12 @@ import {
   GRACE_MINUTES_AFTER_START,
   getAppointmentSessionTiming,
 } from "@/lib/appointments/session-timing";
+import { sendPushToUsers } from "@/lib/push/server";
 
-const SITE_URL = (
-  process.env.NEXT_PUBLIC_APP_URL ?? "https://stress-saviour.vercel.app"
-).replace(/\/$/, "");
+const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "https://stress-saviour.vercel.app").replace(
+  /\/$/,
+  ""
+);
 
 interface AppointmentRow {
   id: string;
@@ -106,8 +108,7 @@ async function applyExpiryRefund(
     p_payment_id: pay.id,
     p_refund_status: "pending",
     p_refund_amount: amount,
-    p_refund_note:
-      "Full refund — consultation expired (call not started within grace period).",
+    p_refund_note: "Full refund — consultation expired (call not started within grace period).",
   });
 
   await createNotification(
@@ -170,16 +171,49 @@ export async function processAppointmentSessions(): Promise<ProcessSessionsResul
       const when = fmtDate(apt.scheduled_at);
 
       if (timing.shouldSendReminder && apt.doctor?.user_id) {
-        const msg = `Your consultation with ${patientName} is scheduled for ${when}. Please join on time.`;
+        const patientMessage = `Your appointment with Dr. ${doctorName} is in ${timing.minutesUntilStart} minutes (${when}).`;
+        const doctorMessage = `Your consultation with ${patientName} is scheduled for ${when}. Please join on time.`;
         await Promise.all([
-          createNotification(supabase, apt.patient_id, "Consultation starting soon", `Your appointment with Dr. ${doctorName} is in ${timing.minutesUntilStart} minutes (${when}).`, "appointment", { appointment_id: apt.id }),
-          createNotification(supabase, apt.doctor.user_id, "Consultation starting soon", msg, "appointment", { appointment_id: apt.id }),
+          createNotification(
+            supabase,
+            apt.patient_id,
+            "Consultation starting soon",
+            patientMessage,
+            "appointment",
+            { appointment_id: apt.id }
+          ),
+          createNotification(
+            supabase,
+            apt.doctor.user_id,
+            "Consultation starting soon",
+            doctorMessage,
+            "appointment",
+            { appointment_id: apt.id }
+          ),
         ]);
 
         const emailHtml = (name: string, body: string) =>
           `<div style="font-family:sans-serif;max-width:560px"><p>Hi ${name},</p><p>${body}</p><p><a href="${SITE_URL}">Open Stress Saviors</a></p></div>`;
 
         await Promise.allSettled([
+          sendPushToUsers([apt.patient_id], {
+            title: "Consultation starting soon",
+            body: patientMessage,
+            url: `/patient/appointments?appointment=${apt.id}`,
+            icon: "/logo-192.png",
+            badge: "/logo-96.png",
+            tag: `appointment-reminder-${apt.id}`,
+            data: { appointment_id: apt.id },
+          }),
+          sendPushToUsers([apt.doctor.user_id], {
+            title: "Consultation starting soon",
+            body: doctorMessage,
+            url: `/doctor/appointments?appointment=${apt.id}`,
+            icon: "/logo-192.png",
+            badge: "/logo-96.png",
+            tag: `appointment-reminder-${apt.id}`,
+            data: { appointment_id: apt.id },
+          }),
           apt.patient?.email
             ? sendEmail(
                 apt.patient.email,
@@ -232,15 +266,29 @@ export async function processAppointmentSessions(): Promise<ProcessSessionsResul
 
       await Promise.all([
         apt.doctor?.user_id
-          ? createNotification(supabase, apt.doctor.user_id, "Consultation expired", expiryMsg, "appointment", {
-              appointment_id: apt.id,
-              no_show_party: "both",
-            })
+          ? createNotification(
+              supabase,
+              apt.doctor.user_id,
+              "Consultation expired",
+              expiryMsg,
+              "appointment",
+              {
+                appointment_id: apt.id,
+                no_show_party: "both",
+              }
+            )
           : Promise.resolve(),
-        createNotification(supabase, apt.patient_id, "Consultation expired", patientMsg, "appointment", {
-          appointment_id: apt.id,
-          no_show_party: "both",
-        }),
+        createNotification(
+          supabase,
+          apt.patient_id,
+          "Consultation expired",
+          patientMsg,
+          "appointment",
+          {
+            appointment_id: apt.id,
+            no_show_party: "both",
+          }
+        ),
         notifyAdmins(
           supabase,
           "Consultation auto-expired",
@@ -266,9 +314,7 @@ export async function processAppointmentSessions(): Promise<ProcessSessionsResul
           : Promise.resolve(false),
       ]);
     } catch (err) {
-      result.errors.push(
-        `${apt.id}: ${err instanceof Error ? err.message : String(err)}`
-      );
+      result.errors.push(`${apt.id}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 

@@ -1,13 +1,6 @@
 "use client";
 
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-  useRef,
-} from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import {
   getNotifications,
   markNotificationRead,
@@ -15,6 +8,7 @@ import {
   type AppNotification,
 } from "@/lib/notifications/api";
 import { useNotificationsRealtime } from "@/lib/realtime/useNotificationsRealtime";
+import { PushNotificationManager } from "@/components/pwa/PushNotificationManager";
 
 interface LiveToast {
   id: string;
@@ -75,15 +69,10 @@ export function NotificationProvider({ userId, children }: Props) {
 
   useNotificationsRealtime({ userId, onNew: handleNewNotification, enabled: !!userId });
 
-  const markRead = useCallback(
-    async (id: string) => {
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-      );
-      await markNotificationRead(id).catch(() => {});
-    },
-    []
-  );
+  const markRead = useCallback(async (id: string) => {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
+    await markNotificationRead(id).catch(() => {});
+  }, []);
 
   const markAllRead = useCallback(async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
@@ -99,8 +88,17 @@ export function NotificationProvider({ userId, children }: Props) {
 
   return (
     <NotificationContext.Provider
-      value={{ notifications, unreadCount, liveToast, dismissToast, markRead, markAllRead, refresh }}
+      value={{
+        notifications,
+        unreadCount,
+        liveToast,
+        dismissToast,
+        markRead,
+        markAllRead,
+        refresh,
+      }}
     >
+      <PushNotificationManager />
       {children}
     </NotificationContext.Provider>
   );

@@ -145,7 +145,14 @@ export type Database = {
           patient_id: string;
           doctor_id: string;
           appointment_type: "video" | "chat" | "in_person";
-          status: "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show" | "expired_no_show" | "pending_payment";
+          status:
+            | "scheduled"
+            | "ongoing"
+            | "completed"
+            | "cancelled"
+            | "no_show"
+            | "expired_no_show"
+            | "pending_payment";
           scheduled_at: string;
           duration_minutes: number;
           patient_notes: string | null;
@@ -164,7 +171,13 @@ export type Database = {
           patient_id: string;
           doctor_id: string;
           appointment_type: "video" | "chat" | "in_person";
-          status?: "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show" | "pending_payment";
+          status?:
+            | "scheduled"
+            | "ongoing"
+            | "completed"
+            | "cancelled"
+            | "no_show"
+            | "pending_payment";
           scheduled_at: string;
           duration_minutes?: number;
           patient_notes?: string | null;
@@ -183,7 +196,13 @@ export type Database = {
           patient_id?: string;
           doctor_id?: string;
           appointment_type?: "video" | "chat" | "in_person";
-          status?: "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show" | "pending_payment";
+          status?:
+            | "scheduled"
+            | "ongoing"
+            | "completed"
+            | "cancelled"
+            | "no_show"
+            | "pending_payment";
           scheduled_at?: string;
           duration_minutes?: number;
           patient_notes?: string | null;
@@ -583,6 +602,50 @@ export type Database = {
           read_at?: string;
         };
       };
+      push_subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          expiration_time: number | null;
+          user_agent: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          expiration_time?: number | null;
+          user_agent?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          endpoint?: string;
+          p256dh?: string;
+          auth?: string;
+          expiration_time?: number | null;
+          user_agent?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
 
     Views: Record<string, never>;
@@ -602,7 +665,14 @@ export type Database = {
     Enums: {
       user_role: "patient" | "doctor" | "admin" | "super_admin";
       doctor_status: "pending" | "approved" | "rejected" | "suspended";
-      appointment_status: "scheduled" | "ongoing" | "completed" | "cancelled" | "no_show" | "expired_no_show" | "pending_payment";
+      appointment_status:
+        | "scheduled"
+        | "ongoing"
+        | "completed"
+        | "cancelled"
+        | "no_show"
+        | "expired_no_show"
+        | "pending_payment";
       appointment_type: "video" | "chat" | "in_person";
       payment_status: "pending" | "completed" | "failed" | "refunded";
       payment_method: "jazzcash" | "easypaisa" | "stripe" | "bank_transfer";

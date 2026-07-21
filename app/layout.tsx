@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -26,11 +27,18 @@ export const metadata: Metadata = {
       { url: "/logo-192.png", type: "image/png", sizes: "192x192" },
       { url: "/logo-512.png", type: "image/png", sizes: "512x512" },
     ],
-    apple: [
-      { url: "/logo-192.png", sizes: "192x192", type: "image/png" },
-    ],
+    apple: [{ url: "/logo-192.png", sizes: "192x192", type: "image/png" }],
   },
   manifest: "/site.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "StressSaviors",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0080b8",
 };
 
 export default function RootLayout({
@@ -40,7 +48,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <ServiceWorkerRegistration />
+        {children}
+      </body>
     </html>
   );
 }

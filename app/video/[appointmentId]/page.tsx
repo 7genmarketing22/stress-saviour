@@ -176,6 +176,42 @@ export default function VideoConsultationPage() {
     });
     apiRef.current = api;
 
+    api.addListener("videoConferenceJoined", async () => {
+      // The doctor owns lobby control. Patients enter as non-moderators and
+      // remain in Jitsi's lobby until the doctor admits them.
+      if (info.role === "moderator") {
+        api.executeCommand("toggleLobby", true);
+        const started = await fetch("/api/video/started", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ appointmentId }),
+        });
+        if (!started.ok) {
+          setPhase({
+            kind: "error",
+            message:
+              "The consultation opened, but its status could not be updated. Please return to appointments and try again.",
+          });
+        }
+      }
+    });
+    api.addListener(
+      "errorOccurred",
+      (error: { type?: string; message?: string }) => {
+        const text = `${error?.type ?? ""} ${error?.message ?? ""}`.toLowerCase();
+        const isAuthError =
+          text.includes("auth") ||
+          text.includes("token") ||
+          text.includes("expired") ||
+          text.includes("not allowed");
+        setPhase({
+          kind: "error",
+          message: isAuthError
+            ? "This meeting link has expired or is invalid. Return to your appointments and join again to get a fresh link."
+            : "The video connection failed. Check your connection and try joining again.",
+        });
+      }
+    );
     api.addListener("readyToClose", () => leaveToDashboard(info.role));
     api.addListener("videoConferenceLeft", () => leaveToDashboard(info.role));
 
@@ -183,7 +219,7 @@ export default function VideoConsultationPage() {
       api.dispose();
       apiRef.current = null;
     };
-  }, [phase, leaveToDashboard]);
+  }, [phase, leaveToDashboard, appointmentId]);
 
   if (phase.kind === "loading") {
     return (
@@ -217,9 +253,12 @@ export default function VideoConsultationPage() {
         <XCircle className="h-10 w-10 text-rose-400" />
         <h1 className="text-lg font-bold text-white mt-4">Unable to join</h1>
         <p className="text-sm text-slate-300 mt-2 max-w-sm text-center">{phase.message}</p>
-        <Button className="mt-6" variant="outline" onClick={() => router.back()}>
-          Go back
-        </Button>
+        <div className="mt-6 flex gap-3">
+          <Button variant="outline" onClick={() => router.back()}>
+            Go back
+          </Button>
+          <Button onClick={() => window.location.reload()}>Try again</Button>
+        </div>
       </Shell>
     );
   }

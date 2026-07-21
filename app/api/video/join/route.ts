@@ -7,13 +7,14 @@ import {
   buildRoomPath,
   getJitsiDomain,
   isJitsiJwtConfigured,
+  isSelfHostedJitsiConfigured,
   signJitsiJwt,
 } from "@/lib/video/jwt";
 
 /** Patients/doctors may join from this many minutes before the scheduled start. */
 const JOIN_EARLY_MINUTES = 10;
-/** Room stays joinable this many minutes past the scheduled end. */
-const JOIN_LATE_MINUTES = 60;
+/** Each request gets a fresh short-lived token, capped at the appointment end. */
+const TOKEN_TTL_MINUTES = 15;
 
 export async function POST(request: Request) {
   try {
@@ -126,11 +127,12 @@ export async function POST(request: Request) {
     const scheduledStart = new Date(apt.scheduled_at).getTime();
     const scheduledEnd = scheduledStart + apt.duration_minutes * 60_000;
     const windowOpens = scheduledStart - JOIN_EARLY_MINUTES * 60_000;
-    const windowCloses = scheduledEnd + JOIN_LATE_MINUTES * 60_000;
+    const windowCloses = scheduledEnd;
     const now = Date.now();
 
-    // Admins can always inspect; doctor/patient only inside the window.
-    if (!isAdmin && apt.status !== "ongoing") {
+    // Doctor/patient tokens are only issued inside the appointment window.
+    // Rejoining an ongoing room does not bypass expiry.
+    if (!isAdmin) {
       if (now < windowOpens) {
         return NextResponse.json(
           {
@@ -149,6 +151,17 @@ export async function POST(request: Request) {
       }
     }
 
+    if (!isSelfHostedJitsiConfigured()) {
+      return NextResponse.json(
+        {
+          error: "video_not_configured",
+          message:
+            "Secure video hosting is temporarily unavailable. Please contact support.",
+        },
+        { status: 503 }
+      );
+    }
+
     // ── Secure room name (persisted once per appointment) ──
     const room = buildRoomName(apt.id);
     const domain = getJitsiDomain();
@@ -161,15 +174,9 @@ export async function POST(request: Request) {
         .eq("id", apt.id);
     }
 
-    // ── Doctor joining starts the meeting ──
+    // The doctor is the moderator. The appointment becomes ongoing only after
+    // Jitsi confirms that the doctor actually joined (POST /api/video/started).
     const role: "moderator" | "participant" = isDoctor || isAdmin ? "moderator" : "participant";
-    if (isDoctor && ["scheduled"].includes(apt.status)) {
-      await supabase
-        .from("appointments")
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .update({ status: "ongoing" } as any)
-        .eq("id", apt.id);
-    }
 
     const displayName = isDoctor
       ? `Dr. ${apt.doctor?.profile?.full_name ?? me.full_name}`
@@ -177,11 +184,16 @@ export async function POST(request: Request) {
 
     const jwt = signJitsiJwt({
       room: buildRoomPath(room),
+      userId: me.id,
       displayName,
       email: me.email,
       avatarUrl: me.avatar_url,
       moderator: role === "moderator",
-      expiresAt: Math.floor(windowCloses / 1000),
+      expiresAt: Math.floor(
+        (isAdmin
+          ? now + TOKEN_TTL_MINUTES * 60_000
+          : Math.min(windowCloses, now + TOKEN_TTL_MINUTES * 60_000)) / 1000
+      ),
     });
 
     return NextResponse.json({
@@ -191,7 +203,7 @@ export async function POST(request: Request) {
       jwtConfigured: isJitsiJwtConfigured(),
       role,
       displayName,
-      status: isDoctor && apt.status === "scheduled" ? "ongoing" : apt.status,
+      status: apt.status,
       scheduledAt: apt.scheduled_at,
       durationMinutes: apt.duration_minutes,
       doctorName: apt.doctor?.profile?.full_name ?? "Doctor",

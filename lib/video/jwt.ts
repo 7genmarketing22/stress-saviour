@@ -1,16 +1,12 @@
-import { createHmac, createSign } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 
 /**
  * Jitsi video-consultation token helpers.
  *
- * Supported deployments (checked in order):
- * 1. JaaS / 8x8.vc  — set JITSI_DOMAIN=8x8.vc, JITSI_APP_ID, JITSI_KID and
- *    JITSI_PRIVATE_KEY (RS256). Rooms are namespaced as "{appId}/{room}".
- * 2. Self-hosted Jitsi with prosody token auth (enableUserRolesBasedOnToken)
- *    — set JITSI_DOMAIN, JITSI_APP_ID and JITSI_APP_SECRET (HS256).
- * 3. Anonymous instance (default meet.jit.si) — no JWT is issued. Role
- *    separation is then enforced only by our own join flow (doctor must
- *    start the session before the patient's client will enter the room).
+ * Production uses free self-hosted Jitsi with Prosody token auth. Set
+ * JITSI_DOMAIN, JITSI_APP_ID, and JITSI_APP_SECRET (HS256). Anonymous
+ * meet.jit.si is retained only as a local fallback and the join API fails
+ * closed unless the self-hosted deployment is configured.
  */
 
 const DEFAULT_DOMAIN = "meet.jit.si";
@@ -46,24 +42,27 @@ export function buildRoomName(appointmentId: string): string {
   return `ss-${appointmentId.slice(0, 8)}-${digest.slice(0, 20)}`;
 }
 
-/** JaaS rooms must be prefixed with the app id in the URL/room claim. */
 export function buildRoomPath(room: string): string {
-  const appId = process.env.JITSI_APP_ID;
-  if (process.env.JITSI_KID && appId) return `${appId}/${room}`;
   return room;
 }
 
 export function isJitsiJwtConfigured(): boolean {
+  return Boolean(process.env.JITSI_APP_ID && process.env.JITSI_APP_SECRET);
+}
+
+/** Production-safe free deployment: custom domain + Prosody HS256 secret. */
+export function isSelfHostedJitsiConfigured(): boolean {
+  const domain = getJitsiDomain();
   return Boolean(
-    (process.env.JITSI_KID &&
-      process.env.JITSI_PRIVATE_KEY &&
-      process.env.JITSI_APP_ID) ||
+    domain !== DEFAULT_DOMAIN &&
+      process.env.JITSI_APP_ID &&
       process.env.JITSI_APP_SECRET
   );
 }
 
 export interface JitsiTokenInput {
   room: string;
+  userId: string;
   displayName: string;
   email?: string | null;
   avatarUrl?: string | null;
@@ -79,29 +78,35 @@ export interface JitsiTokenInput {
  */
 export function signJitsiJwt(input: JitsiTokenInput): string | null {
   const appId = process.env.JITSI_APP_ID;
-  const kid = process.env.JITSI_KID;
-  const privateKey = process.env.JITSI_PRIVATE_KEY;
   const appSecret = process.env.JITSI_APP_SECRET;
-  const nbf = Math.floor(Date.now() / 1000) - 10;
+  const iat = Math.floor(Date.now() / 1000);
+  const nbf = iat - 10;
 
   const user = {
+    id: input.userId,
     name: input.displayName,
     ...(input.email ? { email: input.email } : {}),
     ...(input.avatarUrl ? { avatar: input.avatarUrl } : {}),
     moderator: input.moderator,
+    // Read by the self-hosted Prosody token_affiliation plugin.
+    affiliation: input.moderator ? "owner" : "member",
   };
 
-  if (kid && privateKey && appId) {
-    const header = { alg: "RS256", typ: "JWT", kid };
+  if (appSecret && appId) {
+    const header = { alg: "HS256", typ: "JWT" };
     const payload = {
-      aud: "jitsi",
-      iss: "chat",
-      sub: appId,
+      aud: appId,
+      iss: appId,
+      sub: getJitsiDomain(),
       room: input.room,
+      jti: randomUUID(),
+      iat,
       nbf,
       exp: input.expiresAt,
+      moderator: input.moderator,
       context: {
         user,
+        moderator: input.moderator,
         features: {
           livestreaming: false,
           recording: false,
@@ -109,26 +114,6 @@ export function signJitsiJwt(input: JitsiTokenInput): string | null {
           "outbound-call": false,
         },
       },
-    };
-    const signingInput = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(payload))}`;
-    const signature = createSign("RSA-SHA256")
-      .update(signingInput)
-      // Env vars often store the PEM with literal "\n" sequences.
-      .sign(privateKey.replace(/\\n/g, "\n"));
-    return `${signingInput}.${b64url(signature)}`;
-  }
-
-  if (appSecret) {
-    const iss = appId || "jitsi";
-    const header = { alg: "HS256", typ: "JWT" };
-    const payload = {
-      aud: appId || "jitsi",
-      iss,
-      sub: getJitsiDomain(),
-      room: input.room,
-      nbf,
-      exp: input.expiresAt,
-      context: { user },
     };
     const signingInput = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(payload))}`;
     const signature = createHmac("sha256", appSecret)
