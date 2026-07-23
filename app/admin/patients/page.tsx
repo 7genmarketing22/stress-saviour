@@ -26,6 +26,7 @@ import {
 import { useAdmin } from "@/contexts/AdminContext";
 import type { AdminAppointment, AdminPatientSummary, AdminPayment } from "@/lib/admin/types";
 import type { Profile } from "@/types";
+import { getErrorMessage } from "@/lib/errors";
 
 type PatientStatus = "active" | "inactive" | "blocked" | "pending";
 
@@ -112,7 +113,7 @@ export default function AdminPatientsPage() {
       setAppointments(apts);
       setPayments(pays);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load patients");
+      setError(getErrorMessage(err, "Failed to load patients"));
     } finally {
       setIsLoading(false);
     }
@@ -130,7 +131,7 @@ export default function AdminPatientsPage() {
       await loadData();
       setSelectedId(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Approval failed");
+      setError(getErrorMessage(err, "Approval failed"));
     } finally {
       setActionId(null);
     }
@@ -144,7 +145,7 @@ export default function AdminPatientsPage() {
       await loadData();
       setSelectedId(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Rejection failed");
+      setError(getErrorMessage(err, "Rejection failed"));
     } finally {
       setActionId(null);
     }
@@ -158,7 +159,7 @@ export default function AdminPatientsPage() {
       await loadData();
       setSelectedId(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Action failed");
+      setError(getErrorMessage(err, "Action failed"));
     } finally {
       setActionId(null);
     }

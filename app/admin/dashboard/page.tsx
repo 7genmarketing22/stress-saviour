@@ -32,6 +32,7 @@ import type { AdminAppointment, AdminDoctor, AdminPayment } from "@/lib/admin/ty
 import type { Profile } from "@/types";
 
 import { type FilterPeriod, FILTER_LABELS, getDateRange, inDateRange } from "@/lib/utils/dateFilter";
+import { getErrorMessage } from "@/lib/errors";
 
 function formatPKR(value: number) {
   return `₨${Math.round(value).toLocaleString("en-PK")}`;
@@ -140,7 +141,7 @@ export default function AdminDashboardPage() {
       setAppointments(apts);
       setPayments(pays);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load dashboard data");
+      setError(getErrorMessage(err, "Failed to load dashboard data"));
     } finally {
       setIsLoading(false);
     }
@@ -156,7 +157,7 @@ export default function AdminDashboardPage() {
       await approveDoctor(doctorId, profile.id);
       await loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to approve doctor");
+      setError(getErrorMessage(err, "Failed to approve doctor"));
     } finally {
       setActionId(null);
     }
@@ -168,7 +169,7 @@ export default function AdminDashboardPage() {
       await rejectDoctor(doctorId);
       await loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to reject doctor");
+      setError(getErrorMessage(err, "Failed to reject doctor"));
     } finally {
       setActionId(null);
     }
@@ -180,7 +181,7 @@ export default function AdminDashboardPage() {
       await approvePatient(userId, profile.id);
       await loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to approve patient");
+      setError(getErrorMessage(err, "Failed to approve patient"));
     } finally {
       setActionId(null);
     }

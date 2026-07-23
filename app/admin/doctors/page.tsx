@@ -26,6 +26,7 @@ import { TaxonomyTagPicker } from "@/components/shared/TaxonomyTagPicker";
 import type { AdminAppointment, AdminDoctor, AdminPayment } from "@/lib/admin/types";
 import type { DoctorStatus } from "@/types";
 import { SPECIALIZATIONS, PAKISTAN_CITIES } from "@/types";
+import { getErrorMessage } from "@/lib/errors";
 
 function formatPKR(value: number) {
   return `₨${Math.round(value).toLocaleString("en-PK")}`;
@@ -69,7 +70,7 @@ export default function AdminDoctorsPage() {
       setAppointments(apts);
       setPayments(pays);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load doctors");
+      setError(getErrorMessage(err, "Failed to load doctors"));
     } finally {
       setIsLoading(false);
     }
@@ -141,7 +142,7 @@ export default function AdminDoctorsPage() {
       await loadData();
       setTimeout(() => setEditingDoctor(null), 1200);
     } catch (err) {
-      setEditError(err instanceof Error ? err.message : "Save failed");
+      setEditError(getErrorMessage(err, "Save failed"));
     } finally {
       setEditSaving(false);
     }
@@ -155,7 +156,7 @@ export default function AdminDoctorsPage() {
       await loadData();
       setSelectedDoctor(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Action failed");
+      setError(getErrorMessage(err, "Action failed"));
     } finally {
       setActionId(null);
     }

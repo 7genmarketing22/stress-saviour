@@ -13,6 +13,7 @@ import Link from "next/link";
 import { getDoctorContext } from "@/lib/doctor/api";
 import type { DoctorContextData } from "@/lib/doctor/types";
 import { Button } from "@/components/ui/Button";
+import { getErrorMessage } from "@/lib/errors";
 
 interface DoctorContextValue extends DoctorContextData {
   isLoading: boolean;
@@ -50,7 +51,7 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
       setDoctorProfile(result.data.doctorProfile);
       setDocuments(result.data.documents);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load doctor data");
+      setError(getErrorMessage(err, "Failed to load doctor data"));
     } finally {
       setIsLoading(false);
     }

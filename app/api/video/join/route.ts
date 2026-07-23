@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getSupabaseUrl, getSupabaseKey } from "@/lib/supabase/env";
+import { getErrorMessage } from "@/lib/errors";
 import {
   buildRoomName,
   buildRoomPath,
@@ -210,7 +211,9 @@ export async function POST(request: Request) {
       patientName: apt.patient?.full_name ?? "Patient",
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Internal error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: getErrorMessage(err, "Internal error") },
+      { status: 500 }
+    );
   }
 }

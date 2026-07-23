@@ -6,6 +6,7 @@ import {
 } from "@/lib/admin/staff-server";
 import type { AdminPermissions } from "@/types";
 import type { StaffAccessPreset } from "@/lib/admin/staff-permissions";
+import { getErrorMessage } from "@/lib/errors";
 
 export async function PATCH(
   request: Request,
@@ -50,7 +51,7 @@ export async function PATCH(
     return NextResponse.json({ staff: updated ?? null });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to update staff member" },
+      { error: getErrorMessage(error, "Failed to update staff member") },
       { status: 500 }
     );
   }

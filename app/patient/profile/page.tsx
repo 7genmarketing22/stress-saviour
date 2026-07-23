@@ -10,6 +10,7 @@ import { uploadAndSetAvatar } from "@/lib/auth/profile";
 import { updateUserProfile } from "@/lib/patient/api";
 import { formatDate } from "@/lib/patient/mappers";
 import type { Gender } from "@/types";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function PatientProfilePage() {
   const { profile, setProfile } = usePatient();
@@ -59,7 +60,7 @@ export default function PatientProfilePage() {
       setProfile(updated);
       setMessage("Profile updated successfully.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update profile");
+      setError(getErrorMessage(err, "Failed to update profile"));
     } finally {
       setIsSaving(false);
     }

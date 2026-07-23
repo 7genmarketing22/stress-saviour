@@ -56,4 +56,8 @@ describe("mapBookingErrorMessage", () => {
     const err = new Error("SLOT_BLOCKED: unavailable");
     assert.match(mapBookingErrorMessage(err), /unavailable/i);
   });
+
+  it("uses fallback for empty error objects", () => {
+    assert.equal(mapBookingErrorMessage({}), "Failed to book appointment");
+  });
 });

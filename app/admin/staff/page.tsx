@@ -28,6 +28,7 @@ import {
   type StaffAccessPreset,
 } from "@/lib/admin/staff-permissions";
 import type { AdminPermissions, UserRole } from "@/types";
+import { getErrorMessage } from "@/lib/errors";
 
 function roleLabel(role: UserRole) {
   return role === "super_admin" ? "Super Admin" : "Admin";
@@ -196,7 +197,7 @@ export default function AdminStaffPage() {
       setStaff(result.staff);
       setCanManage(result.canManage);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load staff");
+      setError(getErrorMessage(err, "Failed to load staff"));
     } finally {
       setIsLoading(false);
     }
@@ -297,7 +298,7 @@ export default function AdminStaffPage() {
       await loadData();
       closeModal();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create staff member");
+      setError(getErrorMessage(err, "Failed to create staff member"));
     } finally {
       setSaving(false);
     }
@@ -318,7 +319,7 @@ export default function AdminStaffPage() {
       await loadData();
       closeModal();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update staff member");
+      setError(getErrorMessage(err, "Failed to update staff member"));
     } finally {
       setSaving(false);
     }
@@ -332,7 +333,7 @@ export default function AdminStaffPage() {
       await loadData();
       closeModal();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Action failed");
+      setError(getErrorMessage(err, "Action failed"));
     } finally {
       setActionId(null);
     }

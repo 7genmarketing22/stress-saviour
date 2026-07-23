@@ -25,6 +25,7 @@ import { completeManualRefund } from "@/lib/refunds/process";
 import { REFUND_STATUS_LABEL } from "@/lib/refunds/policy";
 import type { AdminPayment } from "@/lib/admin/types";
 import type { PaymentMethod, PaymentStatus, PayoutStatus, RefundStatus } from "@/types";
+import { getErrorMessage } from "@/lib/errors";
 
 function formatPKR(value: number) {
   return `PKR ${Math.round(value).toLocaleString("en-PK")}`;
@@ -125,7 +126,7 @@ export default function AdminPaymentsPage() {
       setPayments(await getAdminPayments());
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load payments");
+      setError(getErrorMessage(err, "Failed to load payments"));
     } finally {
       setIsLoading(false);
     }
@@ -162,7 +163,7 @@ export default function AdminPaymentsPage() {
       showToast("Refund marked as processed. Patient has been notified.");
       await loadData();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Refund processing failed");
+      showToast(getErrorMessage(err, "Refund processing failed"));
     } finally {
       setActionId(null);
     }
@@ -176,7 +177,7 @@ export default function AdminPaymentsPage() {
       setReviewPayment(null);
       await loadData();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Approval failed");
+      showToast(getErrorMessage(err, "Approval failed"));
     } finally {
       setActionId(null);
     }
@@ -191,7 +192,7 @@ export default function AdminPaymentsPage() {
       setRejectReason("");
       await loadData();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Rejection failed");
+      showToast(getErrorMessage(err, "Rejection failed"));
     } finally {
       setActionId(null);
     }
@@ -250,7 +251,7 @@ export default function AdminPaymentsPage() {
       await loadData();
       showToast(`Payout cleared for ${p.doctor?.profile?.full_name ?? "doctor"}.`);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Failed to clear payout.");
+      showToast(getErrorMessage(err, "Failed to clear payout."));
     } finally {
       setActionId(null);
     }
@@ -263,7 +264,7 @@ export default function AdminPaymentsPage() {
       await loadData();
       showToast("Payout reverted to pending.");
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Failed to revert payout.");
+      showToast(getErrorMessage(err, "Failed to revert payout."));
     } finally {
       setActionId(null);
     }
@@ -297,7 +298,7 @@ export default function AdminPaymentsPage() {
       const tempRef = `PRE-${Date.now().toString(36).toUpperCase()}`;
       receiptUrl = await uploadPayoutReceipt(profile.id, tempRef, settleReceiptFile);
     } catch (err) {
-      setSettleReceiptError(err instanceof Error ? err.message : "Upload failed. Please try again.");
+      setSettleReceiptError(getErrorMessage(err, "Upload failed. Please try again."));
       setSettleUploading(false);
       return;
     }
@@ -313,7 +314,7 @@ export default function AdminPaymentsPage() {
       await loadData();
       showToast(`Settled ${formatPKR(total)} across ${updated.length} payment(s) for ${name}.`);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Failed to settle payouts.");
+      showToast(getErrorMessage(err, "Failed to settle payouts."));
     } finally {
       setActionId(null);
     }

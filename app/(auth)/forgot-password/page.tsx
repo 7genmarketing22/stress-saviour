@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { createClient } from "@/lib/supabase/client";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -31,7 +32,7 @@ export default function ForgotPasswordPage() {
       );
 
       if (resetError) {
-        setError(resetError.message);
+        setError(getErrorMessage(resetError, "Unable to send reset email. Please try again."));
         return;
       }
 

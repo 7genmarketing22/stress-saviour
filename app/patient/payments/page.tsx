@@ -29,6 +29,7 @@ import { isPatientNetPayment } from "@/lib/patient/stats";
 import { usePatient } from "@/contexts/PatientContext";
 import { usePaymentsRealtime } from "@/lib/realtime/usePaymentsRealtime";
 import type { PaymentMethod, PaymentStatus } from "@/types";
+import { getErrorMessage } from "@/lib/errors";
 
 type StatusFilter = "all" | PaymentStatus;
 type SortField = "date" | "amount";
@@ -171,7 +172,7 @@ export default function PatientPaymentsPage() {
       const data = await getPatientPayments();
       setTransactions(data.map(mapToPaymentRow));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load payments");
+      setError(getErrorMessage(err, "Failed to load payments"));
       setTransactions([]);
     } finally {
       setLoading(false);

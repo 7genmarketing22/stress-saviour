@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getSupabaseUrl, getSupabaseKey } from "@/lib/supabase/env";
+import { getErrorMessage } from "@/lib/errors";
 
 const SITE_URL =
   (process.env.NEXT_PUBLIC_APP_URL ?? "https://stress-saviour.vercel.app").replace(/\/$/, "");
@@ -115,6 +116,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ sent: true });
   } catch (err) {
     console.error("refunds/notify error:", err);
-    return NextResponse.json({ sent: false, reason: String(err) }, { status: 500 });
+    return NextResponse.json({ sent: false, reason: getErrorMessage(err, "Notify failed") }, { status: 500 });
   }
 }

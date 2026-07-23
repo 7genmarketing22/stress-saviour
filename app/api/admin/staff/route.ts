@@ -7,6 +7,7 @@ import {
 } from "@/lib/admin/staff-server";
 import type { AdminPermissions } from "@/types";
 import type { StaffAccessPreset } from "@/lib/admin/staff-permissions";
+import { getErrorMessage } from "@/lib/errors";
 
 export async function GET() {
   try {
@@ -19,7 +20,7 @@ export async function GET() {
     return NextResponse.json({ staff, canManage: auth.profile.role === "super_admin" });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load staff" },
+      { error: getErrorMessage(error, "Failed to load staff") },
       { status: 500 }
     );
   }
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ staff: created ?? null }, { status: 201 });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to create staff member" },
+      { error: getErrorMessage(error, "Failed to create staff member") },
       { status: 500 }
     );
   }

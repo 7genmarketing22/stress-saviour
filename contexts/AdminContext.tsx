@@ -13,6 +13,7 @@ import Link from "next/link";
 import { getAdminContext } from "@/lib/admin/api";
 import type { Profile } from "@/types";
 import { Button } from "@/components/ui/Button";
+import { getErrorMessage } from "@/lib/errors";
 
 interface AdminContextValue {
   profile: Profile;
@@ -40,7 +41,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       }
       setProfile(result.data.profile);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load admin data");
+      setError(getErrorMessage(err, "Failed to load admin data"));
     } finally {
       setIsLoading(false);
     }

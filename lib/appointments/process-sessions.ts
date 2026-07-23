@@ -3,7 +3,8 @@ import {
   GRACE_MINUTES_AFTER_START,
   getAppointmentSessionTiming,
 } from "@/lib/appointments/session-timing";
-import { sendPushToUsers } from "@/lib/push/server";
+import { getErrorMessage } from "@/lib/errors";
+import { sendSystemPushForNotification } from "@/lib/notifications/server-push";
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "https://stress-saviour.vercel.app").replace(
   /\/$/,
@@ -61,7 +62,8 @@ async function createNotification(
   title: string,
   message: string,
   type: string,
-  metadata?: Record<string, unknown>
+  metadata?: Record<string, unknown>,
+  options?: { url?: string; tag?: string }
 ) {
   await (supabase as any).rpc("create_notification", {
     p_user_id: userId,
@@ -69,6 +71,16 @@ async function createNotification(
     p_message: message,
     p_type: type,
     p_metadata: metadata ?? null,
+  });
+
+  await sendSystemPushForNotification({
+    userId,
+    title,
+    message,
+    type,
+    metadata,
+    url: options?.url,
+    tag: options?.tag,
   });
 }
 
@@ -180,7 +192,11 @@ export async function processAppointmentSessions(): Promise<ProcessSessionsResul
             "Consultation starting soon",
             patientMessage,
             "appointment",
-            { appointment_id: apt.id }
+            { appointment_id: apt.id },
+            {
+              url: `/patient/appointments?appointment=${apt.id}`,
+              tag: `appointment-reminder-${apt.id}`,
+            }
           ),
           createNotification(
             supabase,
@@ -188,7 +204,11 @@ export async function processAppointmentSessions(): Promise<ProcessSessionsResul
             "Consultation starting soon",
             doctorMessage,
             "appointment",
-            { appointment_id: apt.id }
+            { appointment_id: apt.id },
+            {
+              url: `/doctor/appointments?appointment=${apt.id}`,
+              tag: `appointment-reminder-${apt.id}`,
+            }
           ),
         ]);
 
@@ -196,24 +216,6 @@ export async function processAppointmentSessions(): Promise<ProcessSessionsResul
           `<div style="font-family:sans-serif;max-width:560px"><p>Hi ${name},</p><p>${body}</p><p><a href="${SITE_URL}">Open Stress Saviors</a></p></div>`;
 
         await Promise.allSettled([
-          sendPushToUsers([apt.patient_id], {
-            title: "Consultation starting soon",
-            body: patientMessage,
-            url: `/patient/appointments?appointment=${apt.id}`,
-            icon: "/logo-192.png",
-            badge: "/logo-96.png",
-            tag: `appointment-reminder-${apt.id}`,
-            data: { appointment_id: apt.id },
-          }),
-          sendPushToUsers([apt.doctor.user_id], {
-            title: "Consultation starting soon",
-            body: doctorMessage,
-            url: `/doctor/appointments?appointment=${apt.id}`,
-            icon: "/logo-192.png",
-            badge: "/logo-96.png",
-            tag: `appointment-reminder-${apt.id}`,
-            data: { appointment_id: apt.id },
-          }),
           apt.patient?.email
             ? sendEmail(
                 apt.patient.email,
@@ -314,7 +316,7 @@ export async function processAppointmentSessions(): Promise<ProcessSessionsResul
           : Promise.resolve(false),
       ]);
     } catch (err) {
-      result.errors.push(`${apt.id}: ${err instanceof Error ? err.message : String(err)}`);
+      result.errors.push(`${apt.id}: ${getErrorMessage(err, "Session processing failed")}`);
     }
   }
 

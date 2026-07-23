@@ -30,6 +30,7 @@ import {
   Bell,
   Info,
 } from "lucide-react";
+import { getErrorMessage } from "@/lib/errors";
 
 const TABS = [
   { id: "profile", label: "Profile", icon: User },
@@ -218,7 +219,7 @@ function ProfileTab({
       setForm((p) => ({ ...p, avatar_url: urlData.publicUrl }));
       showToast("success", "Avatar uploaded — save profile to apply.");
     } catch (err) {
-      showToast("error", err instanceof Error ? err.message : "Upload failed.");
+      showToast("error", getErrorMessage(err, "Upload failed."));
     } finally {
       setUploadingAvatar(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -251,7 +252,7 @@ function ProfileTab({
       await onRefresh();
       showToast("success", "Profile updated successfully.");
     } catch (err) {
-      showToast("error", err instanceof Error ? err.message : "Failed to save profile.");
+      showToast("error", getErrorMessage(err, "Failed to save profile."));
     } finally {
       setSaving(false);
     }
@@ -428,7 +429,7 @@ function PasswordTab({ showToast }: { showToast: (t: "success" | "error", m: str
       setForm({ newPass: "", confirmPass: "" });
       showToast("success", "Password changed successfully.");
     } catch (err) {
-      showToast("error", err instanceof Error ? err.message : "Failed to change password.");
+      showToast("error", getErrorMessage(err, "Failed to change password."));
     } finally {
       setSaving(false);
     }
@@ -595,7 +596,7 @@ function PaymentAccountsTab({ showToast }: { showToast: (t: "success" | "error",
       setShowForm(false);
       showToast("success", editTarget ? "Account updated." : "Account added.");
     } catch (err) {
-      showToast("error", err instanceof Error ? err.message : "Failed to save.");
+      showToast("error", getErrorMessage(err, "Failed to save."));
     } finally {
       setSaving(false);
     }

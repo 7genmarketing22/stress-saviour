@@ -55,13 +55,32 @@ export function findFirstAvailableSlot(
   );
 }
 
+/** Local extractor so Node tests don't need path aliases / .ts import extensions. */
+function bookingErrorText(error: unknown): string {
+  let raw = "";
+  if (typeof error === "string") raw = error;
+  else if (error instanceof Error) raw = error.message;
+  else if (error && typeof error === "object") {
+    const obj = error as Record<string, unknown>;
+    if (typeof obj.message === "string") raw = obj.message;
+  }
+  const text = raw.trim();
+  if (!text || text === "{}" || text === "[object Object]") {
+    return "Failed to book appointment";
+  }
+  return text;
+}
+
 /** Map Postgres unique-violation or trigger errors to user-facing messages. */
 export function mapBookingErrorMessage(error: unknown): string {
-  if (!(error instanceof Error)) return "Failed to book appointment";
+  const msg = bookingErrorText(error);
+  const code =
+    error && typeof error === "object" && "code" in error
+      ? String((error as { code?: string }).code ?? "")
+      : "";
 
-  const msg = error.message;
   if (
-    (error as { code?: string }).code === "23505" ||
+    code === "23505" ||
     msg.includes("just booked") ||
     msg.includes("duplicate key")
   ) {

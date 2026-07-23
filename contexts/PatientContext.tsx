@@ -13,6 +13,7 @@ import Link from "next/link";
 import { getPatientContext } from "@/lib/patient/api";
 import type { PatientContextData } from "@/lib/patient/types";
 import { Button } from "@/components/ui/Button";
+import { getErrorMessage } from "@/lib/errors";
 
 interface PatientContextValue extends PatientContextData {
   isLoading: boolean;
@@ -40,7 +41,7 @@ export function PatientProvider({ children }: { children: ReactNode }) {
       }
       setProfile(result.data.profile);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load patient data");
+      setError(getErrorMessage(err, "Failed to load patient data"));
     } finally {
       setIsLoading(false);
     }

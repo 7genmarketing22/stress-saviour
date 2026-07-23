@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/Button";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { useDoctor } from "@/contexts/DoctorContext";
 import { getDoctorSharedReports, submitDoctorReview } from "@/lib/assessment/api";
+import { getErrorMessage } from "@/lib/errors";
 import type { AssessmentShare, PatientAssessment } from "@/types/assessment";
 
 const severityConfig = {
@@ -93,15 +94,19 @@ export default function DoctorAssessmentsPage() {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const loadSharedReports = async () => {
     if (!doctorProfile?.id) return;
     setLoading(true);
+    setError(null);
     try {
       const data = await getDoctorSharedReports(doctorProfile.id);
       setShares(data as ShareRow[]);
     } catch (err) {
       console.error("Failed to load shared reports", err);
+      setError(getErrorMessage(err, "Failed to load shared reports"));
+      setShares([]);
     } finally {
       setLoading(false);
     }
@@ -177,7 +182,7 @@ export default function DoctorAssessmentsPage() {
       });
     } catch (err) {
       console.error("Failed to save recommendations", err);
-      alert("Error saving recommendations. Please try again.");
+      alert(getErrorMessage(err, "Error saving recommendations. Please try again."));
     } finally {
       setSubmitting(false);
     }
@@ -194,6 +199,12 @@ export default function DoctorAssessmentsPage() {
 
   return (
     <div className="space-y-5 max-w-6xl mx-auto pb-10">
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>

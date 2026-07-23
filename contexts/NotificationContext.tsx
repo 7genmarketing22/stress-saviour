@@ -15,6 +15,7 @@ interface LiveToast {
   title: string;
   message: string;
   type: string | null;
+  metadata: Record<string, unknown> | null;
 }
 
 interface NotificationContextValue {
@@ -62,7 +63,13 @@ export function NotificationProvider({ userId, children }: Props) {
     setNotifications((prev) => [n, ...prev].slice(0, 20));
 
     // Show a live toast for 5 seconds
-    setLiveToast({ id: n.id, title: n.title, message: n.message, type: n.type });
+    setLiveToast({
+      id: n.id,
+      title: n.title,
+      message: n.message,
+      type: n.type,
+      metadata: n.metadata,
+    });
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setLiveToast(null), 5000);
   }, []);

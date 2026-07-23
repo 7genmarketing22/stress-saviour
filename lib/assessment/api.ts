@@ -150,7 +150,7 @@ export async function shareAssessmentWithDoctors(assessmentId: string, doctorPro
           doctorUserId,
           "New Shared Health Assessment",
           `${patientName} has shared a behavioral self-screening report with you for review.`,
-          "system",
+          "assessment",
           { assessment_id: assessmentId }
         );
       }
@@ -234,7 +234,7 @@ export async function submitDoctorReview(shareId: string, notes: string): Promis
         patientId,
         "Assessment Reviewed",
         `${docName} has added recommendations to your behavioral screening report.`,
-        "system",
+        "assessment",
         { share_id: shareId }
       );
     }

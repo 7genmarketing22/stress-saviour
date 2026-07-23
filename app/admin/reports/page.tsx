@@ -21,6 +21,7 @@ import {
 } from "@/lib/admin/api";
 import type { AdminAppointment, AdminDoctor, AdminPayment } from "@/lib/admin/types";
 import type { PaymentMethod, Profile } from "@/types";
+import { getErrorMessage } from "@/lib/errors";
 
 const CHART_COLORS = ["#0d9488", "#0ea5e9", "#f59e0b", "#8b5cf6", "#ef4444"];
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -61,7 +62,7 @@ export default function AdminReportsPage() {
       setAppointments(apts);
       setPayments(pays);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load reports");
+      setError(getErrorMessage(err, "Failed to load reports"));
     } finally {
       setIsLoading(false);
     }

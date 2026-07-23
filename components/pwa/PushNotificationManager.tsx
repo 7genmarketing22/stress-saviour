@@ -1,16 +1,49 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BellRing, X } from "lucide-react";
+import { BellRing, X, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { getErrorMessage } from "@/lib/errors";
+import { useNotifications } from "@/contexts/NotificationContext";
 
-const DISMISSED_KEY = "push-notification-prompt-dismissed";
+/** Persists across logins / new tabs (unlike sessionStorage). */
+const PROMPT_HANDLED_KEY = "push-notification-prompt-handled";
+
+function wasPromptHandled(): boolean {
+  try {
+    return localStorage.getItem(PROMPT_HANDLED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function markPromptHandled(): void {
+  try {
+    localStorage.setItem(PROMPT_HANDLED_KEY, "true");
+  } catch {
+    // private mode / blocked storage — ignore
+  }
+}
 
 function urlBase64ToArrayBuffer(value: string): ArrayBuffer {
   const padding = "=".repeat((4 - (value.length % 4)) % 4);
   const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
   const bytes = Uint8Array.from(window.atob(base64), (character) => character.charCodeAt(0));
   return bytes.buffer as ArrayBuffer;
+}
+
+async function ensureServiceWorker(): Promise<ServiceWorkerRegistration> {
+  if (!("serviceWorker" in navigator)) {
+    throw new Error("Service workers are not supported in this browser");
+  }
+  const existing = await navigator.serviceWorker.getRegistration("/");
+  if (existing) {
+    await navigator.serviceWorker.ready;
+    return existing;
+  }
+  const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+  await navigator.serviceWorker.ready;
+  return registration;
 }
 
 async function saveSubscription(subscription: PushSubscription) {
@@ -27,7 +60,7 @@ async function subscribeForPush() {
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   if (!publicKey) throw new Error("Push notifications are not configured");
 
-  const registration = await navigator.serviceWorker.ready;
+  const registration = await ensureServiceWorker();
   const existing = await registration.pushManager.getSubscription();
   if (existing) {
     await saveSubscription(existing);
@@ -46,6 +79,8 @@ export function PushNotificationManager() {
   const [showPrompt, setShowPrompt] = useState(false);
   const [isEnabling, setIsEnabling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [justEnabled, setJustEnabled] = useState(false);
+  const { refresh } = useNotifications();
 
   const supported =
     typeof window !== "undefined" &&
@@ -56,16 +91,21 @@ export function PushNotificationManager() {
   useEffect(() => {
     if (!supported || !process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) return;
 
-    if (Notification.permission === "granted") {
+    const permission = Notification.permission;
+
+    if (permission === "granted") {
+      markPromptHandled();
       subscribeForPush().catch((subscriptionError) => {
         console.error("Unable to refresh push subscription", subscriptionError);
       });
       return;
     }
 
-    if (Notification.permission === "default" && sessionStorage.getItem(DISMISSED_KEY) !== "true") {
-      setShowPrompt(true);
+    if (permission === "denied" || wasPromptHandled()) {
+      return;
     }
+
+    setShowPrompt(true);
   }, [supported]);
 
   const enable = useCallback(async () => {
@@ -75,32 +115,81 @@ export function PushNotificationManager() {
     try {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
+        markPromptHandled();
         setShowPrompt(false);
         return;
       }
 
       await subscribeForPush();
-      setShowPrompt(false);
+      markPromptHandled();
 
       const testResponse = await fetch("/api/push/test", { method: "POST" });
+      const testBody = await testResponse.json().catch(() => ({}));
       if (!testResponse.ok) {
-        console.warn("Push enabled, but the test notification could not be sent");
+        console.warn("Push enabled, but the test notification could not be sent", testBody);
       }
+
+      // Refresh bell so the in-app test notification appears immediately.
+      try {
+        refresh();
+      } catch {
+        // NotificationProvider always wraps this component.
+      }
+
+      setJustEnabled(true);
+      setShowPrompt(false);
     } catch (enableError) {
-      setError(
-        enableError instanceof Error ? enableError.message : "Unable to enable notifications"
-      );
+      if (Notification.permission === "granted") {
+        markPromptHandled();
+      }
+      setError(getErrorMessage(enableError, "Unable to enable notifications"));
     } finally {
       setIsEnabling(false);
     }
-  }, []);
+  }, [refresh]);
 
   const dismiss = useCallback(() => {
-    sessionStorage.setItem(DISMISSED_KEY, "true");
+    markPromptHandled();
     setShowPrompt(false);
+    setJustEnabled(false);
   }, []);
 
-  if (!supported || !showPrompt) return null;
+  useEffect(() => {
+    if (!justEnabled) return;
+    const timer = setTimeout(() => setJustEnabled(false), 6000);
+    return () => clearTimeout(timer);
+  }, [justEnabled]);
+
+  if (!supported) return null;
+
+  if (justEnabled) {
+    return (
+      <aside
+        className="bg-background fixed right-4 bottom-4 left-4 z-[100] mx-auto max-w-md rounded-xl border p-4 shadow-xl"
+        aria-label="Notifications enabled"
+      >
+        <button
+          type="button"
+          onClick={dismiss}
+          className="text-muted-foreground hover:bg-muted absolute top-2 right-2 rounded-md p-1"
+          aria-label="Dismiss"
+        >
+          <X className="h-4 w-4" />
+        </button>
+        <div className="flex gap-3 pr-6">
+          <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-600" />
+          <div>
+            <p className="font-semibold">Notifications enabled</p>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Check your system notification tray and the bell icon — a test alert was sent to both.
+            </p>
+          </div>
+        </div>
+      </aside>
+    );
+  }
+
+  if (!showPrompt) return null;
 
   return (
     <aside
@@ -120,7 +209,7 @@ export function PushNotificationManager() {
         <div>
           <p className="font-semibold">Never miss an appointment</p>
           <p className="text-muted-foreground mt-1 text-sm">
-            Enable lock-screen reminders, including when the app is closed.
+            Enable system notifications on this device. Alerts also appear under the bell in the app.
           </p>
           {error && <p className="text-destructive mt-2 text-sm">{error}</p>}
           <Button className="mt-3" size="sm" onClick={enable} disabled={isEnabling}>

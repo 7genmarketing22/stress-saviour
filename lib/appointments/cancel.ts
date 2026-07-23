@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/client";
 import { createNotification } from "@/lib/notifications/api";
 import { initiateRefundForCancelledAppointment } from "@/lib/refunds/process";
 import type { CancellationActor, RefundDecision } from "@/lib/refunds/policy";
+import { getErrorMessage } from "@/lib/errors";
 
 function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString("en-PK", {
@@ -129,7 +130,7 @@ export async function finalizeAppointmentCancellation(params: {
       cancellationReason: params.cancellationReason,
     });
   } catch (err) {
-    refundError = err instanceof Error ? err.message : "Refund initiation failed";
+    refundError = getErrorMessage(err, "Refund initiation failed");
     console.error("Refund initiation failed after cancel:", refundError);
   }
 

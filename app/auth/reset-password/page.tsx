@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { createClient } from "@/lib/supabase/client";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -36,7 +37,7 @@ export default function ResetPasswordPage() {
       const { error: updateError } = await supabase.auth.updateUser({ password });
 
       if (updateError) {
-        setError(updateError.message);
+        setError(getErrorMessage(updateError, "Unable to update password. Please try again."));
         return;
       }
 

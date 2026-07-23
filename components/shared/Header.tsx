@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import {
   Bell, User, Settings, LogOut, ChevronDown, Menu,
   Calendar, CreditCard, ShieldCheck, Info, X, CheckCheck,
+  MessageSquare, ClipboardList,
 } from "lucide-react";
 import { logout } from "@/lib/auth/session";
 import { timeAgo } from "@/lib/doctor/mappers";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { useNotifications } from "@/contexts/NotificationContext";
 import type { AppNotification } from "@/lib/notifications/api";
+import { notificationHref } from "@/lib/notifications/links";
 
 interface HeaderProps {
   title: string;
@@ -28,35 +30,50 @@ function notifIcon(type: string | null) {
   if (type === "payment") return <CreditCard className="h-4 w-4 text-emerald-500" />;
   if (type === "payout") return <CreditCard className="h-4 w-4 text-violet-500" />;
   if (type === "approval") return <ShieldCheck className="h-4 w-4 text-blue-500" />;
+  if (type === "chat") return <MessageSquare className="h-4 w-4 text-sky-500" />;
+  if (type === "assessment") return <ClipboardList className="h-4 w-4 text-amber-500" />;
   return <Info className="h-4 w-4 text-muted-foreground" />;
 }
 
-function notifHref(n: AppNotification, role: string): string | null {
-  const m = n.metadata as Record<string, string> | null;
-  if (n.type === "appointment" && m?.appointment_id) {
-    if (role === "doctor") return "/doctor/appointments";
-    if (role === "patient") return "/patient/appointments";
-    return "/admin/appointments";
-  }
-  if (n.type === "payment" && m?.payment_id) {
-    if (role === "patient") return "/patient/payments";
-    if (role === "admin") return "/admin/payments";
-  }
-  if (n.type === "payout") return "/doctor/earnings";
-  if (n.type === "approval") {
-    if (role === "doctor") return "/doctor/profile";
-    if (role === "patient") return "/patient/dashboard";
-  }
-  return null;
-}
-
-function LiveToastBanner() {
-  const { liveToast, dismissToast } = useNotifications();
+function LiveToastBanner({ role }: { role: string }) {
+  const router = useRouter();
+  const { liveToast, dismissToast, markRead } = useNotifications();
 
   if (!liveToast) return null;
 
+  const href = notificationHref(
+    {
+      id: liveToast.id,
+      user_id: "",
+      title: liveToast.title,
+      message: liveToast.message,
+      type: liveToast.type,
+      is_read: false,
+      metadata: liveToast.metadata,
+      created_at: "",
+    },
+    role
+  );
+
+  const handleClick = () => {
+    markRead(liveToast.id);
+    dismissToast();
+    router.push(href);
+  };
+
   return (
-    <div className="fixed top-20 right-4 z-[60] flex items-start gap-3 w-80 rounded-xl border border-border bg-popover shadow-xl p-3 animate-in slide-in-from-right duration-300">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleClick();
+        }
+      }}
+      className="fixed top-20 right-4 z-[60] flex items-start gap-3 w-80 rounded-xl border border-border bg-popover shadow-xl p-3 animate-in slide-in-from-right duration-300 cursor-pointer hover:bg-accent/40"
+    >
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-900/30">
         {notifIcon(liveToast.type)}
       </div>
@@ -65,7 +82,10 @@ function LiveToastBanner() {
         <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{liveToast.message}</p>
       </div>
       <button
-        onClick={dismissToast}
+        onClick={(e) => {
+          e.stopPropagation();
+          dismissToast();
+        }}
         className="shrink-0 rounded-lg p-1 hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
       >
         <X className="h-3.5 w-3.5" />
@@ -114,11 +134,8 @@ export function Header({ title, user, onMenuClick }: HeaderProps) {
 
   const handleNotifClick = async (n: AppNotification) => {
     if (!n.is_read) markRead(n.id);
-    const href = notifHref(n, displayUser.role);
-    if (href) {
-      setShowNotifications(false);
-      router.push(href);
-    }
+    setShowNotifications(false);
+    router.push(notificationHref(n, displayUser.role));
   };
 
   // Close dropdown on outside click
@@ -136,7 +153,7 @@ export function Header({ title, user, onMenuClick }: HeaderProps) {
 
   return (
     <>
-      <LiveToastBanner />
+      <LiveToastBanner role={displayUser.role} />
 
       <header className="sticky top-0 z-20 flex h-16 w-full items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-md md:px-6">
         {/* Left side */}
@@ -197,16 +214,15 @@ export function Header({ title, user, onMenuClick }: HeaderProps) {
                 <div className="max-h-80 overflow-y-auto">
                   {notifications.length > 0 ? (
                     notifications.map((n) => {
-                      const href = notifHref(n, displayUser.role);
                       return (
                         <button
                           key={n.id}
                           onClick={() => handleNotifClick(n)}
-                          className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors border-b border-border/50 last:border-0 ${
+                          className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors border-b border-border/50 last:border-0 cursor-pointer ${
                             n.is_read
                               ? "hover:bg-accent/50"
                               : "bg-brand-50/60 dark:bg-brand-900/10 hover:bg-brand-100/60 dark:hover:bg-brand-900/20"
-                          } ${href ? "cursor-pointer" : "cursor-default"}`}
+                          }`}
                         >
                           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted mt-0.5">
                             {notifIcon(n.type)}

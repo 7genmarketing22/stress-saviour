@@ -23,6 +23,7 @@ import { AppointmentFinancialDetails } from "@/components/shared/AppointmentFina
 import { completeManualRefund } from "@/lib/refunds/process";
 import type { AdminAppointment } from "@/lib/admin/types";
 import type { AppointmentStatus, AppointmentType } from "@/types";
+import { getErrorMessage } from "@/lib/errors";
 
 const TYPE_LABEL: Record<AppointmentType, string> = {
   video: "Video",
@@ -98,7 +99,7 @@ export default function AdminAppointmentsPage() {
     try {
       setAppointments(await getAdminAppointments());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load appointments");
+      setError(getErrorMessage(err, "Failed to load appointments"));
     } finally {
       setIsLoading(false);
     }
@@ -116,7 +117,7 @@ export default function AdminAppointmentsPage() {
       await loadData();
       setSelected(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to cancel appointment");
+      setError(getErrorMessage(err, "Failed to cancel appointment"));
     } finally {
       setActionId(null);
     }
@@ -135,7 +136,7 @@ export default function AdminAppointmentsPage() {
         if (updated) setSelected(updated);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to process refund");
+      setError(getErrorMessage(err, "Failed to process refund"));
     } finally {
       setRefundProcessing(false);
     }

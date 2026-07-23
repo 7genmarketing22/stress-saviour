@@ -21,15 +21,19 @@ self.addEventListener("push", (event) => {
   }
 
   const title = payload.title || "Stress Saviors";
+  const url = payload.url || "/";
   const options = {
     body: payload.body || "You have a new notification.",
     icon: payload.icon || DEFAULT_ICON,
     badge: payload.badge || DEFAULT_BADGE,
-    tag: payload.tag,
-    renotify: Boolean(payload.tag),
+    tag: payload.tag || "stress-saviors",
+    renotify: true,
+    vibrate: [120, 60, 120],
+    // Keep visible a bit longer on desktop; mobile OS still controls tray behavior.
+    requireInteraction: false,
     data: {
-      ...payload.data,
-      url: payload.url || "/",
+      ...(payload.data || {}),
+      url,
     },
   };
 
@@ -50,16 +54,33 @@ self.addEventListener("notificationclick", (event) => {
   }
 
   event.waitUntil(
-    self.clients
-      .matchAll({ type: "window", includeUncontrolled: true })
-      .then(async (clientList) => {
-        for (const client of clientList) {
-          if ("navigate" in client) {
-            await client.navigate(targetUrl.href);
-          }
-          if ("focus" in client) return client.focus();
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clientList) => {
+      // Prefer focusing an existing tab on the same origin (desktop + mobile PWA).
+      for (const client of clientList) {
+        if (!("url" in client)) continue;
+        try {
+          const clientUrl = new URL(client.url);
+          if (clientUrl.origin !== self.location.origin) continue;
+        } catch {
+          continue;
         }
+
+        if ("focus" in client) {
+          await client.focus();
+        }
+        if ("navigate" in client) {
+          try {
+            await client.navigate(targetUrl.href);
+          } catch {
+            // Some mobile browsers block navigate; fall through to openWindow.
+          }
+        }
+        return;
+      }
+
+      if (self.clients.openWindow) {
         return self.clients.openWindow(targetUrl.href);
-      })
+      }
+    })
   );
 });

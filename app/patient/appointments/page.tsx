@@ -27,6 +27,7 @@ import { UserAvatar } from "@/components/shared/UserAvatar";
 import { AppointmentFinancialDetails } from "@/components/shared/AppointmentFinancialDetails";
 import { PaymentProofUpload } from "@/components/patient/PaymentProofUpload";
 import { fetchPlatformPaymentAccounts, FALLBACK_PAYMENT_ACCOUNTS, type PaymentAccountDetails, type BookablePaymentMethod } from "@/lib/payment/config";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function PatientAppointmentsPage() {
   const searchParams = useSearchParams();
@@ -75,7 +76,7 @@ export default function PatientAppointmentsPage() {
       if (accounts.length > 0) setPlatformAccounts(accounts);
     } catch (err) {
       if (!silent) {
-        setError(err instanceof Error ? err.message : "Failed to load appointments");
+        setError(getErrorMessage(err, "Failed to load appointments"));
         setAppointments([]);
       }
     } finally {
@@ -134,7 +135,7 @@ export default function PatientAppointmentsPage() {
       await cancelPatientAppointment(id);
       await loadAppointments();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to cancel appointment");
+      setError(getErrorMessage(err, "Failed to cancel appointment"));
     } finally {
       setActionLoading(false);
     }
@@ -154,7 +155,7 @@ export default function PatientAppointmentsPage() {
       setShowReviewModal(false);
       await loadAppointments();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to submit review");
+      setError(getErrorMessage(err, "Failed to submit review"));
     } finally {
       setActionLoading(false);
     }
@@ -189,7 +190,7 @@ export default function PatientAppointmentsPage() {
       setSuccessMessage("Payment proof uploaded. Admin will review and confirm your booking.");
       await loadAppointments();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to upload payment proof");
+      setError(getErrorMessage(err, "Failed to upload payment proof"));
     } finally {
       setActionLoading(false);
     }

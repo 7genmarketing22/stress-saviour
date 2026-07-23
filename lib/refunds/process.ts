@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { createNotification } from "@/lib/notifications/api";
 import {
   evaluateRefundPolicy,
   type CancellationActor,
@@ -85,15 +86,13 @@ async function notifyRefundInitiated(params: {
   refundAmount: number;
   note: string;
 }) {
-  const supabase = createClient();
-
-  await (supabase as any).rpc("create_notification", {
-    p_user_id: params.patientId,
-    p_title: "Refund initiated",
-    p_message: `A refund of PKR ${Math.round(params.refundAmount).toLocaleString("en-PK")} has been initiated for your cancelled appointment. ${params.note} You will be notified once it is processed (typically 3–5 business days).`,
-    p_type: "payment",
-    p_metadata: { appointment_id: params.appointmentId, refund_amount: params.refundAmount },
-  });
+  await createNotification(
+    params.patientId,
+    "Refund initiated",
+    `A refund of PKR ${Math.round(params.refundAmount).toLocaleString("en-PK")} has been initiated for your cancelled appointment. ${params.note} You will be notified once it is processed (typically 3–5 business days).`,
+    "payment",
+    { appointment_id: params.appointmentId, refund_amount: params.refundAmount }
+  );
 
   await fetch("/api/refunds/notify", {
     method: "POST",
@@ -137,13 +136,13 @@ export async function completeManualRefund(
 
   if (payment) {
     const amount = Number(payment.refund_amount ?? payment.amount);
-    await (supabase as any).rpc("create_notification", {
-      p_user_id: payment.patient_id,
-      p_title: "Refund completed",
-      p_message: `Your refund of PKR ${Math.round(amount).toLocaleString("en-PK")} has been processed (Ref: ${reference}). Funds will appear in your account within 3–5 business days.`,
-      p_type: "payment",
-      p_metadata: { payment_id: paymentId, reference },
-    }).catch(() => {});
+    await createNotification(
+      payment.patient_id,
+      "Refund completed",
+      `Your refund of PKR ${Math.round(amount).toLocaleString("en-PK")} has been processed (Ref: ${reference}). Funds will appear in your account within 3–5 business days.`,
+      "payment",
+      { payment_id: paymentId, reference }
+    ).catch(() => {});
 
     await fetch("/api/refunds/notify", {
       method: "POST",

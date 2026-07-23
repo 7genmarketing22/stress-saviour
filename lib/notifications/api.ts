@@ -17,6 +17,7 @@ export type NotificationType =
   | "payout"
   | "approval"
   | "chat"
+  | "assessment"
   | "system";
 
 /** Fetch the latest notifications for a user, newest first. */
@@ -53,9 +54,27 @@ export async function markAllNotificationsRead(userId: string): Promise<void> {
     .eq("is_read", false);
 }
 
+/** Ask the server to deliver a matching OS / lock-screen notification. */
+function dispatchSystemPush(payload: {
+  userId: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  metadata?: Record<string, unknown>;
+}): void {
+  if (typeof window === "undefined") return;
+  void fetch("/api/push/dispatch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }).catch(() => {
+    // Push is best-effort; bell notification already succeeded.
+  });
+}
+
 /**
- * Create a notification for any user via the SECURITY DEFINER RPC.
- * This bypasses RLS so any authenticated caller can notify any user_id.
+ * Create an in-app (bell) notification and, when the recipient has enabled Web Push,
+ * also deliver a system notification on desktop / mobile.
  */
 export async function createNotification(
   userId: string,
@@ -73,10 +92,12 @@ export async function createNotification(
     p_metadata: metadata ?? null,
   });
   if (error) throw error;
+
+  dispatchSystemPush({ userId, title, message, type, metadata });
 }
 
 /**
- * Notify all admin / super_admin users at once.
+ * Notify all admin / super_admin users at once (bell + system push).
  */
 export async function notifyAllAdmins(
   title: string,

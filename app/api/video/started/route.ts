@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { getErrorMessage } from "@/lib/errors";
 import { getSupabaseKey, getSupabaseUrl } from "@/lib/supabase/env";
 
 /** Mark a consultation ongoing only after the assigned doctor joins Jitsi. */
@@ -81,7 +82,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, status: "ongoing" });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Internal error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: getErrorMessage(err, "Internal error") },
+      { status: 500 }
+    );
   }
 }

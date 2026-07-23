@@ -1,4 +1,5 @@
 import webpush from "web-push";
+import { getErrorMessage } from "@/lib/errors";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 
 export interface PushPayload {
@@ -92,7 +93,7 @@ export async function sendPushToUsers(
         } else {
           console.error("Web Push delivery failed", {
             statusCode,
-            message: error instanceof Error ? error.message : String(error),
+            message: getErrorMessage(error, "Push delivery failed"),
           });
         }
       }

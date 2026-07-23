@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { Camera, Loader2 } from "lucide-react";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/errors";
 
 interface AvatarUploadProps {
   name: string;
@@ -35,7 +36,7 @@ export function AvatarUpload({
     try {
       await onUpload(file);
     } catch (err) {
-      onError?.(err instanceof Error ? err.message : "Failed to upload avatar");
+      onError?.(getErrorMessage(err, "Failed to upload avatar"));
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

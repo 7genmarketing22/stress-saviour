@@ -21,6 +21,7 @@ import { MENTAL_CONDITIONS, MENTAL_SYMPTOMS } from "@/lib/public/catalog";
 import { TaxonomyTagPicker } from "@/components/shared/TaxonomyTagPicker";
 import { uploadDoctorCertificate, removeDoctorCertificate, validateCertificateFile } from "@/lib/storage/certificates";
 import type { DoctorCertificate } from "@/lib/doctor/types";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function DoctorProfilePage() {
   const { profile, doctorProfile, documents, setProfile, setDoctorProfile, setDocuments, refresh } =
@@ -125,7 +126,7 @@ export default function DoctorProfilePage() {
       setCertificates(updated);
       showToast("Certificate uploaded successfully.");
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "Upload failed.");
+      showToast(getErrorMessage(err, "Upload failed."));
     } finally {
       setCertUploading(false);
       if (certInputRef.current) certInputRef.current.value = "";

@@ -34,6 +34,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
+import { getErrorMessage } from "@/lib/errors";
 
 const FILTER_TABS: { id: PrescriptionFilterType; label: string }[] = [
   { id: "all", label: "All" },
@@ -78,7 +79,7 @@ export default function PatientPrescriptionsPage() {
       const apts = await getPatientPrescriptionAppointments();
       setPrescriptions(buildPrescriptions(apts));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load prescriptions");
+      setError(getErrorMessage(err, "Failed to load prescriptions"));
       setPrescriptions([]);
     } finally {
       setLoading(false);

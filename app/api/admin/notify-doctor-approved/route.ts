@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getSupabaseUrl, getSupabaseKey } from "@/lib/supabase/env";
+import { getErrorMessage } from "@/lib/errors";
 
 // Sends an approval/rejection email to a doctor via Resend (if configured).
 // Falls back gracefully when RESEND_API_KEY is absent.
@@ -103,6 +104,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ sent: true });
   } catch (err) {
     console.error("notify-doctor-approved error:", err);
-    return NextResponse.json({ sent: false, reason: String(err) }, { status: 500 });
+    return NextResponse.json({ sent: false, reason: getErrorMessage(err, "Notify failed") }, { status: 500 });
   }
 }

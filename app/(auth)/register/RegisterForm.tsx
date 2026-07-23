@@ -27,6 +27,7 @@ import { MENTAL_CONDITIONS, MENTAL_SYMPTOMS } from "@/lib/public/catalog";
 import { TaxonomyTagPicker } from "@/components/shared/TaxonomyTagPicker";
 import { setDoctorTaxonomy } from "@/lib/doctor/taxonomy-api";
 import { cn } from "@/lib/utils";
+import { formatRegisterError } from "@/lib/errors";
 
 const accountFieldsSchema = z.object({
   fullName: z.string().min(2, "Name must be at least 2 characters"),
@@ -151,7 +152,7 @@ export default function RegisterForm() {
       });
 
       if (signUpError) {
-        setError(signUpError.message);
+        setError(formatRegisterError(signUpError));
         return;
       }
 
@@ -168,21 +169,26 @@ export default function RegisterForm() {
 
       if (role === "doctor") {
         const doc = data as DoctorFormValues;
-        const { data: doctorProfile } = await supabase
-          .from("doctor_profiles")
-          .select("id")
-          .eq("user_id", authData.user.id)
-          .maybeSingle<{ id: string }>();
+        try {
+          const { data: doctorProfile } = await supabase
+            .from("doctor_profiles")
+            .select("id")
+            .eq("user_id", authData.user.id)
+            .maybeSingle<{ id: string }>();
 
-        if (doctorProfile?.id && doc.taxonomyTags.length > 0) {
-          await setDoctorTaxonomy(doctorProfile.id, doc.taxonomyTags);
+          if (doctorProfile?.id && doc.taxonomyTags.length > 0) {
+            await setDoctorTaxonomy(doctorProfile.id, doc.taxonomyTags);
+          }
+        } catch (taxonomyErr) {
+          // Account + doctor profile already created; taxonomy can be set later in profile.
+          console.warn("Doctor taxonomy sync after signup failed", taxonomyErr);
         }
       }
 
       router.refresh();
       router.push("/pending-review");
-    } catch {
-      setError("An unexpected error occurred");
+    } catch (err) {
+      setError(formatRegisterError(err));
     } finally {
       setLoading(false);
     }
@@ -279,7 +285,7 @@ export default function RegisterForm() {
                 <div className="relative">
                   <FileText className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <Input
-                    placeholder="PMDC-12345"
+                    placeholder="Your unique PMDC / PMC number"
                     className="pl-10 border-slate-200"
                     {...doctorForm.register("pmdcNumber")}
                   />
@@ -402,9 +408,14 @@ function Field({
 }
 
 function ErrorBanner({ message }: { message: string }) {
+  const text =
+    !message || message.trim() === "{}"
+      ? "Registration failed. Please check your details and try again."
+      : message;
+
   return (
     <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
-      {message}
+      {text}
     </p>
   );
 }

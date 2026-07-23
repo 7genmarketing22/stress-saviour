@@ -5,6 +5,7 @@ import { useChat } from "@/contexts/ChatContext";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { X, Search, MessageSquare, AlertCircle } from "lucide-react";
 import type { ChatParticipant } from "@/types/chat";
+import { getErrorMessage } from "@/lib/errors";
 
 interface NewChatDialogProps {
   open: boolean;
@@ -29,7 +30,7 @@ export function NewChatDialog({ open, onClose, allowedRoles }: NewChatDialogProp
         const data = await searchUsers(query, allowedRoles);
         setResults(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Search failed");
+        setError(getErrorMessage(err, "Search failed"));
       } finally {
         setLoading(false);
       }
@@ -44,7 +45,7 @@ export function NewChatDialog({ open, onClose, allowedRoles }: NewChatDialogProp
       await startConversation(user.id);
       handleClose();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to open conversation. Please try again.";
+      const msg = getErrorMessage(err, "Failed to open conversation. Please try again.");
       setError(msg);
     } finally {
       setStarting(null);

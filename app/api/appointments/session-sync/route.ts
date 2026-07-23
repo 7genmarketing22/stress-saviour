@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getSupabaseUrl, getSupabaseKey } from "@/lib/supabase/env";
 import { processAppointmentSessions } from "@/lib/appointments/process-sessions";
+import { getErrorMessage } from "@/lib/errors";
 
 /**
  * Lightweight sweep triggered when a doctor/patient dashboard loads.
@@ -33,7 +34,9 @@ export async function POST() {
     const result = await processAppointmentSessions();
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Internal error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: getErrorMessage(err, "Internal error") },
+      { status: 500 }
+    );
   }
 }
