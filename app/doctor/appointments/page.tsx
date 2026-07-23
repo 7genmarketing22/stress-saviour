@@ -32,7 +32,7 @@ import {
   saveClinicalRecords,
   updateAppointment,
 } from "@/lib/doctor/api";
-import { mapStatusToDb, mapToUIAppointment } from "@/lib/doctor/mappers";
+import { mapStatusToDb, mapToUIAppointment, formatSlotRange } from "@/lib/doctor/mappers";
 
 interface Appointment {
   id: string;
@@ -239,7 +239,9 @@ export default function DoctorAppointmentsPage() {
         blockTimeForm.timeStart,
         blockTimeForm.timeEnd
       );
-      showToast(`Time slot blocked on ${blockTimeForm.date} (${blockTimeForm.timeStart}–${blockTimeForm.timeEnd}).`);
+      showToast(
+        `Time slot blocked on ${blockTimeForm.date} (${formatSlotRange(blockTimeForm.timeStart, blockTimeForm.timeEnd)}).`
+      );
       setShowBlockTimeModal(false);
     } catch {
       showToast("Failed to block time slot.");

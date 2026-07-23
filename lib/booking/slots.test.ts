@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   filterPastSlotsForToday,
+  formatSlotTime,
   generateTimeSlotsForDate,
   getPkTodayDate,
   getSessionDurationForDate,
@@ -122,5 +123,16 @@ describe("getSessionDurationForDate", () => {
 
   it("falls back when no availability exists for the day", () => {
     assert.equal(getSessionDurationForDate(mondaySlots, "2026-07-12", 30), 30);
+  });
+});
+
+describe("formatSlotTime", () => {
+  it("formats 24-hour times as 12-hour with AM/PM", () => {
+    assert.equal(formatSlotTime("09:00"), "9:00 AM");
+    assert.equal(formatSlotTime("12:00"), "12:00 PM");
+    assert.equal(formatSlotTime("12:30"), "12:30 PM");
+    assert.equal(formatSlotTime("17:00"), "5:00 PM");
+    assert.equal(formatSlotTime("17:30"), "5:30 PM");
+    assert.equal(formatSlotTime("00:00"), "12:00 AM");
   });
 });

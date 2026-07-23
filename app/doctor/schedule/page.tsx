@@ -685,9 +685,9 @@ export default function DoctorSchedulePage() {
                         </div>
                         <p className="text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">
                           {slot.start_time && slot.end_time
-                            ? `${slot.start_time} – ${slot.end_time}`
+                            ? `${formatTime(slot.start_time.slice(0, 5))} – ${formatTime(slot.end_time.slice(0, 5))}`
                             : slot.start_time
-                              ? `From ${slot.start_time}`
+                              ? `From ${formatTime(slot.start_time.slice(0, 5))}`
                               : "Full day"}
                           {" · "}
                           {slot.reason}

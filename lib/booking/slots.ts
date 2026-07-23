@@ -150,12 +150,15 @@ export function getAvailableWeekdays(slots: AvailabilitySlot[]): number[] {
   return [...new Set(slots.map((s) => s.day_of_week))].sort();
 }
 
+/** Format HH:MM (24h) as 12-hour time with AM/PM, e.g. "17:00" → "5:00 PM". */
+export function formatSlotTime(time: string): string {
+  const [h, m] = time.split(":").map(Number);
+  if (Number.isNaN(h)) return time;
+  const period = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 || 12;
+  return `${hour}:${String(m ?? 0).padStart(2, "0")} ${period}`;
+}
+
 export function formatSlotRange(start: string, end: string): string {
-  const fmt = (t: string) => {
-    const [h, m] = t.split(":").map(Number);
-    const period = h >= 12 ? "PM" : "AM";
-    const hour = h % 12 || 12;
-    return `${hour}:${String(m).padStart(2, "0")} ${period}`;
-  };
-  return `${fmt(start)} – ${fmt(end)}`;
+  return `${formatSlotTime(start)} – ${formatSlotTime(end)}`;
 }

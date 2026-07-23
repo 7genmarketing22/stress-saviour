@@ -25,11 +25,37 @@ function markPromptHandled(): void {
   }
 }
 
-function urlBase64ToArrayBuffer(value: string): ArrayBuffer {
+/** Strip quotes/whitespace that often break Vercel-copied VAPID keys. */
+function sanitizeVapidPublicKey(raw: string): string {
+  return raw.trim().replace(/^["']|["']$/g, "").replace(/\s+/g, "");
+}
+
+/** Chrome expects a Uint8Array applicationServerKey (not a raw ArrayBuffer). */
+function urlBase64ToUint8Array(value: string): Uint8Array {
   const padding = "=".repeat((4 - (value.length % 4)) % 4);
   const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const bytes = Uint8Array.from(window.atob(base64), (character) => character.charCodeAt(0));
-  return bytes.buffer as ArrayBuffer;
+  const raw = window.atob(base64);
+  const output = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i += 1) {
+    output[i] = raw.charCodeAt(i);
+  }
+  return output;
+}
+
+function mapPushSubscribeError(err: unknown): string {
+  const message = getErrorMessage(err, "Unable to enable notifications");
+  const lower = message.toLowerCase();
+
+  if (
+    lower.includes("push service error") ||
+    lower.includes("registration failed") ||
+    lower.includes("applicationServerKey") ||
+    lower.includes("invalid")
+  ) {
+    return "Push setup failed. On Vercel, set a matching NEXT_PUBLIC_VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY pair (npm run push:generate-keys), redeploy, then try again.";
+  }
+
+  return message;
 }
 
 async function ensureServiceWorker(): Promise<ServiceWorkerRegistration> {
@@ -37,7 +63,7 @@ async function ensureServiceWorker(): Promise<ServiceWorkerRegistration> {
     throw new Error("Service workers are not supported in this browser");
   }
   const existing = await navigator.serviceWorker.getRegistration("/");
-  if (existing) {
+  if (existing?.active) {
     await navigator.serviceWorker.ready;
     return existing;
   }
@@ -56,23 +82,67 @@ async function saveSubscription(subscription: PushSubscription) {
   if (!response.ok) throw new Error("Unable to save push subscription");
 }
 
+async function subscribeWithKey(
+  registration: ServiceWorkerRegistration,
+  applicationServerKey: Uint8Array
+): Promise<PushSubscription> {
+  return registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    // DOM typings are stricter than browsers; Uint8Array is the required runtime form.
+    applicationServerKey: applicationServerKey as BufferSource,
+  });
+}
+
 async function subscribeForPush() {
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  if (!publicKey) throw new Error("Push notifications are not configured");
+  const rawKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  if (!rawKey) throw new Error("Push notifications are not configured");
+
+  const publicKey = sanitizeVapidPublicKey(rawKey);
+  let applicationServerKey: Uint8Array;
+  try {
+    applicationServerKey = urlBase64ToUint8Array(publicKey);
+  } catch {
+    throw new Error(
+      "Invalid VAPID public key. Generate a new pair with npm run push:generate-keys and update Vercel env vars."
+    );
+  }
+
+  // Uncompressed EC public keys are 65 bytes; reject obviously wrong values early.
+  if (applicationServerKey.byteLength < 65) {
+    throw new Error(
+      "Invalid VAPID public key length. Use the publicKey from npm run push:generate-keys (not the private key)."
+    );
+  }
 
   const registration = await ensureServiceWorker();
   const existing = await registration.pushManager.getSubscription();
+
   if (existing) {
-    await saveSubscription(existing);
-    return existing;
+    try {
+      await saveSubscription(existing);
+      return existing;
+    } catch {
+      // Stale subscription (old VAPID / expired endpoint) — drop and recreate.
+      await existing.unsubscribe().catch(() => {});
+    }
   }
 
-  const subscription = await registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToArrayBuffer(publicKey),
-  });
-  await saveSubscription(subscription);
-  return subscription;
+  try {
+    const subscription = await subscribeWithKey(registration, applicationServerKey);
+    await saveSubscription(subscription);
+    return subscription;
+  } catch (firstError) {
+    // Retry once after clearing any half-registered subscription.
+    const leftover = await registration.pushManager.getSubscription();
+    if (leftover) await leftover.unsubscribe().catch(() => {});
+    try {
+      const subscription = await subscribeWithKey(registration, applicationServerKey);
+      await saveSubscription(subscription);
+      return subscription;
+    } catch {
+      throw firstError;
+    }
+  }
 }
 
 export function PushNotificationManager() {
@@ -129,7 +199,6 @@ export function PushNotificationManager() {
         console.warn("Push enabled, but the test notification could not be sent", testBody);
       }
 
-      // Refresh bell so the in-app test notification appears immediately.
       try {
         refresh();
       } catch {
@@ -139,10 +208,7 @@ export function PushNotificationManager() {
       setJustEnabled(true);
       setShowPrompt(false);
     } catch (enableError) {
-      if (Notification.permission === "granted") {
-        markPromptHandled();
-      }
-      setError(getErrorMessage(enableError, "Unable to enable notifications"));
+      setError(mapPushSubscribeError(enableError));
     } finally {
       setIsEnabling(false);
     }

@@ -6,6 +6,7 @@ import {
   isSlotSelectable,
   type SlotUiStatus,
 } from "@/lib/booking/slot-status";
+import { formatSlotTime } from "@/lib/booking/slots";
 
 interface SlotTimePickerProps {
   timeOptions: string[];
@@ -78,7 +79,7 @@ export function SlotTimePicker({
                     : "border-slate-200 text-slate-700 hover:border-brand-200"
             }`}
           >
-            {time}
+            {formatSlotTime(time)}
             {status !== "available" && (
               <span className="ml-1 text-[10px] normal-case no-underline">
                 {STATUS_LABEL[status]}
