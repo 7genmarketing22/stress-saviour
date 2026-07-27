@@ -71,6 +71,26 @@ export async function markChatNotificationsRead(
     .contains("metadata", { conversationId });
 }
 
+/**
+ * Create a chat notification for a conversation, replacing prior unread
+ * chat notifications for the same thread so the bell shows only the latest message.
+ */
+export async function createChatNotification(
+  userId: string,
+  senderName: string,
+  messagePreview: string,
+  conversationId: string
+): Promise<void> {
+  await markChatNotificationsRead(userId, conversationId);
+  await createNotification(
+    userId,
+    senderName.trim() || "New message",
+    messagePreview.trim() || "Sent a message",
+    "chat",
+    { conversationId }
+  );
+}
+
 /** Ask the server to deliver a matching OS / lock-screen notification. */
 function dispatchSystemPush(payload: {
   userId: string;

@@ -91,6 +91,15 @@ export function resolveNotificationPath(
     return "/admin/dashboard";
   }
 
+  if (type === "chat") {
+    const base = BY_TYPE.chat[portal];
+    const conversationId =
+      typeof m.conversationId === "string" ? m.conversationId : null;
+    return conversationId
+      ? `${base}?conversation=${encodeURIComponent(conversationId)}`
+      : base;
+  }
+
   const byRole = type ? BY_TYPE[type] : undefined;
   if (byRole) return byRole[portal];
 

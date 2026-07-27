@@ -60,7 +60,10 @@ export function NotificationProvider({ userId, children }: Props) {
   const refresh = useCallback(async () => {
     try {
       const data = await getNotifications(userId, 20);
-      setNotifications(data);
+      // Don't clutter the bell with chat messages already seen in chat
+      setNotifications(
+        data.filter((n) => !(n.type === "chat" && n.is_read))
+      );
     } catch {
       // silent - keep stale data
     }
@@ -76,19 +79,44 @@ export function NotificationProvider({ userId, children }: Props) {
 
   const handleNewNotification = useCallback((n: AppNotification) => {
     const activeChatId = activeChatConversationIdRef.current;
+    const conversationId = notificationConversationId(n);
     const isActiveChatNotif =
       n.type === "chat" &&
       !!activeChatId &&
-      notificationConversationId(n) === activeChatId;
+      conversationId === activeChatId;
 
     // Already viewing this chat — keep bell unread clear and skip toast.
     if (isActiveChatNotif) {
-      setNotifications((prev) => [{ ...n, is_read: true }, ...prev].slice(0, 20));
+      setNotifications((prev) =>
+        [
+          { ...n, is_read: true },
+          ...prev.filter(
+            (x) =>
+              !(
+                x.type === "chat" &&
+                notificationConversationId(x) === conversationId
+              )
+          ),
+        ].slice(0, 20)
+      );
       void markNotificationRead(n.id).catch(() => {});
       return;
     }
 
-    setNotifications((prev) => [n, ...prev].slice(0, 20));
+    // Chat: keep only the latest message per conversation in the bell list
+    setNotifications((prev) => {
+      const next =
+        n.type === "chat" && conversationId
+          ? prev.filter(
+              (x) =>
+                !(
+                  x.type === "chat" &&
+                  notificationConversationId(x) === conversationId
+                )
+            )
+          : prev;
+      return [n, ...next].slice(0, 20);
+    });
 
     // Show a live toast for 5 seconds
     setLiveToast({
@@ -116,13 +144,15 @@ export function NotificationProvider({ userId, children }: Props) {
 
   const markChatConversationRead = useCallback(
     async (conversationId: string) => {
+      // Drop chat notifications for this thread from the bell list entirely —
+      // the user has already seen the messages in chat.
       setNotifications((prev) =>
-        prev.map((n) =>
-          n.type === "chat" &&
-          !n.is_read &&
-          notificationConversationId(n) === conversationId
-            ? { ...n, is_read: true }
-            : n
+        prev.filter(
+          (n) =>
+            !(
+              n.type === "chat" &&
+              notificationConversationId(n) === conversationId
+            )
         )
       );
       setLiveToast((prev) => {

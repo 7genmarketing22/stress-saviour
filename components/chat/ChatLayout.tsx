@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ConversationList } from "./ConversationList";
 import { ChatWindow } from "./ChatWindow";
 import { useChat } from "@/contexts/ChatContext";
@@ -11,9 +12,29 @@ interface ChatLayoutProps {
 }
 
 export function ChatLayout({ allowedRoles }: ChatLayoutProps) {
-  const { activeConversationId } = useChat();
+  const { activeConversationId, openConversation, conversations, isLoadingConversations } =
+    useChat();
+  const searchParams = useSearchParams();
+  const openedFromQuery = useRef<string | null>(null);
   // On mobile, track which panel is visible
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+
+  // Open the conversation linked from a header notification click
+  useEffect(() => {
+    const conversationId = searchParams.get("conversation");
+    if (!conversationId || isLoadingConversations) return;
+    if (openedFromQuery.current === conversationId) return;
+    if (!conversations.some((c) => c.id === conversationId)) return;
+
+    openedFromQuery.current = conversationId;
+    openConversation(conversationId);
+    setMobileView("chat");
+  }, [
+    searchParams,
+    conversations,
+    isLoadingConversations,
+    openConversation,
+  ]);
 
   const handleSelectConversation = () => {
     setMobileView("chat");
@@ -58,7 +79,7 @@ export function ChatLayout({ allowedRoles }: ChatLayoutProps) {
 
 function EmptyState() {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-8 bg-muted/20">
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center px-8 bg-muted/20">
       <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
         <MessageSquare className="w-10 h-10 text-primary" />
       </div>

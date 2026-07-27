@@ -78,7 +78,9 @@ function LiveToastBanner({ role }: { role: string }) {
         {notifIcon(liveToast.type)}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold leading-tight">{liveToast.title}</p>
+        <p className="text-sm font-semibold leading-tight">
+          {liveToast.type === "chat" ? `Message from ${liveToast.title}` : liveToast.title}
+        </p>
         <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{liveToast.message}</p>
       </div>
       <button
@@ -229,7 +231,7 @@ export function Header({ title, user, onMenuClick }: HeaderProps) {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className={`text-xs leading-snug ${n.is_read ? "font-medium text-foreground" : "font-semibold text-foreground"}`}>
-                              {n.title}
+                              {n.type === "chat" ? `Message from ${n.title}` : n.title}
                             </p>
                             <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
                               {n.message}

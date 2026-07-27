@@ -31,7 +31,7 @@ import type {
   MessageRead,
   ChatParticipant,
 } from "@/types/chat";
-import { createNotification } from "@/lib/notifications/api";
+import { createChatNotification } from "@/lib/notifications/api";
 import { useNotifications } from "@/contexts/NotificationContext";
 
 interface ChatContextValue {
@@ -213,16 +213,15 @@ export function ChatProvider({
           )
         );
 
-        // Notify the other participant
+        // Notify the other participant (one latest message per conversation in the bell)
         const activeConv = conversations.find((c) => c.id === activeConversationId);
         if (activeConv) {
           const preview = body?.trim()?.slice(0, 60) ?? (attachment?.type === "image" ? "Sent an image" : "Sent a file");
-          createNotification(
+          createChatNotification(
             activeConv.other_user.id,
             myName,
             preview,
-            "chat",
-            { conversationId: activeConversationId }
+            activeConversationId
           ).catch(() => {});
         }
       } catch {
