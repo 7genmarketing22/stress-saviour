@@ -32,6 +32,7 @@ import type {
   ChatParticipant,
 } from "@/types/chat";
 import { createNotification } from "@/lib/notifications/api";
+import { useNotifications } from "@/contexts/NotificationContext";
 
 interface ChatContextValue {
   // State
@@ -86,6 +87,8 @@ export function ChatProvider({
   const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const typingTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const activeConversationIdRef = useRef<string | null>(null);
+  const { markChatConversationRead, setActiveChatConversationId } = useNotifications();
 
   // ── Conversations ────────────────────────────────────────
   const refreshConversations = useCallback(async () => {
@@ -110,6 +113,8 @@ export function ChatProvider({
   const openConversation = useCallback(
     async (conversationId: string) => {
       setActiveConversationId(conversationId);
+      activeConversationIdRef.current = conversationId;
+      setActiveChatConversationId(conversationId);
       setMessages([]);
       setReplyTo(null);
       setTypingUsers({});
@@ -118,8 +123,9 @@ export function ChatProvider({
         const data = await getMessages(conversationId, myId);
         setMessages(data.reverse()); // oldest first for rendering
         setHasMoreMessages(data.length === 40);
-        // mark as read
+        // mark as read in chat + clear matching header bell notifications
         await markConversationRead(conversationId, myId);
+        markChatConversationRead(conversationId);
         setConversations((prev) =>
           prev.map((c) =>
             c.id === conversationId ? { ...c, unread_count: 0 } : c
@@ -129,7 +135,7 @@ export function ChatProvider({
         setIsLoadingMessages(false);
       }
     },
-    [myId]
+    [myId, markChatConversationRead, setActiveChatConversationId]
   );
 
   // ── Start new conversation ───────────────────────────────
@@ -307,21 +313,40 @@ export function ChatProvider({
   }, [activeConversationId, hasMoreMessages, isLoadingMessages, messages, myId]);
 
   // ── Realtime callbacks ────────────────────────────────────
-  const handleNewMessage = useCallback((msg: ChatMessage) => {
-    setMessages((prev) => [...prev, msg]);
-    setConversations((prev) =>
-      prev.map((c) =>
-        c.id === msg.conversation_id
-          ? {
-              ...c,
-              last_message: msg.body ?? (msg.attachment?.type === "image" ? "📷 Image" : "📎 File"),
-              last_message_at: msg.created_at,
-              unread_count: c.unread_count + 1,
-            }
-          : c
-      )
-    );
-  }, []);
+  const handleNewMessage = useCallback(
+    (msg: ChatMessage) => {
+      const isActive = msg.conversation_id === activeConversationIdRef.current;
+      const isIncoming = msg.sender_id !== myId;
+
+      setMessages((prev) => {
+        // Only append to the open thread
+        if (!isActive) return prev;
+        if (prev.some((m) => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
+
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === msg.conversation_id
+            ? {
+                ...c,
+                last_message:
+                  msg.body ?? (msg.attachment?.type === "image" ? "📷 Image" : "📎 File"),
+                last_message_at: msg.created_at,
+                unread_count: isActive || !isIncoming ? 0 : c.unread_count + 1,
+              }
+            : c
+        )
+      );
+
+      // Viewing this thread — keep chat + header notifications cleared
+      if (isActive && isIncoming) {
+        void markConversationRead(msg.conversation_id, myId).catch(() => {});
+        markChatConversationRead(msg.conversation_id);
+      }
+    },
+    [myId, markChatConversationRead]
+  );
 
   const handleMessageUpdated = useCallback(
     (msgId: string, patch: Partial<ChatMessage>) => {
@@ -380,11 +405,13 @@ export function ChatProvider({
       await apiDeleteConv(activeConversationId, myId);
       setConversations((prev) => prev.filter((c) => c.id !== activeConversationId));
       setActiveConversationId(null);
+      activeConversationIdRef.current = null;
+      setActiveChatConversationId(null);
       setMessages([]);
     } catch (err) {
       console.error("Failed to delete chat:", err);
     }
-  }, [activeConversationId, myId]);
+  }, [activeConversationId, myId, setActiveChatConversationId]);
 
   const { broadcastTyping } = useChatRealtime({
     conversationId: activeConversationId,

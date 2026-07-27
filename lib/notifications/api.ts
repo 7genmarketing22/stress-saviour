@@ -54,6 +54,23 @@ export async function markAllNotificationsRead(userId: string): Promise<void> {
     .eq("is_read", false);
 }
 
+/**
+ * Mark unread chat notifications for a specific conversation as read.
+ * Used when the user opens / views that conversation so the header bell stays in sync.
+ */
+export async function markChatNotificationsRead(
+  userId: string,
+  conversationId: string
+): Promise<void> {
+  const supabase = createClient();
+  await (supabase.from("notifications") as any)
+    .update({ is_read: true })
+    .eq("user_id", userId)
+    .eq("type", "chat")
+    .eq("is_read", false)
+    .contains("metadata", { conversationId });
+}
+
 /** Ask the server to deliver a matching OS / lock-screen notification. */
 function dispatchSystemPush(payload: {
   userId: string;

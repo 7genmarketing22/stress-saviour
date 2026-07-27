@@ -5,6 +5,7 @@ import {
   getNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  markChatNotificationsRead,
   type AppNotification,
 } from "@/lib/notifications/api";
 import { useNotificationsRealtime } from "@/lib/realtime/useNotificationsRealtime";
@@ -25,6 +26,10 @@ interface NotificationContextValue {
   dismissToast: () => void;
   markRead: (id: string) => void;
   markAllRead: () => void;
+  /** Clear header unread for chat notifications tied to an opened conversation. */
+  markChatConversationRead: (conversationId: string) => void;
+  /** Tell the bell which chat is open so new chat notifs for it stay read. */
+  setActiveChatConversationId: (conversationId: string | null) => void;
   refresh: () => void;
 }
 
@@ -41,10 +46,16 @@ interface Props {
   children: React.ReactNode;
 }
 
+function notificationConversationId(n: AppNotification): string | null {
+  const id = n.metadata?.conversationId;
+  return typeof id === "string" ? id : null;
+}
+
 export function NotificationProvider({ userId, children }: Props) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [liveToast, setLiveToast] = useState<LiveToast | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeChatConversationIdRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -59,7 +70,24 @@ export function NotificationProvider({ userId, children }: Props) {
     if (userId) refresh();
   }, [userId, refresh]);
 
+  const setActiveChatConversationId = useCallback((conversationId: string | null) => {
+    activeChatConversationIdRef.current = conversationId;
+  }, []);
+
   const handleNewNotification = useCallback((n: AppNotification) => {
+    const activeChatId = activeChatConversationIdRef.current;
+    const isActiveChatNotif =
+      n.type === "chat" &&
+      !!activeChatId &&
+      notificationConversationId(n) === activeChatId;
+
+    // Already viewing this chat — keep bell unread clear and skip toast.
+    if (isActiveChatNotif) {
+      setNotifications((prev) => [{ ...n, is_read: true }, ...prev].slice(0, 20));
+      void markNotificationRead(n.id).catch(() => {});
+      return;
+    }
+
     setNotifications((prev) => [n, ...prev].slice(0, 20));
 
     // Show a live toast for 5 seconds
@@ -86,6 +114,32 @@ export function NotificationProvider({ userId, children }: Props) {
     await markAllNotificationsRead(userId).catch(() => {});
   }, [userId]);
 
+  const markChatConversationRead = useCallback(
+    async (conversationId: string) => {
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.type === "chat" &&
+          !n.is_read &&
+          notificationConversationId(n) === conversationId
+            ? { ...n, is_read: true }
+            : n
+        )
+      );
+      setLiveToast((prev) => {
+        if (
+          prev?.type === "chat" &&
+          (prev.metadata?.conversationId as string | undefined) === conversationId
+        ) {
+          if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+          return null;
+        }
+        return prev;
+      });
+      await markChatNotificationsRead(userId, conversationId).catch(() => {});
+    },
+    [userId]
+  );
+
   const dismissToast = useCallback(() => {
     setLiveToast(null);
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -102,6 +156,8 @@ export function NotificationProvider({ userId, children }: Props) {
         dismissToast,
         markRead,
         markAllRead,
+        markChatConversationRead,
+        setActiveChatConversationId,
         refresh,
       }}
     >
