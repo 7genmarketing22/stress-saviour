@@ -427,6 +427,146 @@ export default function DoctorSchedulePage() {
 
         {/* Right Side: Constraints & Off-dates */}
         <div className="lg:col-span-4 space-y-6">
+          {/* Granular Slot Block-outs */}
+          <Card className="border-orange-200">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <Ban className="h-4 w-4 text-orange-500" />
+                  <CardTitle className="text-sm font-bold">Mark Slots as Off</CardTitle>
+                </div>
+                <CardDescription className="text-[10px] mt-0.5">
+                  Block specific time slots or full days — patients cannot book these
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost" size="sm"
+                className="h-8 w-8 p-0 text-orange-500"
+                onClick={() => setShowSlotBlockForm(!showSlotBlockForm)}
+              >
+                {showSlotBlockForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              </Button>
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+              {showSlotBlockForm && (
+                <form onSubmit={handleAddBlockedSlot} className="space-y-3 p-3 rounded-lg border border-orange-200 bg-orange-50/50 dark:bg-orange-950/10 animate-in fade-in duration-200">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-muted-foreground">Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={slotBlockDate}
+                      onChange={(e) => setSlotBlockDate(e.target.value)}
+                      className="w-full h-8 px-2 rounded border border-border text-xs bg-card"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-muted-foreground">From (optional)</label>
+                      <input
+                        type="time"
+                        value={slotBlockStart}
+                        onChange={(e) => setSlotBlockStart(e.target.value)}
+                        className="w-full h-8 px-2 rounded border border-border text-xs bg-card"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-muted-foreground">To (optional)</label>
+                      <input
+                        type="time"
+                        value={slotBlockEnd}
+                        onChange={(e) => setSlotBlockEnd(e.target.value)}
+                        className="w-full h-8 px-2 rounded border border-border text-xs bg-card"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Leave time blank to block the entire day.
+                  </p>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-muted-foreground">Reason</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Personal leave, Conference, Break"
+                      value={slotBlockReason}
+                      onChange={(e) => setSlotBlockReason(e.target.value)}
+                      className="w-full h-8 px-2 rounded border border-border text-xs bg-card"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={savingSlotBlock}
+                      className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-semibold h-7 text-xs"
+                    >
+                      {savingSlotBlock ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Block Slot"}
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowSlotBlockForm(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              )}
+
+              {loadingBlocked ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                </div>
+              ) : blockedSlots.length > 0 ? (
+                <div className="space-y-2">
+                  {blockedSlots.map((slot) => (
+                    <div
+                      key={slot.id}
+                      className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-orange-200 bg-orange-50/60 dark:bg-orange-950/10 text-xs hover:border-orange-300 transition-colors"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                          <Ban className="h-3.5 w-3.5 shrink-0 text-orange-500" />
+                          <span>
+                            {new Date(slot.blocked_date + "T12:00:00").toLocaleDateString("en-US", {
+                              weekday: "short", year: "numeric", month: "short", day: "numeric",
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">
+                          {slot.start_time && slot.end_time
+                            ? `${formatTime(slot.start_time.slice(0, 5))} – ${formatTime(slot.end_time.slice(0, 5))}`
+                            : slot.start_time
+                              ? `From ${formatTime(slot.start_time.slice(0, 5))}`
+                              : "Full day"}
+                          {" · "}
+                          {slot.reason}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        aria-label="Remove blocked slot"
+                        disabled={removingSlotId === slot.id}
+                        onClick={() => handleRemoveBlockedSlot(slot.id)}
+                        className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {removingSlotId === slot.id
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          : <Trash className="h-3.5 w-3.5" />}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-1.5 px-4 py-5 border border-dashed border-orange-200 rounded-lg text-center">
+                  <AlertCircle className="h-5 w-5 text-orange-300" />
+                  <p className="text-[10px] leading-relaxed text-muted-foreground text-center">
+                    No slots blocked yet.
+                    <br />
+                    Use + to mark unavailability.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Quick Presets */}
           <Card>
             <CardHeader>
@@ -556,18 +696,19 @@ export default function DoctorSchedulePage() {
               <div className="space-y-2">
                 {blockedDates.length > 0 ? (
                   blockedDates.map((block) => (
-                    <div key={block.id} className="flex items-center justify-between p-2.5 rounded-lg border border-border/80 bg-card text-xs hover:border-red-200 transition-colors group">
-                      <div>
+                    <div key={block.id} className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-border/80 bg-card text-xs hover:border-red-200 transition-colors">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 font-semibold text-foreground">
-                          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                          <Calendar className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                           <span>{new Date(block.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-0.5">{block.reason}</p>
                       </div>
                       <button
                         type="button"
+                        aria-label="Remove holiday block"
                         onClick={() => removeBlockDate(block.id)}
-                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all cursor-pointer"
+                        className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors cursor-pointer"
                       >
                         <Trash className="h-3.5 w-3.5" />
                       </button>
@@ -577,141 +718,6 @@ export default function DoctorSchedulePage() {
                   <p className="text-[10px] text-muted-foreground text-center py-4 border border-dashed rounded-lg">No holidays blocked yet.</p>
                 )}
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Granular Slot Block-outs */}
-          <Card className="border-orange-200">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <Ban className="h-4 w-4 text-orange-500" />
-                  <CardTitle className="text-sm font-bold">Mark Slots as Off</CardTitle>
-                </div>
-                <CardDescription className="text-[10px] mt-0.5">
-                  Block specific time slots or full days — patients cannot book these
-                </CardDescription>
-              </div>
-              <Button
-                variant="ghost" size="sm"
-                className="h-8 w-8 p-0 text-orange-500"
-                onClick={() => setShowSlotBlockForm(!showSlotBlockForm)}
-              >
-                {showSlotBlockForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-              </Button>
-            </CardHeader>
-
-            <CardContent className="space-y-4">
-              {showSlotBlockForm && (
-                <form onSubmit={handleAddBlockedSlot} className="space-y-3 p-3 rounded-lg border border-orange-200 bg-orange-50/50 dark:bg-orange-950/10 animate-in fade-in duration-200">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-semibold text-muted-foreground">Date *</label>
-                    <input
-                      type="date"
-                      required
-                      value={slotBlockDate}
-                      onChange={(e) => setSlotBlockDate(e.target.value)}
-                      className="w-full h-8 px-2 rounded border border-border text-xs bg-card"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-semibold text-muted-foreground">From (optional)</label>
-                      <input
-                        type="time"
-                        value={slotBlockStart}
-                        onChange={(e) => setSlotBlockStart(e.target.value)}
-                        className="w-full h-8 px-2 rounded border border-border text-xs bg-card"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-semibold text-muted-foreground">To (optional)</label>
-                      <input
-                        type="time"
-                        value={slotBlockEnd}
-                        onChange={(e) => setSlotBlockEnd(e.target.value)}
-                        className="w-full h-8 px-2 rounded border border-border text-xs bg-card"
-                      />
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    Leave time blank to block the entire day.
-                  </p>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-semibold text-muted-foreground">Reason</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Personal leave, Conference, Break"
-                      value={slotBlockReason}
-                      onChange={(e) => setSlotBlockReason(e.target.value)}
-                      className="w-full h-8 px-2 rounded border border-border text-xs bg-card"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      type="submit"
-                      size="sm"
-                      disabled={savingSlotBlock}
-                      className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-semibold h-7 text-xs"
-                    >
-                      {savingSlotBlock ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Block Slot"}
-                    </Button>
-                    <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowSlotBlockForm(false)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
-              )}
-
-              {loadingBlocked ? (
-                <div className="flex justify-center py-4">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                </div>
-              ) : blockedSlots.length > 0 ? (
-                <div className="space-y-2">
-                  {blockedSlots.map((slot) => (
-                    <div
-                      key={slot.id}
-                      className="flex items-center justify-between p-2.5 rounded-lg border border-orange-200 bg-orange-50/60 dark:bg-orange-950/10 text-xs group hover:border-orange-300 transition-colors"
-                    >
-                      <div>
-                        <div className="flex items-center gap-1.5 font-semibold text-foreground">
-                          <Ban className="h-3.5 w-3.5 text-orange-500" />
-                          <span>
-                            {new Date(slot.blocked_date + "T12:00:00").toLocaleDateString("en-US", {
-                              weekday: "short", year: "numeric", month: "short", day: "numeric",
-                            })}
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">
-                          {slot.start_time && slot.end_time
-                            ? `${formatTime(slot.start_time.slice(0, 5))} – ${formatTime(slot.end_time.slice(0, 5))}`
-                            : slot.start_time
-                              ? `From ${formatTime(slot.start_time.slice(0, 5))}`
-                              : "Full day"}
-                          {" · "}
-                          {slot.reason}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={removingSlotId === slot.id}
-                        onClick={() => handleRemoveBlockedSlot(slot.id)}
-                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all cursor-pointer disabled:opacity-50"
-                      >
-                        {removingSlotId === slot.id
-                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          : <Trash className="h-3.5 w-3.5" />}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-1.5 py-5 border border-dashed border-orange-200 rounded-lg">
-                  <AlertCircle className="h-5 w-5 text-orange-300" />
-                  <p className="text-[10px] text-muted-foreground">No slots blocked. Add blocks above to mark unavailability.</p>
-                </div>
-              )}
             </CardContent>
           </Card>
 
