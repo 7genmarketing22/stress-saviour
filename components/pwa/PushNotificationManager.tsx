@@ -81,13 +81,31 @@ function mapPushSubscribeError(err: unknown): string {
   if (
     lower.includes("push service error") ||
     lower.includes("registration failed") ||
-    lower.includes("applicationServerKey") ||
+    lower.includes("applicationserverkey") ||
     lower.includes("invalid")
   ) {
-    return "Push setup failed. On Vercel, set a matching NEXT_PUBLIC_VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY pair (npm run push:generate-keys), redeploy, then try again.";
+    return `Push setup failed (${message}). In Vercel: set matching NEXT_PUBLIC_VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY with no quotes, then Redeploy (NEXT_PUBLIC_ vars only update on a new build).`;
   }
 
   return message;
+}
+
+/** True when an existing browser subscription was created with the current VAPID public key. */
+function subscriptionUsesCurrentVapidKey(
+  subscription: PushSubscription,
+  expected: Uint8Array
+): boolean {
+  const current = subscription.options.applicationServerKey;
+  if (!current) return false;
+  const cur =
+    current instanceof ArrayBuffer
+      ? new Uint8Array(current)
+      : new Uint8Array(current as ArrayBuffer);
+  if (cur.byteLength !== expected.byteLength) return false;
+  for (let i = 0; i < cur.byteLength; i += 1) {
+    if (cur[i] !== expected[i]) return false;
+  }
+  return true;
 }
 
 async function ensureServiceWorker(): Promise<ServiceWorkerRegistration> {
@@ -183,15 +201,21 @@ async function subscribeWithKey(
   registration: ServiceWorkerRegistration,
   applicationServerKey: Uint8Array
 ): Promise<PushSubscription> {
+  // Copy into a clean ArrayBuffer — some Chromium builds reject shared/offset views.
+  const keyCopy = new Uint8Array(applicationServerKey);
   return registration.pushManager.subscribe({
     userVisibleOnly: true,
-    applicationServerKey: applicationServerKey as BufferSource,
+    applicationServerKey: keyCopy,
   });
 }
 
 async function subscribeForPush() {
   const rawKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  if (!rawKey) throw new Error("Push notifications are not configured");
+  if (!rawKey) {
+    throw new Error(
+      "Push notifications are not configured in this build. Set NEXT_PUBLIC_VAPID_PUBLIC_KEY on Vercel and Redeploy."
+    );
+  }
 
   const publicKey = sanitizeVapidPublicKey(rawKey);
   let applicationServerKey: Uint8Array;
@@ -203,9 +227,9 @@ async function subscribeForPush() {
     );
   }
 
-  if (applicationServerKey.byteLength < 65) {
+  if (applicationServerKey.byteLength !== 65) {
     throw new Error(
-      "Invalid VAPID public key length. Use the publicKey from npm run push:generate-keys (not the private key)."
+      `Invalid VAPID public key length (${applicationServerKey.byteLength}). Use the publicKey from npm run push:generate-keys (not the private key), with no quotes.`
     );
   }
 
@@ -213,10 +237,15 @@ async function subscribeForPush() {
   const existing = await registration.pushManager.getSubscription();
 
   if (existing) {
-    try {
-      await saveSubscription(existing);
-      return existing;
-    } catch {
+    if (subscriptionUsesCurrentVapidKey(existing, applicationServerKey)) {
+      try {
+        await saveSubscription(existing);
+        return existing;
+      } catch {
+        await existing.unsubscribe().catch(() => {});
+      }
+    } else {
+      // Old subscription used a different VAPID pair — must resubscribe.
       await existing.unsubscribe().catch(() => {});
     }
   }
@@ -258,6 +287,9 @@ export function PushNotificationManager() {
     setDenied(false);
 
     try {
+      // Unlock audio during this click so in-app bell works even if push subscribe fails.
+      await unlockNotificationSound();
+
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
         markPromptHandled();
@@ -270,18 +302,30 @@ export function PushNotificationManager() {
       markPromptHandled();
       markStandalonePrompted();
       await unlockNotificationSound();
+      playNotificationSound();
 
-      const testResponse = await fetch("/api/push/test", { method: "POST" });
+      const testResponse = await fetch("/api/push/test", {
+        method: "POST",
+        credentials: "same-origin",
+      });
       const testBody = await testResponse.json().catch(() => ({}));
       if (!testResponse.ok) {
         console.warn("Push enabled, but the test notification could not be sent", testBody);
+        const status = await fetch("/api/push/status")
+          .then((r) => r.json())
+          .catch(() => null);
+        const hint =
+          status && !status.configured
+            ? " Server is missing VAPID keys — add them on Vercel and Redeploy."
+            : status && !status.hasServiceRole
+              ? " Also set SUPABASE_SERVICE_ROLE_KEY on Vercel so push can be saved/sent."
+              : "";
         setError(
-          typeof testBody?.error === "string"
+          (typeof testBody?.error === "string"
             ? testBody.error
-            : "Subscription saved, but the test push failed. Check VAPID keys on the server."
+            : "Subscription saved, but the test push failed. Check VAPID keys on the server.") +
+            hint
         );
-      } else {
-        playNotificationSound();
       }
 
       try {

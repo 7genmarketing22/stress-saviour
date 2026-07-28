@@ -2,18 +2,18 @@
 
 const BELL_SRC = "/bell.wav";
 
-let audio: HTMLAudioElement | null = null;
+let shared: HTMLAudioElement | null = null;
 let unlocked = false;
 let lastPlayedAt = 0;
 
-function getAudio(): HTMLAudioElement | null {
+function getSharedAudio(): HTMLAudioElement | null {
   if (typeof window === "undefined") return null;
-  if (!audio) {
-    audio = new Audio(BELL_SRC);
-    audio.preload = "auto";
-    audio.volume = 0.85;
+  if (!shared) {
+    shared = new Audio(BELL_SRC);
+    shared.preload = "auto";
+    shared.volume = 0.85;
   }
-  return audio;
+  return shared;
 }
 
 /**
@@ -21,7 +21,7 @@ function getAudio(): HTMLAudioElement | null {
  * autoplay of the chime is allowed on desktop + mobile browsers.
  */
 export async function unlockNotificationSound(): Promise<void> {
-  const el = getAudio();
+  const el = getSharedAudio();
   if (!el) return;
   try {
     el.muted = true;
@@ -37,15 +37,27 @@ export async function unlockNotificationSound(): Promise<void> {
 
 /** Play the bell chime for a new message / notification (best-effort). */
 export function playNotificationSound(): void {
+  if (typeof window === "undefined") return;
+
   const now = Date.now();
   // Avoid double-play when realtime + push both fire within ~1s.
   if (now - lastPlayedAt < 900) return;
   lastPlayedAt = now;
 
-  const el = getAudio();
-  if (!el) return;
-
   const run = async () => {
+    // Fresh Audio() is more reliable on desktop Chrome than reusing one element.
+    try {
+      const el = new Audio(BELL_SRC);
+      el.volume = 0.85;
+      await el.play();
+      unlocked = true;
+      return;
+    } catch {
+      // fall through to shared element
+    }
+
+    const el = getSharedAudio();
+    if (!el) return;
     try {
       el.pause();
       el.currentTime = 0;
@@ -53,7 +65,6 @@ export function playNotificationSound(): void {
       await el.play();
       unlocked = true;
     } catch {
-      // Autoplay blocked until a user gesture unlocks audio.
       if (!unlocked) return;
     }
   };
