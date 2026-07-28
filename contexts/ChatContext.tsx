@@ -32,6 +32,7 @@ import type {
   ChatParticipant,
 } from "@/types/chat";
 import { createChatNotification } from "@/lib/notifications/api";
+import { playNotificationSound } from "@/lib/notifications/sound";
 import { useNotifications } from "@/contexts/NotificationContext";
 
 interface ChatContextValue {
@@ -339,6 +340,39 @@ export function ChatProvider({
             : c
         )
       );
+
+      if (isIncoming) {
+        // Always chime on incoming chat — including the open thread.
+        // (Push/OS tray still covers the case when the app is fully closed.)
+        playNotificationSound();
+
+        const tabHidden =
+          typeof document !== "undefined" && document.visibilityState === "hidden";
+        if (
+          (tabHidden || !isActive) &&
+          typeof window !== "undefined" &&
+          "Notification" in window &&
+          Notification.permission === "granted"
+        ) {
+          try {
+            const preview =
+              msg.body?.trim()?.slice(0, 80) ||
+              (msg.attachment?.type === "image" ? "Sent an image" : "Sent a file");
+            const n = new Notification("New message", {
+              body: preview,
+              icon: "/logo-192.png",
+              tag: `chat-${msg.conversation_id}`,
+              silent: false,
+            });
+            n.onclick = () => {
+              window.focus();
+              n.close();
+            };
+          } catch {
+            // Desktop Notification API unavailable — push / in-app toast still apply.
+          }
+        }
+      }
 
       // Viewing this thread — keep chat + header notifications cleared
       if (isActive && isIncoming) {

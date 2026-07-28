@@ -86,7 +86,8 @@ export function NotificationProvider({ userId, children }: Props) {
       !!activeChatId &&
       conversationId === activeChatId;
 
-    // Already viewing this chat — keep bell unread clear and skip toast.
+    // Already viewing this chat — keep bell unread clear and skip toast,
+    // but still play the chime (chat realtime may also play; sound is debounced).
     if (isActiveChatNotif) {
       setNotifications((prev) =>
         [
@@ -101,6 +102,7 @@ export function NotificationProvider({ userId, children }: Props) {
         ].slice(0, 20)
       );
       void markNotificationRead(n.id).catch(() => {});
+      playNotificationSound();
       return;
     }
 

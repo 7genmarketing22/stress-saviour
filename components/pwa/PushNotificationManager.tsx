@@ -74,6 +74,11 @@ function urlBase64ToUint8Array(value: string): Uint8Array {
   return output;
 }
 
+function isBraveBrowser(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /Brave/i.test(navigator.userAgent) || !!(navigator as Navigator & { brave?: unknown }).brave;
+}
+
 function mapPushSubscribeError(err: unknown): string {
   const message = getErrorMessage(err, "Unable to enable notifications");
   const lower = message.toLowerCase();
@@ -84,7 +89,10 @@ function mapPushSubscribeError(err: unknown): string {
     lower.includes("applicationserverkey") ||
     lower.includes("invalid")
   ) {
-    return `Push setup failed (${message}). In Vercel: set matching NEXT_PUBLIC_VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY with no quotes, then Redeploy (NEXT_PUBLIC_ vars only update on a new build).`;
+    if (isBraveBrowser()) {
+      return `Push blocked in Brave (${message}). Open brave://settings/privacy and enable "Use Google services for push messaging", then try again. Chrome/Edge usually work without that.`;
+    }
+    return `Push setup failed (${message}). Use Chrome or Edge, or reset site notifications for this domain (lock icon → Notifications → Reset), then try again. Also confirm Vercel VAPID keys match and the site was Redeployed.`;
   }
 
   return message;
@@ -112,13 +120,34 @@ async function ensureServiceWorker(): Promise<ServiceWorkerRegistration> {
   if (!("serviceWorker" in navigator)) {
     throw new Error("Service workers are not supported in this browser");
   }
-  const existing = await navigator.serviceWorker.getRegistration("/");
-  if (existing?.active) {
-    await navigator.serviceWorker.ready;
-    return existing;
+
+  let registration = await navigator.serviceWorker.getRegistration("/");
+  if (!registration) {
+    registration = await navigator.serviceWorker.register("/sw.js", {
+      scope: "/",
+      updateViaCache: "none",
+    });
   }
-  const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+
   await navigator.serviceWorker.ready;
+
+  // Desktop Chrome/Brave sometimes need an active controller before PushManager.subscribe.
+  if (!navigator.serviceWorker.controller) {
+    await new Promise<void>((resolve) => {
+      const onController = () => {
+        navigator.serviceWorker.removeEventListener("controllerchange", onController);
+        resolve();
+      };
+      navigator.serviceWorker.addEventListener("controllerchange", onController);
+      // Don't hang forever if the page was opened before SW existed.
+      window.setTimeout(() => {
+        navigator.serviceWorker.removeEventListener("controllerchange", onController);
+        resolve();
+      }, 2500);
+      registration?.update().catch(() => {});
+    });
+  }
+
   return registration;
 }
 
@@ -298,34 +327,47 @@ export function PushNotificationManager() {
         return;
       }
 
-      await subscribeForPush();
+      let pushReady = false;
+      try {
+        await subscribeForPush();
+        pushReady = true;
+      } catch (subscribeError) {
+        // Permission is granted — in-app + desktop Notification API still work while the tab is open.
+        console.warn("Web Push subscribe failed; continuing with in-app alerts", subscribeError);
+        setError(mapPushSubscribeError(subscribeError));
+      }
+
       markPromptHandled();
       markStandalonePrompted();
       await unlockNotificationSound();
       playNotificationSound();
 
-      const testResponse = await fetch("/api/push/test", {
-        method: "POST",
-        credentials: "same-origin",
-      });
-      const testBody = await testResponse.json().catch(() => ({}));
-      if (!testResponse.ok) {
-        console.warn("Push enabled, but the test notification could not be sent", testBody);
-        const status = await fetch("/api/push/status")
-          .then((r) => r.json())
-          .catch(() => null);
-        const hint =
-          status && !status.configured
-            ? " Server is missing VAPID keys — add them on Vercel and Redeploy."
-            : status && !status.hasServiceRole
-              ? " Also set SUPABASE_SERVICE_ROLE_KEY on Vercel so push can be saved/sent."
-              : "";
-        setError(
-          (typeof testBody?.error === "string"
-            ? testBody.error
-            : "Subscription saved, but the test push failed. Check VAPID keys on the server.") +
-            hint
-        );
+      if (pushReady) {
+        const testResponse = await fetch("/api/push/test", {
+          method: "POST",
+          credentials: "same-origin",
+        });
+        const testBody = await testResponse.json().catch(() => ({}));
+        if (!testResponse.ok) {
+          console.warn("Push enabled, but the test notification could not be sent", testBody);
+          const status = await fetch("/api/push/status")
+            .then((r) => r.json())
+            .catch(() => null);
+          const hint =
+            status && !status.configured
+              ? " Server is missing VAPID keys — add them on Vercel and Redeploy."
+              : status && !status.hasServiceRole
+                ? " Also set SUPABASE_SERVICE_ROLE_KEY on Vercel so push can be saved/sent."
+                : "";
+          setError(
+            (typeof testBody?.error === "string"
+              ? testBody.error
+              : "Subscription saved, but the test push failed. Check VAPID keys on the server.") +
+              hint
+          );
+        } else {
+          setError(null);
+        }
       }
 
       try {
@@ -335,7 +377,8 @@ export function PushNotificationManager() {
       }
 
       setJustEnabled(true);
-      setShowPrompt(false);
+      // Keep prompt open if push failed so the user can read the Brave/Chrome hint.
+      if (pushReady) setShowPrompt(false);
     } catch (enableError) {
       setError(mapPushSubscribeError(enableError));
       setShowPrompt(true);
@@ -472,7 +515,7 @@ export function PushNotificationManager() {
           <div>
             <p className="font-semibold">Notifications enabled on this device</p>
             <p className="text-muted-foreground mt-1 text-sm">
-              You should see a test alert in your notification tray. Keep this installed app open once after enabling so the subscription can sync.
+              You should hear the bell and see a test alert. Enable again on every device/account that should receive messages (patient, doctor, and admin each need their own enable).
             </p>
           </div>
         </div>

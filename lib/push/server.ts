@@ -86,7 +86,7 @@ export async function sendPushToUsers(
             ? Number(error.statusCode)
             : 0;
 
-        if (statusCode === 404 || statusCode === 410) {
+        if (statusCode === 404 || statusCode === 410 || statusCode === 403) {
           const { error: deleteError } = await (supabase as any)
             .from("push_subscriptions")
             .delete()
