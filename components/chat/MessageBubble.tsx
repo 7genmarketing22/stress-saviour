@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useChat } from "@/contexts/ChatContext";
 import { ReactionPicker } from "./ReactionPicker";
 import { MessageContextMenu } from "./MessageContextMenu";
@@ -22,6 +22,9 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchPosRef = useRef({ x: 0, y: 0 });
+  const bubbleRef = useRef<HTMLDivElement>(null);
+  const didLongPress = useRef(false);
 
   const activeConv = conversations.find((c) => c.id === activeConversationId);
   const otherUser = activeConv?.other_user;
@@ -29,6 +32,22 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 
   const isDeleted = message.deleted_for_everyone;
   const isDeletedForMe = message.deleted_for_sender && isMine;
+
+  const openContextMenuAt = useCallback(
+    (clientX?: number, clientY?: number) => {
+      if (typeof clientX === "number" && typeof clientY === "number") {
+        setContextMenuPos({ x: clientX, y: clientY });
+      } else if (bubbleRef.current) {
+        const rect = bubbleRef.current.getBoundingClientRect();
+        setContextMenuPos({
+          x: isMine ? Math.max(12, rect.right - 200) : rect.left,
+          y: Math.min(rect.bottom + 8, window.innerHeight - 280),
+        });
+      }
+      setShowContextMenu(true);
+    },
+    [isMine]
+  );
 
   if (isDeleted || isDeletedForMe) {
     return (
@@ -40,9 +59,27 @@ export function MessageBubble({ message }: MessageBubbleProps) {
     );
   }
 
-  // Long-press for mobile reaction/context
-  const handleTouchStart = () => {
-    longPressTimer.current = setTimeout(() => setShowContextMenu(true), 500);
+  // Long-press for mobile — store finger position so the menu opens nearby
+  const handleTouchStart = (e: React.TouchEvent) => {
+    didLongPress.current = false;
+    const touch = e.touches[0];
+    if (touch) {
+      touchPosRef.current = { x: touch.clientX, y: touch.clientY };
+    }
+    longPressTimer.current = setTimeout(() => {
+      didLongPress.current = true;
+      openContextMenuAt(touchPosRef.current.x, touchPosRef.current.y);
+    }, 500);
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    const dx = Math.abs(touch.clientX - touchPosRef.current.x);
+    const dy = Math.abs(touch.clientY - touchPosRef.current.y);
+    // Cancel long-press if the user is scrolling
+    if (dx > 10 || dy > 10) {
+      if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    }
   };
   const handleTouchEnd = () => {
     if (longPressTimer.current) clearTimeout(longPressTimer.current);
@@ -51,8 +88,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   // Right-click for desktop
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-    setContextMenuPos({ x: e.clientX, y: e.clientY });
-    setShowContextMenu(true);
+    openContextMenuAt(e.clientX, e.clientY);
   };
 
   // Read status ticks
@@ -62,13 +98,22 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   return (
     <>
       <div
+        ref={bubbleRef}
         className={cn(
           "flex items-end gap-2 mb-1 group",
           isMine ? "flex-row-reverse" : "flex-row"
         )}
         onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
         onContextMenu={handleContextMenu}
+        onClick={() => {
+          // Ignore the click that fires right after a long-press
+          if (didLongPress.current) {
+            didLongPress.current = false;
+          }
+        }}
       >
         {/* Avatar (other user only) */}
         {!isMine && otherUser && (
@@ -81,31 +126,31 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           </div>
         )}
 
-        <div className={cn("flex flex-col max-w-[75%]", isMine ? "items-end" : "items-start")}>
+        <div className={cn("flex max-w-[min(75%,28rem)] flex-col", isMine ? "items-end" : "items-start")}>
           {/* Reply quote */}
           {message.reply_to && (
             <div
               className={cn(
-                "mb-1 px-3 py-1.5 rounded-xl border-l-4 text-xs max-w-full",
+                "mb-1 max-w-full rounded-2xl px-3 py-2 text-xs",
                 isMine
-                  ? "bg-primary/20 border-primary/60 text-primary-foreground/80"
-                  : "bg-muted border-muted-foreground/30 text-muted-foreground"
+                  ? "bg-primary/15 text-primary-foreground/90"
+                  : "bg-muted/80 text-muted-foreground"
               )}
             >
-              <p className="font-semibold text-[11px] mb-0.5">
+              <p className="mb-0.5 text-[11px] font-semibold opacity-90">
                 {message.reply_to.sender_id === message.sender_id ? "You" : otherUser?.full_name}
               </p>
-              <p className="truncate">{message.reply_to.body ?? "📎 Attachment"}</p>
+              <p className="truncate opacity-80">{message.reply_to.body ?? "Attachment"}</p>
             </div>
           )}
 
           {/* Bubble */}
           <div
             className={cn(
-              "relative px-3 py-2 rounded-2xl shadow-sm text-sm leading-relaxed cursor-pointer",
+              "relative cursor-pointer px-3.5 py-2.5 text-sm leading-relaxed shadow-sm transition-colors",
               isMine
-                ? "bg-primary text-primary-foreground rounded-br-sm"
-                : "bg-card text-foreground border border-border/50 rounded-bl-sm"
+                ? "rounded-[1.25rem] rounded-br-md bg-brand-500 text-white"
+                : "rounded-[1.25rem] rounded-bl-md border border-slate-200/80 bg-white text-slate-800 dark:border-border dark:bg-card dark:text-foreground"
             )}
             onDoubleClick={() => setShowReactions(true)}
           >
@@ -131,8 +176,8 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                 target="_blank"
                 rel="noopener noreferrer"
                 className={cn(
-                  "flex items-center gap-2 p-2 rounded-lg mb-1",
-                  isMine ? "bg-white/10 hover:bg-white/20" : "bg-muted hover:bg-muted/80"
+                  "mb-1 flex items-center gap-2 rounded-xl p-2",
+                  isMine ? "bg-white/15 hover:bg-white/25" : "bg-slate-100 hover:bg-slate-50 dark:bg-muted dark:hover:bg-muted/80"
                 )}
               >
                 <FileText className="w-5 h-5 shrink-0" />

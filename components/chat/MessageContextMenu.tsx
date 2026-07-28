@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useChat } from "@/contexts/ChatContext";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/types/chat";
@@ -25,21 +25,53 @@ export function MessageContextMenu({
 }: MessageContextMenuProps) {
   const { setReplyTo, editMessage, deleteMessage } = useChat();
   const menuRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState(position);
+  const openedAtRef = useRef(Date.now());
 
-  // Close on outside click
+  // Close on outside click / Escape (ignore the long-press lift / ghost click)
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    openedAtRef.current = Date.now();
+
+    const onPointerDown = (e: Event) => {
+      if (Date.now() - openedAtRef.current < 350) return;
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         onClose();
       }
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [onClose]);
 
-  // Adjust position so menu stays in viewport
-  const x = Math.min(position.x, window.innerWidth - 220);
-  const y = Math.min(position.y, window.innerHeight - 260);
+  // Keep menu fully inside the viewport near the tap / click
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const pad = 12;
+    let x = position.x;
+    let y = position.y;
+
+    if (x + rect.width > window.innerWidth - pad) {
+      x = window.innerWidth - rect.width - pad;
+    }
+    if (x < pad) x = pad;
+
+    if (y + rect.height > window.innerHeight - pad) {
+      y = position.y - rect.height - 8;
+    }
+    if (y < pad) y = pad;
+
+    setCoords({ x, y });
+  }, [position]);
 
   const isMine = message.isMine ?? false;
 
@@ -47,13 +79,18 @@ export function MessageContextMenu({
     {
       icon: Reply,
       label: "Reply",
-      onClick: () => { setReplyTo(message); onClose(); },
+      onClick: () => {
+        setReplyTo(message);
+        onClose();
+      },
       show: true,
     },
     {
       icon: Smile,
       label: "React",
-      onClick: () => { onClose(); },
+      onClick: () => {
+        onClose();
+      },
       show: true,
     },
     {
@@ -80,14 +117,20 @@ export function MessageContextMenu({
     {
       icon: Trash2,
       label: "Delete for me",
-      onClick: () => { deleteMessage(message.id, "for_me"); onClose(); },
+      onClick: () => {
+        deleteMessage(message.id, "for_me");
+        onClose();
+      },
       show: isMine,
       destructive: true,
     },
     {
       icon: Trash2,
       label: "Delete for everyone",
-      onClick: () => { deleteMessage(message.id, "for_everyone"); onClose(); },
+      onClick: () => {
+        deleteMessage(message.id, "for_everyone");
+        onClose();
+      },
       show: isMine,
       destructive: true,
     },
@@ -96,13 +139,20 @@ export function MessageContextMenu({
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div
+        className="fixed inset-0 z-40"
+        onClick={() => {
+          if (Date.now() - openedAtRef.current < 350) return;
+          onClose();
+        }}
+      />
 
       {/* Menu */}
       <div
         ref={menuRef}
-        className="fixed z-50 bg-card border border-border rounded-xl shadow-xl py-1 min-w-[180px] animate-in fade-in zoom-in-95 duration-100"
-        style={{ left: x, top: y }}
+        className="fixed z-50 min-w-[180px] rounded-xl border border-border bg-card py-1 shadow-xl animate-in fade-in zoom-in-95 duration-100"
+        style={{ left: coords.x, top: coords.y }}
+        onClick={(e) => e.stopPropagation()}
       >
         {actions
           .filter((a) => a.show)
@@ -111,15 +161,16 @@ export function MessageContextMenu({
             return (
               <button
                 key={action.label}
+                type="button"
                 onClick={action.onClick}
                 className={cn(
-                  "flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors hover:bg-muted text-left",
+                  "flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-muted",
                   action.destructive
                     ? "text-destructive hover:bg-destructive/10"
                     : "text-foreground"
                 )}
               >
-                <Icon className="w-4 h-4 shrink-0" />
+                <Icon className="h-4 w-4 shrink-0" />
                 {action.label}
               </button>
             );

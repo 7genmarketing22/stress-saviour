@@ -6,8 +6,8 @@ const sizeMap = {
   xs: "h-8 w-8 text-xs",
   sm: "h-10 w-10 text-sm",
   md: "h-12 w-12 text-base",
-  lg: "h-20 w-20 text-2xl",
-  xl: "h-24 w-24 text-3xl",
+  lg: "h-16 w-16 text-xl",
+  xl: "h-20 w-20 text-2xl",
 } as const;
 
 interface UserAvatarProps {
@@ -48,7 +48,15 @@ export function UserAvatar({
             alt={name}
             fill
             className="object-cover"
-            sizes={size === "xl" ? "96px" : size === "lg" ? "80px" : "48px"}
+            sizes={
+              size === "xl"
+                ? "80px"
+                : size === "lg"
+                  ? "64px"
+                  : size === "md"
+                    ? "48px"
+                    : "40px"
+            }
             unoptimized
           />
         )

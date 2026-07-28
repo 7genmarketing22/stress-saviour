@@ -13,6 +13,7 @@ import { UserAvatar } from "@/components/shared/UserAvatar";
 import { useNotifications } from "@/contexts/NotificationContext";
 import type { AppNotification } from "@/lib/notifications/api";
 import { notificationHref } from "@/lib/notifications/links";
+import { ENABLE_PUSH_EVENT } from "@/components/pwa/PushNotificationManager";
 
 interface HeaderProps {
   title: string;
@@ -100,8 +101,19 @@ export function Header({ title, user, onMenuClick }: HeaderProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
+
+  const [pushPermission, setPushPermission] = useState<NotificationPermission | "unsupported">("unsupported");
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    setPushPermission(Notification.permission);
+  }, [showNotifications]);
+
+  const requestPushOnThisDevice = () => {
+    window.dispatchEvent(new Event(ENABLE_PUSH_EVENT));
+    setShowNotifications(false);
+  };
 
   const displayUser = user || {
     name: "User Account",
@@ -257,6 +269,23 @@ export function Header({ title, user, onMenuClick }: HeaderProps) {
                     </div>
                   )}
                 </div>
+
+                {pushPermission !== "granted" && pushPermission !== "unsupported" && (
+                  <div className="border-t border-border px-4 py-3 bg-muted/30">
+                    <p className="text-[11px] text-muted-foreground mb-2">
+                      {pushPermission === "denied"
+                        ? "Phone notifications are blocked. Allow them in system settings, then try again."
+                        : "Enable alerts on this phone so you get messages even when the app is closed."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={requestPushOnThisDevice}
+                      className="w-full rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-600 transition-colors"
+                    >
+                      {pushPermission === "denied" ? "Retry notifications" : "Enable phone notifications"}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

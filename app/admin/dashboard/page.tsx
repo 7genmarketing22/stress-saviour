@@ -13,6 +13,7 @@ import {
   Bar, BarChart, CartesianGrid,
 } from "recharts";
 import { useAdmin } from "@/contexts/AdminContext";
+import { DashboardWelcomeBanner } from "@/components/shared/DashboardWelcomeBanner";
 import {
   approveDoctor,
   rejectDoctor,
@@ -281,20 +282,29 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-[1600px] mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-slate-900">Dashboard</h1>
-          <p className="text-xs sm:text-sm text-slate-600 mt-1">
-            Live overview of platform performance and activity
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={loadData} className="flex-1 sm:flex-none">
-            <RefreshCw className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Refresh</span>
-          </Button>
-        </div>
-      </div>
+      <DashboardWelcomeBanner
+        name={profile.full_name}
+        avatarUrl={profile.avatar_url}
+        badge={
+          <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium backdrop-blur-md sm:gap-1.5 sm:px-3 sm:py-1 sm:text-xs">
+            <Activity className="h-3 w-3" />
+            Platform Admin
+          </span>
+        }
+        title={`Welcome back, ${profile.full_name.split(" ")[0] || profile.full_name}`}
+        description="Live overview of platform performance, reviews, and activity across Stress Saviors."
+        decoration={<BarChart3 className="h-28 w-28 text-white sm:h-36 sm:w-36 lg:h-44 lg:w-44" />}
+        meta={
+          <button
+            type="button"
+            onClick={loadData}
+            className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-medium text-white/90 transition-colors hover:bg-white/25 sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-[11px]"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Refresh
+          </button>
+        }
+      />
 
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

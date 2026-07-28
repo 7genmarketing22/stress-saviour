@@ -20,7 +20,9 @@ export function ConversationItem({ conversation, isActive, onClick }: Conversati
       className={cn(
         "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors duration-150",
         "hover:bg-muted/60 active:bg-muted",
-        isActive ? "bg-primary/8 border-r-2 border-primary" : ""
+        isActive
+          ? "bg-brand-50/80 dark:bg-primary/10"
+          : ""
       )}
     >
       {/* Avatar */}

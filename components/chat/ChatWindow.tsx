@@ -186,10 +186,7 @@ export function ChatWindow({ onBack }: ChatWindowProps) {
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-4 py-3 space-y-1 bg-[hsl(var(--muted)/0.2)]"
-        style={{
-          backgroundImage: "radial-gradient(circle at 20% 80%, hsl(var(--brand-pale)/0.08) 0%, transparent 50%), radial-gradient(circle at 80% 20%, hsl(var(--brand-cyan)/0.06) 0%, transparent 50%)",
-        }}
+        className="min-h-0 flex-1 space-y-1 overflow-y-auto bg-slate-50/80 px-4 py-3 scrollbar-hide dark:bg-muted/20"
       >
         {isLoadingMessages && (
           <div className="flex justify-center py-4">
@@ -242,8 +239,10 @@ export function ChatWindow({ onBack }: ChatWindowProps) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
-      <MessageInput />
+      {/* Input — keep full height on mobile, never crushed by the message list */}
+      <div className="relative z-10 shrink-0 bg-card">
+        <MessageInput />
+      </div>
     </div>
   );
 }

@@ -38,6 +38,7 @@ import { usePaymentsRealtime } from "@/lib/realtime/usePaymentsRealtime";
 import { useAppointmentSessionSync } from "@/lib/hooks/useAppointmentSessionSync";
 import { AppointmentSessionAlert } from "@/components/shared/AppointmentSessionAlert";
 import { UserAvatar } from "@/components/shared/UserAvatar";
+import { DashboardWelcomeBanner } from "@/components/shared/DashboardWelcomeBanner";
 import {
   buildLastVisitMap,
   getDoctorAppointments,
@@ -403,45 +404,28 @@ export default function DoctorDashboardPage() {
       )}
 
       {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-brand-500 to-brand-300 p-6 text-white shadow-md md:p-8">
-        <div className="relative z-10 flex flex-col gap-5 sm:flex-row sm:items-center">
-          <UserAvatar
-            name={profile.full_name}
-            avatarUrl={profile.avatar_url}
-            size="lg"
-            ring
-            className="shrink-0 border-white/30 bg-white/10 text-white"
-          />
-          <div className="min-w-0 flex-1 space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-md">
-                <ShieldCheck className="h-3.5 w-3.5 fill-white text-brand-500" />
-                {formatPmdcBadge(doctorProfile.pmdc_number)}
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-medium text-white/90">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-200 opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-100" />
-                </span>
-                Online
-              </span>
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold md:text-3xl">
-                Welcome Back, {profile.full_name}
-              </h2>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/85">
-                Your clinical room is open. You have{" "}
-                {todaySessions.filter((s) => !s.completed).length} consultations scheduled on your
-                agenda today.
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="pointer-events-none absolute bottom-0 right-0 top-0 hidden w-1/3 items-center justify-center opacity-20 lg:flex">
-          <Brain className="h-44 w-44 animate-pulse text-white" />
-        </div>
-      </div>
+      <DashboardWelcomeBanner
+        name={profile.full_name}
+        avatarUrl={profile.avatar_url}
+        badge={
+          <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold backdrop-blur-md sm:gap-1.5 sm:px-3 sm:py-1 sm:text-xs">
+            <ShieldCheck className="h-3 w-3 fill-white text-brand-500 sm:h-3.5 sm:w-3.5" />
+            {formatPmdcBadge(doctorProfile.pmdc_number)}
+          </span>
+        }
+        meta={
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-medium text-white/90 sm:px-2.5 sm:py-1 sm:text-[11px]">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-200 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-100" />
+            </span>
+            Online
+          </span>
+        }
+        title={`Welcome Back, ${profile.full_name.split(" ")[0] || profile.full_name}`}
+        description={`Your clinical room is open. You have ${todaySessions.filter((s) => !s.completed).length} consultations scheduled on your agenda today.`}
+        decoration={<Brain className="h-28 w-28 animate-pulse text-white sm:h-36 sm:w-36 lg:h-44 lg:w-44" />}
+      />
 
       {/* Stats Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

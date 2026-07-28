@@ -2,6 +2,15 @@ const DEFAULT_ICON = "/logo-192.png";
 const DEFAULT_BADGE = "/logo-96.png";
 const DEFAULT_SOUND = "/bell.wav";
 
+function absoluteUrl(pathOrUrl) {
+  if (!pathOrUrl) return undefined;
+  try {
+    return new URL(pathOrUrl, self.location.origin).href;
+  } catch {
+    return pathOrUrl;
+  }
+}
+
 self.addEventListener("install", () => {
   self.skipWaiting();
 });
@@ -21,6 +30,21 @@ async function notifyClientsToPlaySound() {
   }
 }
 
+/** Ask open pages to re-save a refreshed push subscription to the server. */
+async function notifyClientsSubscriptionChanged(subscription) {
+  const clientList = await self.clients.matchAll({
+    type: "window",
+    includeUncontrolled: true,
+  });
+  const payload = {
+    type: "PUSH_SUBSCRIPTION_CHANGED",
+    subscription: subscription ? subscription.toJSON() : null,
+  };
+  for (const client of clientList) {
+    client.postMessage(payload);
+  }
+}
+
 self.addEventListener("push", (event) => {
   let payload = {};
 
@@ -36,28 +60,45 @@ self.addEventListener("push", (event) => {
   const url = payload.url || "/";
   const options = {
     body: payload.body || "You have a new notification.",
-    icon: payload.icon || DEFAULT_ICON,
-    badge: payload.badge || DEFAULT_BADGE,
-    // Custom sound — supported on some browsers; Chromium still uses OS default.
-    sound: payload.sound || DEFAULT_SOUND,
+    // Android Chrome installed PWAs need absolute icon URLs.
+    icon: absoluteUrl(payload.icon || DEFAULT_ICON),
+    badge: absoluteUrl(payload.badge || DEFAULT_BADGE),
+    sound: absoluteUrl(payload.sound || DEFAULT_SOUND),
     silent: false,
     tag: payload.tag || "stress-saviors",
-    // Re-alert when another message arrives with the same tag (e.g. same chat).
     renotify: true,
     vibrate: [120, 60, 120],
     requireInteraction: false,
     data: {
       ...(payload.data || {}),
       url,
-      sound: payload.sound || DEFAULT_SOUND,
+      sound: absoluteUrl(payload.sound || DEFAULT_SOUND),
     },
   };
 
   event.waitUntil(
     (async () => {
-      // Play in-app chime if any tab/PWA window is open (desktop + mobile).
       await notifyClientsToPlaySound();
       await self.registration.showNotification(title, options);
+    })()
+  );
+});
+
+// Browser may rotate the push endpoint (common on mobile) — keep DB in sync.
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(
+    (async () => {
+      try {
+        const applicationServerKey = event.oldSubscription?.options?.applicationServerKey;
+        const subscription = await self.registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey,
+        });
+        await notifyClientsSubscriptionChanged(subscription);
+      } catch (err) {
+        console.error("pushsubscriptionchange failed", err);
+        await notifyClientsSubscriptionChanged(null);
+      }
     })()
   );
 });
@@ -77,7 +118,6 @@ self.addEventListener("notificationclick", (event) => {
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clientList) => {
-      // Prefer focusing an existing tab on the same origin (desktop + mobile PWA).
       for (const client of clientList) {
         if (!("url" in client)) continue;
         try {
@@ -93,9 +133,14 @@ self.addEventListener("notificationclick", (event) => {
         if ("navigate" in client) {
           try {
             await client.navigate(targetUrl.href);
+            return;
           } catch {
-            // Some mobile browsers block navigate; fall through to openWindow.
+            // Some mobile browsers block navigate; fall through.
           }
+        }
+        // Fallback: open target in this client context if navigate failed
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(targetUrl.href);
         }
         return;
       }

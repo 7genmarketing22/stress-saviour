@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BellRing, X, CheckCircle2 } from "lucide-react";
+import { BellRing, X, CheckCircle2, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { getErrorMessage } from "@/lib/errors";
 import { useNotifications } from "@/contexts/NotificationContext";
@@ -12,6 +12,8 @@ import {
 
 /** Persists across logins / new tabs (unlike sessionStorage). */
 const PROMPT_HANDLED_KEY = "push-notification-prompt-handled";
+const STANDALONE_PROMPTED_KEY = "push-notification-standalone-prompted";
+export const ENABLE_PUSH_EVENT = "stress-saviors:enable-push";
 
 function wasPromptHandled(): boolean {
   try {
@@ -27,6 +29,32 @@ function markPromptHandled(): void {
   } catch {
     // private mode / blocked storage — ignore
   }
+}
+
+function wasStandalonePrompted(): boolean {
+  try {
+    return localStorage.getItem(STANDALONE_PROMPTED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function markStandalonePrompted(): void {
+  try {
+    localStorage.setItem(STANDALONE_PROMPTED_KEY, "true");
+  } catch {
+    // ignore
+  }
+}
+
+function isStandalonePwa(): boolean {
+  if (typeof window === "undefined") return false;
+  const nav = window.navigator as Navigator & { standalone?: boolean };
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: fullscreen)").matches ||
+    nav.standalone === true
+  );
 }
 
 /** Strip quotes/whitespace that often break Vercel-copied VAPID keys. */
@@ -86,13 +114,21 @@ async function saveSubscription(subscription: PushSubscription) {
   if (!response.ok) throw new Error("Unable to save push subscription");
 }
 
+async function getExistingSubscription(): Promise<PushSubscription | null> {
+  try {
+    const registration = await ensureServiceWorker();
+    return (await registration.pushManager.getSubscription()) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function subscribeWithKey(
   registration: ServiceWorkerRegistration,
   applicationServerKey: Uint8Array
 ): Promise<PushSubscription> {
   return registration.pushManager.subscribe({
     userVisibleOnly: true,
-    // DOM typings are stricter than browsers; Uint8Array is the required runtime form.
     applicationServerKey: applicationServerKey as BufferSource,
   });
 }
@@ -111,7 +147,6 @@ async function subscribeForPush() {
     );
   }
 
-  // Uncompressed EC public keys are 65 bytes; reject obviously wrong values early.
   if (applicationServerKey.byteLength < 65) {
     throw new Error(
       "Invalid VAPID public key length. Use the publicKey from npm run push:generate-keys (not the private key)."
@@ -126,7 +161,6 @@ async function subscribeForPush() {
       await saveSubscription(existing);
       return existing;
     } catch {
-      // Stale subscription (old VAPID / expired endpoint) — drop and recreate.
       await existing.unsubscribe().catch(() => {});
     }
   }
@@ -136,7 +170,6 @@ async function subscribeForPush() {
     await saveSubscription(subscription);
     return subscription;
   } catch (firstError) {
-    // Retry once after clearing any half-registered subscription.
     const leftover = await registration.pushManager.getSubscription();
     if (leftover) await leftover.unsubscribe().catch(() => {});
     try {
@@ -154,6 +187,7 @@ export function PushNotificationManager() {
   const [isEnabling, setIsEnabling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [justEnabled, setJustEnabled] = useState(false);
+  const [denied, setDenied] = useState(false);
   const { refresh } = useNotifications();
 
   const supported =
@@ -162,29 +196,109 @@ export function PushNotificationManager() {
     "PushManager" in window &&
     "Notification" in window;
 
+  const enable = useCallback(async () => {
+    setIsEnabling(true);
+    setError(null);
+    setDenied(false);
+
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        markPromptHandled();
+        setShowPrompt(false);
+        if (permission === "denied") setDenied(true);
+        return;
+      }
+
+      await subscribeForPush();
+      markPromptHandled();
+      markStandalonePrompted();
+      await unlockNotificationSound();
+
+      const testResponse = await fetch("/api/push/test", { method: "POST" });
+      const testBody = await testResponse.json().catch(() => ({}));
+      if (!testResponse.ok) {
+        console.warn("Push enabled, but the test notification could not be sent", testBody);
+        setError(
+          typeof testBody?.error === "string"
+            ? testBody.error
+            : "Subscription saved, but the test push failed. Check VAPID keys on the server."
+        );
+      } else {
+        playNotificationSound();
+      }
+
+      try {
+        refresh();
+      } catch {
+        // NotificationProvider always wraps this component.
+      }
+
+      setJustEnabled(true);
+      setShowPrompt(false);
+    } catch (enableError) {
+      setError(mapPushSubscribeError(enableError));
+      setShowPrompt(true);
+    } finally {
+      setIsEnabling(false);
+    }
+  }, [refresh]);
+
   useEffect(() => {
     if (!supported || !process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) return;
 
-    const permission = Notification.permission;
+    let cancelled = false;
 
-    if (permission === "granted") {
-      markPromptHandled();
-      subscribeForPush().catch((subscriptionError) => {
-        console.error("Unable to refresh push subscription", subscriptionError);
-      });
-      // Preload + unlock may still need a gesture; preload helps latency.
-      void unlockNotificationSound();
-      return;
-    }
+    (async () => {
+      const permission = Notification.permission;
+      const standalone = isStandalonePwa();
+      const existing = await getExistingSubscription();
 
-    if (permission === "denied" || wasPromptHandled()) {
-      return;
-    }
+      if (cancelled) return;
 
-    setShowPrompt(true);
+      if (permission === "granted") {
+        markPromptHandled();
+        subscribeForPush().catch((subscriptionError) => {
+          console.error("Unable to refresh push subscription", subscriptionError);
+        });
+        void unlockNotificationSound();
+        return;
+      }
+
+      if (permission === "denied") {
+        setDenied(true);
+        return;
+      }
+
+      // default permission — show prompt for first visit, or once more after installing as PWA
+      const shouldPrompt =
+        !wasPromptHandled() ||
+        (standalone && !wasStandalonePrompted() && !existing);
+
+      if (shouldPrompt) {
+        if (standalone) markStandalonePrompted();
+        setShowPrompt(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [supported]);
 
-  // Service worker asks open tabs to play /bell.wav on push (desktop + mobile PWA).
+  // Header / settings can request enabling push on this device.
+  useEffect(() => {
+    if (!supported) return;
+    const onEnableRequest = () => {
+      setShowPrompt(true);
+      setError(null);
+      void enable();
+    };
+    window.addEventListener(ENABLE_PUSH_EVENT, onEnableRequest);
+    return () => window.removeEventListener(ENABLE_PUSH_EVENT, onEnableRequest);
+  }, [supported, enable]);
+
+  // Service worker: play sound + re-save rotated subscriptions (mobile).
   useEffect(() => {
     if (!supported || !("serviceWorker" in navigator)) return;
 
@@ -192,13 +306,24 @@ export function PushNotificationManager() {
       if (event.data?.type === "PLAY_NOTIFICATION_SOUND") {
         playNotificationSound();
       }
+      if (event.data?.type === "PUSH_SUBSCRIPTION_CHANGED") {
+        const sub = event.data.subscription;
+        if (sub) {
+          void fetch("/api/push/subscription", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(sub),
+          }).catch(() => {});
+        } else if (Notification.permission === "granted") {
+          void subscribeForPush().catch(() => {});
+        }
+      }
     };
 
     navigator.serviceWorker.addEventListener("message", onMessage);
     return () => navigator.serviceWorker.removeEventListener("message", onMessage);
   }, [supported]);
 
-  // First tap/click unlocks audio autoplay on mobile Safari / Chrome.
   useEffect(() => {
     if (!supported) return;
     const unlock = () => {
@@ -213,46 +338,6 @@ export function PushNotificationManager() {
       window.removeEventListener("keydown", unlock);
     };
   }, [supported]);
-
-  const enable = useCallback(async () => {
-    setIsEnabling(true);
-    setError(null);
-
-    try {
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") {
-        markPromptHandled();
-        setShowPrompt(false);
-        return;
-      }
-
-      await subscribeForPush();
-      markPromptHandled();
-      await unlockNotificationSound();
-
-      const testResponse = await fetch("/api/push/test", { method: "POST" });
-      const testBody = await testResponse.json().catch(() => ({}));
-      if (!testResponse.ok) {
-        console.warn("Push enabled, but the test notification could not be sent", testBody);
-      } else {
-        // Confirm the chime on this device after the user gesture.
-        playNotificationSound();
-      }
-
-      try {
-        refresh();
-      } catch {
-        // NotificationProvider always wraps this component.
-      }
-
-      setJustEnabled(true);
-      setShowPrompt(false);
-    } catch (enableError) {
-      setError(mapPushSubscribeError(enableError));
-    } finally {
-      setIsEnabling(false);
-    }
-  }, [refresh]);
 
   const dismiss = useCallback(() => {
     markPromptHandled();
@@ -285,9 +370,36 @@ export function PushNotificationManager() {
         <div className="flex gap-3 pr-6">
           <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-600" />
           <div>
-            <p className="font-semibold">Notifications enabled</p>
+            <p className="font-semibold">Notifications enabled on this device</p>
             <p className="text-muted-foreground mt-1 text-sm">
-              Check your system notification tray and the bell icon — a test alert was sent to both.
+              You should see a test alert in your notification tray. Keep this installed app open once after enabling so the subscription can sync.
+            </p>
+          </div>
+        </div>
+      </aside>
+    );
+  }
+
+  if (denied && !showPrompt) {
+    return (
+      <aside
+        className="bg-background fixed right-4 bottom-4 left-4 z-[100] mx-auto max-w-md rounded-xl border border-amber-200 p-4 shadow-xl"
+        aria-label="Notifications blocked"
+      >
+        <button
+          type="button"
+          onClick={() => setDenied(false)}
+          className="text-muted-foreground hover:bg-muted absolute top-2 right-2 rounded-md p-1"
+          aria-label="Dismiss"
+        >
+          <X className="h-4 w-4" />
+        </button>
+        <div className="flex gap-3 pr-6">
+          <BellOff className="mt-0.5 h-6 w-6 shrink-0 text-amber-600" />
+          <div>
+            <p className="font-semibold">Notifications are blocked</p>
+            <p className="text-muted-foreground mt-1 text-sm">
+              On your phone: open system Settings → Apps → Stress Saviors (or Chrome) → Notifications → Allow, then reopen this app and tap Enable.
             </p>
           </div>
         </div>
@@ -313,9 +425,13 @@ export function PushNotificationManager() {
       <div className="flex gap-3 pr-6">
         <BellRing className="text-primary mt-0.5 h-6 w-6 shrink-0" />
         <div>
-          <p className="font-semibold">Never miss an appointment</p>
+          <p className="font-semibold">
+            {isStandalonePwa() ? "Turn on phone notifications" : "Never miss an appointment"}
+          </p>
           <p className="text-muted-foreground mt-1 text-sm">
-            Enable system notifications on this device. Alerts also appear under the bell in the app.
+            {isStandalonePwa()
+              ? "This installed app needs permission on this phone to show chat and appointment alerts when closed."
+              : "Enable system notifications on this device. Alerts also appear under the bell in the app."}
           </p>
           {error && <p className="text-destructive mt-2 text-sm">{error}</p>}
           <Button className="mt-3" size="sm" onClick={enable} disabled={isEnabling}>

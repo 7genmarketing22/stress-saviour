@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { usePatient } from "@/contexts/PatientContext";
 import { UserAvatar } from "@/components/shared/UserAvatar";
+import { DashboardWelcomeBanner } from "@/components/shared/DashboardWelcomeBanner";
 import { AppointmentSessionAlert } from "@/components/shared/AppointmentSessionAlert";
 import { useAppointmentSessionSync } from "@/lib/hooks/useAppointmentSessionSync";
 import {
@@ -196,36 +197,23 @@ export default function PatientDashboardPage() {
 
   return (
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-[1600px] mx-auto">
-      <div className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-gradient-to-r from-brand-600 to-brand-400 p-5 sm:p-6 md:p-8 text-white shadow-lg">
-        <div className="relative z-10 max-w-2xl space-y-2 sm:space-y-3">
-          <div className="flex items-center gap-4">
-            <UserAvatar
-              name={profile.full_name}
-              avatarUrl={profile.avatar_url}
-              size="lg"
-              ring
-              className="border-white/30 bg-white/10 text-white"
-            />
-            <div className="min-w-0 flex-1">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 sm:px-3 py-1 text-[10px] sm:text-xs font-medium backdrop-blur-md">
+      <DashboardWelcomeBanner
+        name={profile.full_name}
+        avatarUrl={profile.avatar_url}
+        badge={
+          <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium backdrop-blur-md sm:gap-1.5 sm:px-3 sm:py-1 sm:text-xs">
             <Heart className="h-3 w-3 animate-pulse fill-white" />
             Pakistan&apos;s Premier Telehealth
           </span>
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mt-2">
-            Assalam-o-Alaikum, {getFirstName(profile.full_name)}!
-          </h2>
-            </div>
-          </div>
-          <p className="text-white/90 text-xs sm:text-sm md:text-base leading-relaxed">
-            {nextApt
-              ? `Welcome back. You have an upcoming ${nextApt.type.toLowerCase()} consultation with ${nextApt.doctorName}.`
-              : "Welcome back to your Stress Saviors portal. Book a consultation when you're ready."}
-          </p>
-        </div>
-        <div className="absolute right-0 bottom-0 top-0 hidden sm:flex items-center justify-center w-1/4 lg:w-1/3 opacity-10 sm:opacity-20 pointer-events-none">
-          <Brain className="h-32 w-32 sm:h-36 sm:w-36 lg:h-44 lg:w-44 text-white" />
-        </div>
-      </div>
+        }
+        title={`Assalam-o-Alaikum, ${getFirstName(profile.full_name)}!`}
+        description={
+          nextApt
+            ? `Welcome back. You have an upcoming ${nextApt.type.toLowerCase()} consultation with ${nextApt.doctorName}.`
+            : "Welcome back to your Stress Saviors portal. Book a consultation when you're ready."
+        }
+        decoration={<Brain className="h-28 w-28 text-white sm:h-36 sm:w-36 lg:h-44 lg:w-44" />}
+      />
 
       <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, i) => {

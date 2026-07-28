@@ -45,11 +45,11 @@ export function ChatLayout({ allowedRoles }: ChatLayoutProps) {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden border-border bg-card shadow-sm md:rounded-2xl md:border">
+    <div className="flex h-full min-h-0 flex-1 flex-row overflow-hidden border-border bg-card shadow-sm md:rounded-2xl md:border">
       {/* Left: Conversation List */}
       <aside
         className={`
-          w-full md:w-80 lg:w-96 flex-shrink-0 flex flex-col min-h-0
+          w-full md:w-80 lg:w-96 shrink-0 flex flex-col min-h-0
           border-r border-border bg-card
           ${mobileView === "chat" ? "hidden md:flex" : "flex"}
         `}
@@ -63,7 +63,7 @@ export function ChatLayout({ allowedRoles }: ChatLayoutProps) {
       {/* Right: Chat Window */}
       <main
         className={`
-          flex-1 flex flex-col min-h-0 min-w-0
+          flex min-h-0 min-w-0 flex-1 flex-col
           ${mobileView === "list" ? "hidden md:flex" : "flex"}
         `}
       >

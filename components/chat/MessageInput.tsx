@@ -19,12 +19,13 @@ export function MessageInput() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auto-grow textarea
+  // Auto-grow — keep a usable mobile height even before the user types
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+    el.style.height = "0px";
+    const next = Math.max(44, Math.min(el.scrollHeight, 120));
+    el.style.height = `${next}px`;
   }, [text]);
 
   const handleTyping = useCallback(
@@ -41,10 +42,13 @@ export function MessageInput() {
     const picked = e.target.files?.[0];
     if (!picked) return;
     const err = validateAttachment(picked);
-    if (err) { setFileError(err); return; }
+    if (err) {
+      setFileError(err);
+      return;
+    }
     setFileError(null);
     setFile(picked);
-    e.target.value = ""; // reset so same file can be re-selected
+    e.target.value = "";
   };
 
   const handleSend = async () => {
@@ -78,27 +82,26 @@ export function MessageInput() {
   const canSend = (text.trim().length > 0 || !!file) && !isSending;
 
   return (
-    <div className="flex-shrink-0 border-t border-border bg-card pb-[env(safe-area-inset-bottom)]">
-      {/* Reply strip */}
+    <div className="shrink-0 border-t border-border bg-card pb-[max(0.5rem,env(safe-area-inset-bottom))] md:pb-0">
       {replyTo && (
-        <div className="flex items-center gap-3 px-4 py-2 bg-muted/50 border-b border-border text-xs">
-          <Reply className="w-3.5 h-3.5 text-primary shrink-0" />
-          <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-3 border-b border-border bg-muted/50 px-4 py-2 text-xs">
+          <Reply className="h-3.5 w-3.5 shrink-0 text-primary" />
+          <div className="min-w-0 flex-1">
             <p className="font-semibold text-primary">Replying to message</p>
-            <p className="text-muted-foreground truncate">
+            <p className="truncate text-muted-foreground">
               {replyTo.body ?? "📎 Attachment"}
             </p>
           </div>
           <button
+            type="button"
             onClick={() => setReplyTo(null)}
             className="text-muted-foreground hover:text-foreground"
           >
-            <X className="w-4 h-4" />
+            <X className="h-4 w-4" />
           </button>
         </div>
       )}
 
-      {/* Attachment preview */}
       {file && (
         <div className="px-4 pt-3">
           <AttachmentPreview file={file} onRemove={() => setFile(null)} />
@@ -108,16 +111,15 @@ export function MessageInput() {
         <p className="px-4 pt-1 text-xs text-destructive">{fileError}</p>
       )}
 
-      {/* Input row */}
-      <div className="flex items-end gap-2 px-3 py-3">
-        {/* Emoji toggle */}
-        <div className="relative">
+      <div className="flex items-center gap-1.5 px-2 py-2.5 sm:gap-2 sm:px-3 sm:py-3">
+        <div className="relative shrink-0">
           <button
+            type="button"
             onClick={() => setShowEmoji((s) => !s)}
-            className="p-2 text-muted-foreground hover:text-foreground rounded-xl hover:bg-muted transition-colors"
+            className="flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:h-10 md:w-10"
             title="Emoji"
           >
-            <Smile className="w-5 h-5" />
+            <Smile className="h-5 w-5" />
           </button>
           {showEmoji && (
             <div className="absolute bottom-12 left-0 z-50">
@@ -126,13 +128,13 @@ export function MessageInput() {
           )}
         </div>
 
-        {/* File attach */}
         <button
+          type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="p-2 text-muted-foreground hover:text-foreground rounded-xl hover:bg-muted transition-colors"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:h-10 md:w-10"
           title="Attach file"
         >
-          <Paperclip className="w-5 h-5" />
+          <Paperclip className="h-5 w-5" />
         </button>
         <input
           ref={fileInputRef}
@@ -142,7 +144,6 @@ export function MessageInput() {
           onChange={handleFileChange}
         />
 
-        {/* Textarea */}
         <textarea
           ref={textareaRef}
           value={text}
@@ -150,25 +151,26 @@ export function MessageInput() {
           onKeyDown={handleKeyDown}
           placeholder="Type a message…"
           rows={1}
-          className="flex-1 resize-none bg-muted/50 border border-border rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/60 leading-relaxed max-h-[120px] scrollbar-hide"
+          enterKeyHint="send"
+          className="min-h-[44px] max-h-[120px] min-w-0 flex-1 resize-none rounded-2xl border border-border bg-muted/50 px-3.5 py-2.5 text-base leading-snug placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/30 scrollbar-hide sm:px-4 sm:text-sm sm:leading-relaxed"
         />
 
-        {/* Send */}
         <button
+          type="button"
           onClick={handleSend}
           disabled={!canSend}
           className={cn(
-            "p-2.5 rounded-2xl transition-all duration-200 shrink-0",
+            "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-all duration-200 md:h-10 md:w-10",
             canSend
-              ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm hover:shadow-md scale-100 hover:scale-105"
-              : "bg-muted text-muted-foreground cursor-not-allowed"
+              ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow-md"
+              : "cursor-not-allowed bg-muted text-muted-foreground"
           )}
           title="Send"
         >
           {isSending ? (
-            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
           ) : (
-            <Send className="w-4 h-4" />
+            <Send className="h-4 w-4" />
           )}
         </button>
       </div>

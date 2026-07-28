@@ -4,6 +4,13 @@
   "description": "Secure telehealth appointments and consultations.",
   "id": "/",
   "scope": "/",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#0080b8",
+  "background_color": "#ffffff",
+  "lang": "en",
+  "dir": "ltr",
   "icons": [
     {
       "src": "/logo-192.png",
@@ -29,10 +36,5 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ],
-  "theme_color": "#0080b8",
-  "background_color": "#ffffff",
-  "display": "standalone",
-  "start_url": "/",
-  "orientation": "portrait-primary"
+  ]
 }
