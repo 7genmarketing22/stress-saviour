@@ -100,6 +100,19 @@ export function resolveNotificationPath(
       : base;
   }
 
+  if (type === "appointment") {
+    const base = BY_TYPE.appointment[portal];
+    const appointmentId =
+      typeof m.appointment_id === "string"
+        ? m.appointment_id
+        : typeof m.appointmentId === "string"
+          ? m.appointmentId
+          : null;
+    return appointmentId
+      ? `${base}?appointment=${encodeURIComponent(appointmentId)}`
+      : base;
+  }
+
   const byRole = type ? BY_TYPE[type] : undefined;
   if (byRole) return byRole[portal];
 

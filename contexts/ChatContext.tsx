@@ -213,16 +213,18 @@ export function ChatProvider({
           )
         );
 
-        // Notify the other participant (one latest message per conversation in the bell)
+        // Notify the other participant (bell + OS push via server API)
         const activeConv = conversations.find((c) => c.id === activeConversationId);
         if (activeConv) {
           const preview = body?.trim()?.slice(0, 60) ?? (attachment?.type === "image" ? "Sent an image" : "Sent a file");
-          createChatNotification(
+          void createChatNotification(
             activeConv.other_user.id,
             myName,
             preview,
             activeConversationId
-          ).catch(() => {});
+          ).catch((err) => {
+            console.warn("Chat notification failed", err);
+          });
         }
       } catch {
         // Remove optimistic on failure

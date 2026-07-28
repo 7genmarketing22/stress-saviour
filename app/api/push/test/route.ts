@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
-import { sendPushToUsers } from "@/lib/push/server";
+import { sendSystemPushForNotification } from "@/lib/notifications/server-push";
 import { resolveNotificationPath } from "@/lib/notifications/links";
 
 export async function POST() {
@@ -42,15 +42,14 @@ export async function POST() {
     }
 
     // 2) System / lock-screen notification (desktop + mobile)
-    const pushResult = await sendPushToUsers([user.id], {
+    const pushResult = await sendSystemPushForNotification({
+      userId: user.id,
       title,
-      body: message,
+      message,
+      type,
+      metadata: { source: "push-test" },
       url,
-      icon: "/logo-192.png",
-      badge: "/logo-96.png",
-      sound: "/bell.wav",
       tag: "push-test",
-      data: { source: "push-test", type },
     });
 
     if (!pushResult.configured) {
@@ -60,6 +59,18 @@ export async function POST() {
           bell: !notifError,
         },
         { status: 503 }
+      );
+    }
+
+    if (pushResult.sent === 0) {
+      return NextResponse.json(
+        {
+          error:
+            "No push subscription found for this account on this device. Tap Enable again while signed in.",
+          bell: !notifError,
+          push: pushResult,
+        },
+        { status: 404 }
       );
     }
 

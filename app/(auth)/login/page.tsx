@@ -28,6 +28,7 @@ import {
   resolveDashboardPath,
 } from "@/lib/auth/account-status";
 import { resolvePostLoginPath } from "@/lib/auth/safe-redirect";
+import { notifyAllAdmins } from "@/lib/notifications/api";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -179,14 +180,16 @@ function LoginForm() {
         return;
       }
 
-      // Notify all admins about this login (fire-and-forget, never blocks the user)
+      // Notify all admins about this login (bell + OS push for every admin device)
       if (actualRole === "doctor" || actualRole === "patient") {
         const userName = access.profile.full_name ?? access.profile.email ?? "Unknown";
-        (supabase as any).rpc("notify_admins_on_login", {
-          p_user_id: userId,
-          p_role: actualRole,
-          p_name: userName,
-        }).then(() => {}).catch(() => {});
+        const roleLabel = actualRole === "doctor" ? "Doctor" : "Patient";
+        void notifyAllAdmins(
+          `${roleLabel} Logged In`,
+          `${userName} (${roleLabel}) has just logged in to the platform.`,
+          "system",
+          { user_id: userId, role: actualRole }
+        ).catch(() => {});
       }
 
       router.refresh();

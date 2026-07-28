@@ -1,5 +1,5 @@
 import { createServiceRoleClient } from "@/lib/supabase/admin";
-import { sendPushToUsers } from "@/lib/push/server";
+import { sendPushToUsers, type PushDeliveryResult } from "@/lib/push/server";
 import { resolveNotificationPath } from "@/lib/notifications/links";
 
 function absoluteAssetUrl(path: string): string {
@@ -17,7 +17,7 @@ function absoluteAssetUrl(path: string): string {
 
 /**
  * Send an OS / browser system notification for a user who has enabled Web Push.
- * Safe to call fire-and-forget; never throws to callers.
+ * Never throws; returns delivery stats (sent may be 0 if no subscription / VAPID).
  */
 export async function sendSystemPushForNotification(params: {
   userId: string;
@@ -28,7 +28,14 @@ export async function sendSystemPushForNotification(params: {
   /** Optional explicit path; otherwise resolved from role + type. */
   url?: string;
   tag?: string;
-}): Promise<void> {
+}): Promise<PushDeliveryResult> {
+  const empty: PushDeliveryResult = {
+    sent: 0,
+    failed: 0,
+    removed: 0,
+    configured: false,
+  };
+
   try {
     const supabase = createServiceRoleClient();
     const { data: profile } = await supabase
@@ -41,11 +48,13 @@ export async function sendSystemPushForNotification(params: {
     const path =
       params.url ??
       resolveNotificationPath(params.type ?? "system", role, params.metadata, params.title);
+    // Absolute click URL helps Android PWAs open the right screen.
+    const url = absoluteAssetUrl(path);
 
-    await sendPushToUsers([params.userId], {
+    return await sendPushToUsers([params.userId], {
       title: params.title,
       body: params.message,
-      url: path,
+      url,
       icon: absoluteAssetUrl("/logo-192.png"),
       badge: absoluteAssetUrl("/logo-96.png"),
       sound: absoluteAssetUrl("/bell.wav"),
@@ -62,5 +71,6 @@ export async function sendSystemPushForNotification(params: {
     });
   } catch (err) {
     console.warn("System push dispatch skipped:", err);
+    return empty;
   }
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Bell, User, Settings, LogOut, ChevronDown, Menu,
+  Bell, BellRing, User, Settings, LogOut, ChevronDown, Menu,
   Calendar, CreditCard, ShieldCheck, Info, X, CheckCheck,
   MessageSquare, ClipboardList,
 } from "lucide-react";
@@ -15,12 +15,22 @@ import type { AppNotification } from "@/lib/notifications/api";
 import { notificationHref } from "@/lib/notifications/links";
 import { ENABLE_PUSH_EVENT } from "@/components/pwa/PushNotificationManager";
 
+function isStandalonePwa(): boolean {
+  if (typeof window === "undefined") return false;
+  const nav = window.navigator as Navigator & { standalone?: boolean };
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: fullscreen)").matches ||
+    nav.standalone === true
+  );
+}
+
 interface HeaderProps {
   title: string;
   user?: {
     name: string;
     email: string;
-    role: "patient" | "doctor" | "admin";
+    role: "patient" | "doctor" | "admin" | "super_admin";
     avatarUrl?: string;
   };
   onMenuClick: () => void;
@@ -104,16 +114,43 @@ export function Header({ title, user, onMenuClick }: HeaderProps) {
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
 
   const [pushPermission, setPushPermission] = useState<NotificationPermission | "unsupported">("unsupported");
+  const [isInstalledApp, setIsInstalledApp] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setPushPermission("unsupported");
+      return;
+    }
     setPushPermission(Notification.permission);
+    setIsInstalledApp(isStandalonePwa());
+    const onVisibility = () => {
+      setPushPermission(Notification.permission);
+      setIsInstalledApp(isStandalonePwa());
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [showNotifications]);
 
   const requestPushOnThisDevice = () => {
     window.dispatchEvent(new Event(ENABLE_PUSH_EVENT));
     setShowNotifications(false);
+    // Permission prompt / enable flow is async — refresh icon state shortly after.
+    window.setTimeout(() => {
+      if (typeof window !== "undefined" && "Notification" in window) {
+        setPushPermission(Notification.permission);
+      }
+    }, 1200);
   };
+
+  const deviceLabel = isInstalledApp ? "phone" : "device";
+  const pushStatusLabel =
+    pushPermission === "granted"
+      ? `System notifications on`
+      : pushPermission === "denied"
+        ? `System notifications blocked — tap to retry`
+        : pushPermission === "unsupported"
+          ? "System notifications not supported"
+          : `Enable ${deviceLabel} notifications`;
 
   const displayUser = user || {
     name: "User Account",
@@ -124,9 +161,16 @@ export function Header({ title, user, onMenuClick }: HeaderProps) {
   const getProfileHref = () => {
     if (displayUser.role === "patient") return "/patient/profile";
     if (displayUser.role === "doctor") return "/doctor/profile";
-    if (displayUser.role === "admin") return "/admin/settings";
+    if (displayUser.role === "admin" || displayUser.role === "super_admin") {
+      return "/admin/settings";
+    }
     return "/";
   };
+
+  const roleLabel =
+    displayUser.role === "super_admin"
+      ? "super admin"
+      : displayUser.role.replace("_", " ");
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -183,13 +227,36 @@ export function Header({ title, user, onMenuClick }: HeaderProps) {
         </div>
 
         {/* Right side */}
-        <div className="flex items-center gap-4">
-          {/* Notifications */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Phone / OS push — separate from in-app bell panel */}
+          {pushPermission !== "unsupported" && (
+            <button
+              type="button"
+              onClick={requestPushOnThisDevice}
+              className={`relative rounded-lg p-2 transition-colors cursor-pointer ${
+                pushPermission === "granted"
+                  ? "text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400"
+                  : pushPermission === "denied"
+                    ? "text-amber-600 hover:bg-amber-500/10 dark:text-amber-400"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              }`}
+              aria-label={pushStatusLabel}
+              title={pushStatusLabel}
+            >
+              <BellRing className="h-5 w-5" />
+              {pushPermission !== "granted" && (
+                <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-amber-500" />
+              )}
+            </button>
+          )}
+
+          {/* In-app notifications panel */}
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={handleOpenNotifications}
               className="relative rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors"
               aria-label="View notifications"
+              title="Notifications"
             >
               <Bell className="h-5 w-5" />
               {unreadCount > 0 && (
@@ -270,22 +337,6 @@ export function Header({ title, user, onMenuClick }: HeaderProps) {
                   )}
                 </div>
 
-                {pushPermission !== "granted" && pushPermission !== "unsupported" && (
-                  <div className="border-t border-border px-4 py-3 bg-muted/30">
-                    <p className="text-[11px] text-muted-foreground mb-2">
-                      {pushPermission === "denied"
-                        ? "Phone notifications are blocked. Allow them in system settings, then try again."
-                        : "Enable alerts on this phone so you get messages even when the app is closed."}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={requestPushOnThisDevice}
-                      className="w-full rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-600 transition-colors"
-                    >
-                      {pushPermission === "denied" ? "Retry notifications" : "Enable phone notifications"}
-                    </button>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -310,7 +361,7 @@ export function Header({ title, user, onMenuClick }: HeaderProps) {
                   {displayUser.name}
                 </span>
                 <span className="text-[10px] text-muted-foreground mt-0.5 capitalize">
-                  {displayUser.role.replace("_", " ")}
+                  {roleLabel}
                 </span>
               </div>
               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />

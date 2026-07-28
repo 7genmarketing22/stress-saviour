@@ -1,6 +1,8 @@
 const DEFAULT_ICON = "/logo-192.png";
 const DEFAULT_BADGE = "/logo-96.png";
 const DEFAULT_SOUND = "/bell.wav";
+// Bump when push behavior changes so installed PWAs pick up the new worker.
+const SW_VERSION = "ss-push-v2";
 
 function absoluteUrl(pathOrUrl) {
   if (!pathOrUrl) return undefined;
@@ -16,7 +18,17 @@ self.addEventListener("install", () => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    (async () => {
+      await self.clients.claim();
+      // Touch cache key so browsers treat this as an updated worker.
+      try {
+        await caches.open(SW_VERSION);
+      } catch {
+        // ignore
+      }
+    })()
+  );
 });
 
 /** Tell open app tabs to play /bell.wav (covers foreground desktop + mobile PWA). */
@@ -57,7 +69,7 @@ self.addEventListener("push", (event) => {
   }
 
   const title = payload.title || "Stress Saviors";
-  const url = payload.url || "/";
+  const url = absoluteUrl(payload.url || "/") || "/";
   const options = {
     body: payload.body || "You have a new notification.",
     // Android Chrome installed PWAs need absolute icon URLs.
@@ -78,8 +90,11 @@ self.addEventListener("push", (event) => {
 
   event.waitUntil(
     (async () => {
-      await notifyClientsToPlaySound();
+      // Always show a tray notification (even if a tab is open) so mobile
+      // users get the system chime when the PWA is backgrounded / closed.
       await self.registration.showNotification(title, options);
+      // Custom /bell.wav only works while an app window can play audio.
+      await notifyClientsToPlaySound();
     })()
   );
 });

@@ -482,12 +482,12 @@ export function PushNotificationManager() {
         <BellRing className="text-primary mt-0.5 h-6 w-6 shrink-0" />
         <div>
           <p className="font-semibold">
-            {isStandalonePwa() ? "Turn on phone notifications" : "Never miss an appointment"}
+            {isStandalonePwa() ? "Turn on app notifications" : "Stay updated on this device"}
           </p>
           <p className="text-muted-foreground mt-1 text-sm">
             {isStandalonePwa()
-              ? "This installed app needs permission on this phone to show chat and appointment alerts when closed."
-              : "Enable system notifications on this device. Alerts also appear under the bell in the app."}
+              ? "Allow alerts on this phone for chat, appointments, and account updates — even when the app is closed."
+              : "Enable system notifications for chat, appointments, payments, and account updates. Alerts also appear under the bell in every portal."}
           </p>
           {error && <p className="text-destructive mt-2 text-sm">{error}</p>}
           <Button className="mt-3" size="sm" onClick={enable} disabled={isEnabling}>

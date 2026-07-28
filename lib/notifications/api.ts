@@ -81,7 +81,6 @@ export async function createChatNotification(
   messagePreview: string,
   conversationId: string
 ): Promise<void> {
-  await markChatNotificationsRead(userId, conversationId);
   await createNotification(
     userId,
     `Message from ${senderName.trim() || "someone"}`,
@@ -91,27 +90,12 @@ export async function createChatNotification(
   );
 }
 
-/** Ask the server to deliver a matching OS / lock-screen notification. */
-function dispatchSystemPush(payload: {
-  userId: string;
-  title: string;
-  message: string;
-  type: NotificationType;
-  metadata?: Record<string, unknown>;
-}): void {
-  if (typeof window === "undefined") return;
-  void fetch("/api/push/dispatch", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  }).catch(() => {
-    // Push is best-effort; bell notification already succeeded.
-  });
-}
-
 /**
- * Create an in-app (bell) notification and, when the recipient has enabled Web Push,
- * also deliver a system notification on desktop / mobile.
+ * Create an in-app (bell) notification and deliver OS push when the recipient
+ * has enabled Web Push on a device.
+ *
+ * In the browser this goes through `/api/notifications/create` so push runs on
+ * the server in the same request (more reliable on mobile than a second fetch).
  */
 export async function createNotification(
   userId: string,
@@ -120,7 +104,48 @@ export async function createNotification(
   type: NotificationType = "system",
   metadata?: Record<string, unknown>
 ): Promise<void> {
-  const supabase = createClient();
+  if (typeof window !== "undefined") {
+    const response = await fetch("/api/notifications/create", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId,
+        title,
+        message,
+        type,
+        metadata: metadata ?? null,
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(
+        typeof body?.error === "string" && body.error.trim()
+          ? body.error
+          : "Unable to create notification"
+      );
+    }
+    return;
+  }
+
+  // Server-side callers (no browser session for self-fetch).
+  const { createServiceRoleClient } = await import("@/lib/supabase/admin");
+  const { sendSystemPushForNotification } = await import(
+    "@/lib/notifications/server-push"
+  );
+  const supabase = createServiceRoleClient();
+
+  if (type === "chat" && typeof metadata?.conversationId === "string") {
+    await (supabase as any)
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", userId)
+      .eq("type", "chat")
+      .eq("is_read", false)
+      .contains("metadata", { conversationId: metadata.conversationId });
+  }
+
   const { error } = await (supabase as any).rpc("create_notification", {
     p_user_id: userId,
     p_title: title,
@@ -130,7 +155,13 @@ export async function createNotification(
   });
   if (error) throw error;
 
-  dispatchSystemPush({ userId, title, message, type, metadata });
+  await sendSystemPushForNotification({
+    userId,
+    title,
+    message,
+    type,
+    metadata: metadata ?? null,
+  });
 }
 
 /**

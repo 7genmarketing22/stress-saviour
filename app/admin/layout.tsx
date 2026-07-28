@@ -50,7 +50,7 @@ function AdminLayoutShell({ children }: { children: React.ReactNode }) {
               user={{
                 name: profile.full_name,
                 email: profile.email,
-                role: "admin",
+                role: profile.role === "super_admin" ? "super_admin" : "admin",
                 avatarUrl: profile.avatar_url ?? undefined,
               }}
               onMenuClick={() => setIsSidebarOpen(true)}
