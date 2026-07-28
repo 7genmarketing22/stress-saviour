@@ -104,14 +104,70 @@ async function ensureServiceWorker(): Promise<ServiceWorkerRegistration> {
   return registration;
 }
 
+/** Encode ArrayBuffer keys the way Web Push expects (base64url). */
+function arrayBufferToBase64Url(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.byteLength; i += 1) {
+    binary += String.fromCharCode(bytes[i]!);
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+/**
+ * Mobile Chrome sometimes returns incomplete toJSON().keys —
+ * always fall back to getKey() so the API receives p256dh + auth.
+ */
+function serializePushSubscription(subscription: PushSubscription): {
+  endpoint: string;
+  expirationTime: number | null;
+  keys: { p256dh: string; auth: string };
+} {
+  const json = subscription.toJSON();
+  const p256dhBuffer = subscription.getKey("p256dh");
+  const authBuffer = subscription.getKey("auth");
+
+  const p256dh =
+    json.keys?.p256dh ||
+    (p256dhBuffer ? arrayBufferToBase64Url(p256dhBuffer) : "");
+  const auth =
+    json.keys?.auth || (authBuffer ? arrayBufferToBase64Url(authBuffer) : "");
+
+  if (!subscription.endpoint || !p256dh || !auth) {
+    throw new Error(
+      "This browser did not provide complete push keys. Update Chrome and try again."
+    );
+  }
+
+  return {
+    endpoint: subscription.endpoint,
+    expirationTime:
+      typeof subscription.expirationTime === "number"
+        ? subscription.expirationTime
+        : null,
+    keys: { p256dh, auth },
+  };
+}
+
 async function saveSubscription(subscription: PushSubscription) {
+  const payload = serializePushSubscription(subscription);
   const response = await fetch("/api/push/subscription", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(subscription.toJSON()),
+    credentials: "same-origin",
+    body: JSON.stringify(payload),
   });
 
-  if (!response.ok) throw new Error("Unable to save push subscription");
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message =
+      typeof body?.error === "string" && body.error.trim()
+        ? body.error
+        : response.status === 401
+          ? "Please sign in again, then enable notifications."
+          : "Unable to save push subscription";
+    throw new Error(message);
+  }
 }
 
 async function getExistingSubscription(): Promise<PushSubscription | null> {
