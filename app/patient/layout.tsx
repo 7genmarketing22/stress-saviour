@@ -27,10 +27,12 @@ function PatientLayoutShell({ children }: { children: React.ReactNode }) {
     return "Patient Portal";
   };
 
+  const isChat = pathname.includes("/chat");
+
   return (
     <NotificationProvider userId={profile.id}>
       <ChatProvider myId={profile.id} myName={profile.full_name}>
-        <div className="min-h-screen bg-muted/30">
+        <div className={isChat ? "h-dvh max-h-dvh overflow-hidden bg-muted/30" : "min-h-screen bg-muted/30"}>
           <AuthSessionListener />
           <Sidebar
             role="patient"
@@ -38,7 +40,11 @@ function PatientLayoutShell({ children }: { children: React.ReactNode }) {
             onClose={() => setIsSidebarOpen(false)}
           />
 
-          <div className="flex flex-col md:pl-64 min-h-screen transition-all duration-200">
+          <div
+            className={`flex flex-col md:pl-64 transition-all duration-200 ${
+              isChat ? "h-full min-h-0 overflow-hidden" : "min-h-screen"
+            }`}
+          >
             <Header
               title={getPageTitle(pathname)}
               user={{
@@ -49,7 +55,13 @@ function PatientLayoutShell({ children }: { children: React.ReactNode }) {
               }}
               onMenuClick={() => setIsSidebarOpen(true)}
             />
-            <main className="flex-1 p-4 md:p-6 container max-w-7xl mx-auto">
+            <main
+              className={
+                isChat
+                  ? "flex min-h-0 flex-1 flex-col overflow-hidden p-0 md:p-6 md:container md:max-w-7xl md:mx-auto"
+                  : "flex-1 p-4 md:p-6 container max-w-7xl mx-auto"
+              }
+            >
               {children}
             </main>
           </div>

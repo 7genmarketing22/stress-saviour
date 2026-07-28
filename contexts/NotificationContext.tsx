@@ -10,6 +10,7 @@ import {
 } from "@/lib/notifications/api";
 import { useNotificationsRealtime } from "@/lib/realtime/useNotificationsRealtime";
 import { PushNotificationManager } from "@/components/pwa/PushNotificationManager";
+import { playNotificationSound } from "@/lib/notifications/sound";
 
 interface LiveToast {
   id: string;
@@ -126,6 +127,7 @@ export function NotificationProvider({ userId, children }: Props) {
       type: n.type,
       metadata: n.metadata,
     });
+    playNotificationSound();
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setLiveToast(null), 5000);
   }, []);

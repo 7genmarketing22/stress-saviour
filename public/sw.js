@@ -1,5 +1,6 @@
 const DEFAULT_ICON = "/logo-192.png";
 const DEFAULT_BADGE = "/logo-96.png";
+const DEFAULT_SOUND = "/bell.wav";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -8,6 +9,17 @@ self.addEventListener("install", () => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
+
+/** Tell open app tabs to play /bell.wav (covers foreground desktop + mobile PWA). */
+async function notifyClientsToPlaySound() {
+  const clientList = await self.clients.matchAll({
+    type: "window",
+    includeUncontrolled: true,
+  });
+  for (const client of clientList) {
+    client.postMessage({ type: "PLAY_NOTIFICATION_SOUND" });
+  }
+}
 
 self.addEventListener("push", (event) => {
   let payload = {};
@@ -26,18 +38,28 @@ self.addEventListener("push", (event) => {
     body: payload.body || "You have a new notification.",
     icon: payload.icon || DEFAULT_ICON,
     badge: payload.badge || DEFAULT_BADGE,
+    // Custom sound — supported on some browsers; Chromium still uses OS default.
+    sound: payload.sound || DEFAULT_SOUND,
+    silent: false,
     tag: payload.tag || "stress-saviors",
+    // Re-alert when another message arrives with the same tag (e.g. same chat).
     renotify: true,
     vibrate: [120, 60, 120],
-    // Keep visible a bit longer on desktop; mobile OS still controls tray behavior.
     requireInteraction: false,
     data: {
       ...(payload.data || {}),
       url,
+      sound: payload.sound || DEFAULT_SOUND,
     },
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    (async () => {
+      // Play in-app chime if any tab/PWA window is open (desktop + mobile).
+      await notifyClientsToPlaySound();
+      await self.registration.showNotification(title, options);
+    })()
+  );
 });
 
 self.addEventListener("notificationclick", (event) => {

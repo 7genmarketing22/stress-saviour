@@ -29,11 +29,18 @@ function DoctorLayoutShell({ children }: { children: React.ReactNode }) {
   };
 
   const completeness = checkProfileCompleteness(profile, doctorProfile, documents);
+  const isChat = pathname.includes("/chat");
 
   return (
     <NotificationProvider userId={profile.id}>
       <ChatProvider myId={profile.id} myName={profile.full_name}>
-        <div className="min-h-screen overflow-x-hidden bg-muted/30">
+        <div
+          className={
+            isChat
+              ? "h-dvh max-h-dvh overflow-hidden bg-muted/30"
+              : "min-h-screen overflow-x-hidden bg-muted/30"
+          }
+        >
           <AuthSessionListener />
           <Sidebar
             role="doctor"
@@ -41,7 +48,11 @@ function DoctorLayoutShell({ children }: { children: React.ReactNode }) {
             onClose={() => setIsSidebarOpen(false)}
           />
 
-          <div className="flex min-h-screen min-w-0 flex-col transition-all duration-200 md:pl-64">
+          <div
+            className={`flex min-w-0 flex-col transition-all duration-200 md:pl-64 ${
+              isChat ? "h-full min-h-0 overflow-hidden" : "min-h-screen"
+            }`}
+          >
             <Header
               title={getPageTitle(pathname)}
               user={{
@@ -52,8 +63,22 @@ function DoctorLayoutShell({ children }: { children: React.ReactNode }) {
               }}
               onMenuClick={() => setIsSidebarOpen(true)}
             />
-            <main className="min-w-0 flex-1 overflow-x-hidden p-4 md:p-6">
-              <div className="mx-auto w-full max-w-7xl">{children}</div>
+            <main
+              className={
+                isChat
+                  ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-0 md:p-6"
+                  : "min-w-0 flex-1 overflow-x-hidden p-4 md:p-6"
+              }
+            >
+              <div
+                className={
+                  isChat
+                    ? "mx-auto flex h-full min-h-0 w-full max-w-7xl flex-1 flex-col"
+                    : "mx-auto w-full max-w-7xl"
+                }
+              >
+                {children}
+              </div>
             </main>
           </div>
 

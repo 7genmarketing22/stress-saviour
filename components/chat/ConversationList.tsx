@@ -30,7 +30,7 @@ export function ConversationList({ allowedRoles, onSelect }: ConversationListPro
 
   return (
     <>
-      <div className="flex flex-col h-full">
+      <div className="flex h-full min-h-0 flex-col">
         {/* Header */}
         <div className="px-4 pt-4 pb-3 border-b border-border flex-shrink-0">
           <div className="flex items-center justify-between mb-3">
@@ -57,7 +57,7 @@ export function ConversationList({ allowedRoles, onSelect }: ConversationListPro
         </div>
 
         {/* List */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
+        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-hide">
           {isLoadingConversations ? (
             <LoadingSkeletons />
           ) : filtered.length === 0 ? (

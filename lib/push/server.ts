@@ -9,6 +9,8 @@ export interface PushPayload {
   icon?: string;
   badge?: string;
   tag?: string;
+  /** Absolute or root-relative sound URL (e.g. /bell.wav). Best-effort on supporting browsers. */
+  sound?: string;
   data?: Record<string, unknown>;
 }
 

@@ -5,6 +5,10 @@ import { BellRing, X, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { getErrorMessage } from "@/lib/errors";
 import { useNotifications } from "@/contexts/NotificationContext";
+import {
+  playNotificationSound,
+  unlockNotificationSound,
+} from "@/lib/notifications/sound";
 
 /** Persists across logins / new tabs (unlike sessionStorage). */
 const PROMPT_HANDLED_KEY = "push-notification-prompt-handled";
@@ -168,6 +172,8 @@ export function PushNotificationManager() {
       subscribeForPush().catch((subscriptionError) => {
         console.error("Unable to refresh push subscription", subscriptionError);
       });
+      // Preload + unlock may still need a gesture; preload helps latency.
+      void unlockNotificationSound();
       return;
     }
 
@@ -176,6 +182,36 @@ export function PushNotificationManager() {
     }
 
     setShowPrompt(true);
+  }, [supported]);
+
+  // Service worker asks open tabs to play /bell.wav on push (desktop + mobile PWA).
+  useEffect(() => {
+    if (!supported || !("serviceWorker" in navigator)) return;
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === "PLAY_NOTIFICATION_SOUND") {
+        playNotificationSound();
+      }
+    };
+
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, [supported]);
+
+  // First tap/click unlocks audio autoplay on mobile Safari / Chrome.
+  useEffect(() => {
+    if (!supported) return;
+    const unlock = () => {
+      void unlockNotificationSound();
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
   }, [supported]);
 
   const enable = useCallback(async () => {
@@ -192,11 +228,15 @@ export function PushNotificationManager() {
 
       await subscribeForPush();
       markPromptHandled();
+      await unlockNotificationSound();
 
       const testResponse = await fetch("/api/push/test", { method: "POST" });
       const testBody = await testResponse.json().catch(() => ({}));
       if (!testResponse.ok) {
         console.warn("Push enabled, but the test notification could not be sent", testBody);
+      } else {
+        // Confirm the chime on this device after the user gesture.
+        playNotificationSound();
       }
 
       try {

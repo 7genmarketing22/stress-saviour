@@ -78,9 +78,7 @@ function LiveToastBanner({ role }: { role: string }) {
         {notifIcon(liveToast.type)}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold leading-tight">
-          {liveToast.type === "chat" ? `Message from ${liveToast.title}` : liveToast.title}
-        </p>
+        <p className="text-sm font-semibold leading-tight">{liveToast.title}</p>
         <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{liveToast.message}</p>
       </div>
       <button
@@ -190,7 +188,13 @@ export function Header({ title, user, onMenuClick }: HeaderProps) {
             </button>
 
             {showNotifications && (
-              <div className="absolute right-0 mt-2 w-80 origin-top-right rounded-xl border border-border bg-popover shadow-xl z-40 overflow-hidden">
+              <div
+                className="
+                  fixed left-1/2 top-[4.25rem] z-40 w-[min(20rem,calc(100vw-1.5rem))] -translate-x-1/2
+                  origin-top rounded-xl border border-border bg-popover shadow-xl overflow-hidden
+                  md:absolute md:left-auto md:right-0 md:top-auto md:mt-2 md:w-80 md:translate-x-0 md:origin-top-right
+                "
+              >
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                   <div className="flex items-center gap-2">
@@ -213,7 +217,7 @@ export function Header({ title, user, onMenuClick }: HeaderProps) {
                 </div>
 
                 {/* List */}
-                <div className="max-h-80 overflow-y-auto">
+                <div className="max-h-[min(20rem,60vh)] overflow-y-auto">
                   {notifications.length > 0 ? (
                     notifications.map((n) => {
                       return (
@@ -231,7 +235,7 @@ export function Header({ title, user, onMenuClick }: HeaderProps) {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className={`text-xs leading-snug ${n.is_read ? "font-medium text-foreground" : "font-semibold text-foreground"}`}>
-                              {n.type === "chat" ? `Message from ${n.title}` : n.title}
+                              {n.title}
                             </p>
                             <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
                               {n.message}

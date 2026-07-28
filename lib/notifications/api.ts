@@ -84,7 +84,7 @@ export async function createChatNotification(
   await markChatNotificationsRead(userId, conversationId);
   await createNotification(
     userId,
-    senderName.trim() || "New message",
+    `Message from ${senderName.trim() || "someone"}`,
     messagePreview.trim() || "Sent a message",
     "chat",
     { conversationId }

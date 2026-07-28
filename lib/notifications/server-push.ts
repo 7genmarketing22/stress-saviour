@@ -35,7 +35,13 @@ export async function sendSystemPushForNotification(params: {
       url: path,
       icon: "/logo-192.png",
       badge: "/logo-96.png",
-      tag: params.tag ?? `notif-${params.type ?? "system"}-${params.userId.slice(0, 8)}`,
+      sound: "/bell.wav",
+      tag:
+        params.tag ??
+        (params.type === "chat" &&
+        typeof params.metadata?.conversationId === "string"
+          ? `chat-${params.metadata.conversationId}`
+          : `notif-${params.type ?? "system"}-${params.userId.slice(0, 8)}`),
       data: {
         type: params.type ?? "system",
         ...(params.metadata ?? {}),

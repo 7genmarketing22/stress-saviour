@@ -13,7 +13,7 @@ export default function AdminChatPage() {
 
 function ChatPageFallback() {
   return (
-    <div className="flex h-[calc(100vh-4rem)] items-center justify-center rounded-2xl border border-border bg-card">
+    <div className="flex h-full min-h-0 flex-1 items-center justify-center rounded-none border-0 bg-card md:rounded-2xl md:border md:border-border">
       <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
     </div>
   );

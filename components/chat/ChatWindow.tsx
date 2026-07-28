@@ -91,7 +91,7 @@ export function ChatWindow({ onBack }: ChatWindowProps) {
   if (!activeConv || !otherUser) return null;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full min-h-0 flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card flex-shrink-0">
         <button
@@ -186,7 +186,7 @@ export function ChatWindow({ onBack }: ChatWindowProps) {
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto scrollbar-hide px-4 py-3 space-y-1 bg-[hsl(var(--muted)/0.2)]"
+        className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-4 py-3 space-y-1 bg-[hsl(var(--muted)/0.2)]"
         style={{
           backgroundImage: "radial-gradient(circle at 20% 80%, hsl(var(--brand-pale)/0.08) 0%, transparent 50%), radial-gradient(circle at 80% 20%, hsl(var(--brand-cyan)/0.06) 0%, transparent 50%)",
         }}

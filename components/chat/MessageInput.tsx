@@ -78,7 +78,7 @@ export function MessageInput() {
   const canSend = (text.trim().length > 0 || !!file) && !isSending;
 
   return (
-    <div className="flex-shrink-0 border-t border-border bg-card">
+    <div className="flex-shrink-0 border-t border-border bg-card pb-[env(safe-area-inset-bottom)]">
       {/* Reply strip */}
       {replyTo && (
         <div className="flex items-center gap-3 px-4 py-2 bg-muted/50 border-b border-border text-xs">

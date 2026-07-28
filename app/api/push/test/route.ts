@@ -48,6 +48,7 @@ export async function POST() {
       url,
       icon: "/logo-192.png",
       badge: "/logo-96.png",
+      sound: "/bell.wav",
       tag: "push-test",
       data: { source: "push-test", type },
     });
