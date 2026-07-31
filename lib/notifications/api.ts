@@ -37,6 +37,22 @@ export async function getNotifications(
   return (data ?? []) as AppNotification[];
 }
 
+/**
+ * Accurate unread count from the DB (not capped by the bell list limit).
+ * Excludes read chat rows so it matches what the header bell shows.
+ */
+export async function getUnreadNotificationCount(userId: string): Promise<number> {
+  const supabase = createClient();
+  const { count, error } = await supabase
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("is_read", false);
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
 /** Mark a single notification as read. */
 export async function markNotificationRead(id: string): Promise<void> {
   const supabase = createClient();

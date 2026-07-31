@@ -2,43 +2,31 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { AppNotification } from "@/lib/notifications/api";
 
 interface Options {
   userId: string;
-  /** Called with the new notification row whenever one is inserted. */
-  onNew: (notification: AppNotification) => void;
-  /** Called when a notification row is updated (e.g. marked read elsewhere). */
-  onUpdate?: (notification: AppNotification) => void;
-  /** Called after (re)subscribe succeeds — use to resync missed events. */
-  onResync?: () => void;
+  /** Called when any conversation the user participates in is updated. */
+  onChange: () => void;
   enabled?: boolean;
 }
 
 /**
- * Subscribes to realtime INSERT/UPDATE events on the notifications table,
- * filtered to the authenticated user's own rows.
- * Reconnects automatically on channel errors and when the tab becomes visible.
+ * Global (not conversation-scoped) realtime for the conversations table.
+ * Message inserts bump last_message_at via trigger, so this keeps the
+ * sidebar unread badge fresh even when the user is outside /chat.
  */
-export function useNotificationsRealtime({
+export function useConversationsRealtime({
   userId,
-  onNew,
-  onUpdate,
-  onResync,
+  onChange,
   enabled = true,
 }: Options) {
-  const onNewRef = useRef(onNew);
-  const onUpdateRef = useRef(onUpdate);
-  const onResyncRef = useRef(onResync);
-  onNewRef.current = onNew;
-  onUpdateRef.current = onUpdate;
-  onResyncRef.current = onResync;
+  const callbackRef = useRef(onChange);
+  callbackRef.current = onChange;
 
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(
     null
   );
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const subscribedOnceRef = useRef(false);
 
   const cleanupChannel = useCallback(() => {
     if (reconnectTimerRef.current) {
@@ -60,41 +48,28 @@ export function useNotificationsRealtime({
 
     const supabase = createClient();
     const channel = supabase
-      .channel(`notifications-${userId}`)
+      .channel(`conversations-global-${userId}`)
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${userId}`,
+          table: "conversations",
+          filter: `participant_a=eq.${userId}`,
         },
-        (payload) => {
-          onNewRef.current(payload.new as AppNotification);
-        }
+        () => callbackRef.current()
       )
       .on(
         "postgres_changes",
         {
-          event: "UPDATE",
+          event: "*",
           schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${userId}`,
+          table: "conversations",
+          filter: `participant_b=eq.${userId}`,
         },
-        (payload) => {
-          onUpdateRef.current?.(payload.new as AppNotification);
-        }
+        () => callbackRef.current()
       )
       .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          // Resync after first subscribe and every successful reconnect.
-          if (subscribedOnceRef.current) {
-            onResyncRef.current?.();
-          }
-          subscribedOnceRef.current = true;
-          return;
-        }
-
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
           if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
           reconnectTimerRef.current = setTimeout(() => {
@@ -107,18 +82,16 @@ export function useNotificationsRealtime({
   }, [userId, enabled, cleanupChannel]);
 
   useEffect(() => {
-    subscribedOnceRef.current = false;
     subscribe();
     return cleanupChannel;
   }, [subscribe, cleanupChannel]);
 
-  // When the tab/PWA returns to foreground, force a fresh subscription + resync.
   useEffect(() => {
     if (!enabled || !userId) return;
 
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
-      onResyncRef.current?.();
+      callbackRef.current();
       subscribe();
     };
 

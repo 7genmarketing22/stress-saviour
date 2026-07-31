@@ -2,7 +2,7 @@ const DEFAULT_ICON = "/logo-192.png";
 const DEFAULT_BADGE = "/logo-96.png";
 const DEFAULT_SOUND = "/bell.wav";
 // Bump when push behavior changes so installed PWAs pick up the new worker.
-const SW_VERSION = "ss-push-v2";
+const SW_VERSION = "ss-push-v3";
 
 function absoluteUrl(pathOrUrl) {
   if (!pathOrUrl) return undefined;
@@ -42,6 +42,20 @@ async function notifyClientsToPlaySound() {
   }
 }
 
+/** Ask open pages to re-fetch bell unread after a push (covers missed realtime). */
+async function notifyClientsToRefreshNotifications(payload) {
+  const clientList = await self.clients.matchAll({
+    type: "window",
+    includeUncontrolled: true,
+  });
+  for (const client of clientList) {
+    client.postMessage({
+      type: "REFRESH_NOTIFICATIONS",
+      payload: payload || null,
+    });
+  }
+}
+
 /** Ask open pages to re-save a refreshed push subscription to the server. */
 async function notifyClientsSubscriptionChanged(subscription) {
   const clientList = await self.clients.matchAll({
@@ -54,6 +68,33 @@ async function notifyClientsSubscriptionChanged(subscription) {
   };
   for (const client of clientList) {
     client.postMessage(payload);
+  }
+}
+
+async function hasFocusedClient() {
+  const clientList = await self.clients.matchAll({
+    type: "window",
+    includeUncontrolled: true,
+  });
+  return clientList.some((client) => "focused" in client && client.focused);
+}
+
+async function bumpAppBadge(explicitCount) {
+  try {
+    if (typeof explicitCount === "number" && explicitCount >= 0 && self.registration.setAppBadge) {
+      if (explicitCount === 0) {
+        await self.registration.clearAppBadge?.();
+      } else {
+        await self.registration.setAppBadge(explicitCount);
+      }
+      return;
+    }
+    // Unknown exact count while app is closed — at least show a badge dot/1.
+    if (self.registration.setAppBadge) {
+      await self.registration.setAppBadge();
+    }
+  } catch {
+    // Badging unsupported on this browser/OS.
   }
 }
 
@@ -90,11 +131,25 @@ self.addEventListener("push", (event) => {
 
   event.waitUntil(
     (async () => {
-      // Always show a tray notification (even if a tab is open) so mobile
-      // users get the system chime when the PWA is backgrounded / closed.
-      await self.registration.showNotification(title, options);
-      // Custom /bell.wav only works while an app window can play audio.
-      await notifyClientsToPlaySound();
+      const focused = await hasFocusedClient();
+
+      // Always keep open tabs in sync (bell badge + sound).
+      await notifyClientsToRefreshNotifications(payload);
+      if (focused) {
+        await notifyClientsToPlaySound();
+      }
+
+      // Native-like: system tray when app is backgrounded/closed; in-app toast when focused.
+      if (!focused) {
+        await self.registration.showNotification(title, options);
+        const unread =
+          typeof payload.unreadCount === "number"
+            ? payload.unreadCount
+            : typeof payload.data?.unreadCount === "number"
+              ? payload.data.unreadCount
+              : undefined;
+        await bumpAppBadge(unread);
+      }
     })()
   );
 });

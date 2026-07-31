@@ -12,8 +12,13 @@ interface ChatLayoutProps {
 }
 
 export function ChatLayout({ allowedRoles }: ChatLayoutProps) {
-  const { activeConversationId, openConversation, conversations, isLoadingConversations } =
-    useChat();
+  const {
+    activeConversationId,
+    openConversation,
+    closeConversation,
+    conversations,
+    isLoadingConversations,
+  } = useChat();
   const searchParams = useSearchParams();
   const openedFromQuery = useRef<string | null>(null);
   // On mobile, track which panel is visible
@@ -36,12 +41,19 @@ export function ChatLayout({ allowedRoles }: ChatLayoutProps) {
     openConversation,
   ]);
 
+  // Keep mobile panel in sync when conversation is closed externally (route leave).
+  useEffect(() => {
+    if (!activeConversationId) setMobileView("list");
+  }, [activeConversationId]);
+
   const handleSelectConversation = () => {
     setMobileView("chat");
   };
 
   const handleBack = () => {
     setMobileView("list");
+    // Clear active thread so bell/push suppression doesn't stick after leaving the chat.
+    closeConversation();
   };
 
   return (

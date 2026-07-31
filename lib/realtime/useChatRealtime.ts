@@ -31,144 +31,172 @@ export function useChatRealtime({
     if (!conversationId) return;
 
     const supabase = createClient();
+    const channels: ReturnType<typeof supabase.channel>[] = [];
+    let disposed = false;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let generation = 0;
 
-    // ── 1. Messages channel (INSERT + UPDATE) ──────────────────
-    const msgChannel = supabase
-      .channel(`messages:${conversationId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload) => {
-          const row = payload.new as Record<string, unknown>;
-          if (row.sender_id === myId) return; // we already have optimistic state
-          const msg: ChatMessage = {
-            id: row.id as string,
-            conversation_id: row.conversation_id as string,
-            sender_id: row.sender_id as string,
-            body: (row.body as string) ?? null,
-            attachment: row.attachment_url
-              ? {
-                  url: row.attachment_url as string,
-                  type: row.attachment_type as "image" | "file",
-                  name: (row.attachment_name as string) ?? "attachment",
-                  size: (row.attachment_size as number) ?? undefined,
-                }
-              : null,
-            reply_to: null,
-            reply_to_id: (row.reply_to_id as string) ?? null,
-            reactions: [],
-            reads: [],
-            is_edited: (row.is_edited as boolean) ?? false,
-            edited_at: (row.edited_at as string) ?? null,
-            deleted_for_sender: (row.deleted_for_sender as boolean) ?? false,
-            deleted_for_everyone: (row.deleted_for_everyone as boolean) ?? false,
-            created_at: row.created_at as string,
-            isMine: false,
-          };
-          cbRef.current.onNewMessage(msg);
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload) => {
-          const row = payload.new as Record<string, unknown>;
-          cbRef.current.onMessageUpdated(row.id as string, {
-            body: (row.body as string) ?? null,
-            is_edited: (row.is_edited as boolean) ?? false,
-            edited_at: (row.edited_at as string) ?? null,
-            deleted_for_everyone: (row.deleted_for_everyone as boolean) ?? false,
-            deleted_for_sender: (row.deleted_for_sender as boolean) ?? false,
-          });
-        }
-      )
-      .subscribe();
+    const removeAll = () => {
+      for (const ch of channels.splice(0)) {
+        void supabase.removeChannel(ch);
+      }
+    };
 
-    // ── 2. Reactions channel ───────────────────────────────────
-    const reactChannel = supabase
-      .channel(`reactions:${conversationId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "message_reactions",
-        },
-        async (payload) => {
-          const row = (payload.new ?? payload.old) as Record<string, unknown>;
-          if (!row?.message_id) return;
+    const subscribe = () => {
+      if (disposed) return;
+      removeAll();
+      const gen = ++generation;
 
-          // Re-fetch all reactions for the affected message
-          const { data } = await (supabase as any)
-            .from("message_reactions")
-            .select("emoji, user_id")
-            .eq("message_id", row.message_id as string);
-
-          const grouped = new Map<string, MessageReaction>();
-          for (const r of (data as any[]) ?? []) {
-            if (!grouped.has(r.emoji)) {
-              grouped.set(r.emoji, { emoji: r.emoji, users: [], count: 0 });
-            }
-            const g = grouped.get(r.emoji)!;
-            g.users.push(r.user_id);
-            g.count++;
+      // ── 1. Messages channel (INSERT + UPDATE) ──────────────────
+      const msgChannel = supabase
+        .channel(`messages:${conversationId}:${gen}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+            filter: `conversation_id=eq.${conversationId}`,
+          },
+          (payload) => {
+            const row = payload.new as Record<string, unknown>;
+            if (row.sender_id === myId) return; // we already have optimistic state
+            const msg: ChatMessage = {
+              id: row.id as string,
+              conversation_id: row.conversation_id as string,
+              sender_id: row.sender_id as string,
+              body: (row.body as string) ?? null,
+              attachment: row.attachment_url
+                ? {
+                    url: row.attachment_url as string,
+                    type: row.attachment_type as "image" | "file",
+                    name: (row.attachment_name as string) ?? "attachment",
+                    size: (row.attachment_size as number) ?? undefined,
+                  }
+                : null,
+              reply_to: null,
+              reply_to_id: (row.reply_to_id as string) ?? null,
+              reactions: [],
+              reads: [],
+              is_edited: (row.is_edited as boolean) ?? false,
+              edited_at: (row.edited_at as string) ?? null,
+              deleted_for_sender: (row.deleted_for_sender as boolean) ?? false,
+              deleted_for_everyone: (row.deleted_for_everyone as boolean) ?? false,
+              created_at: row.created_at as string,
+              isMine: false,
+            };
+            cbRef.current.onNewMessage(msg);
           }
-          cbRef.current.onReactionChange(
-            row.message_id as string,
-            Array.from(grouped.values())
-          );
-        }
-      )
-      .subscribe();
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "messages",
+            filter: `conversation_id=eq.${conversationId}`,
+          },
+          (payload) => {
+            const row = payload.new as Record<string, unknown>;
+            cbRef.current.onMessageUpdated(row.id as string, {
+              body: (row.body as string) ?? null,
+              is_edited: (row.is_edited as boolean) ?? false,
+              edited_at: (row.edited_at as string) ?? null,
+              deleted_for_everyone: (row.deleted_for_everyone as boolean) ?? false,
+              deleted_for_sender: (row.deleted_for_sender as boolean) ?? false,
+            });
+          }
+        )
+        .subscribe((status) => {
+          if (disposed || gen !== generation) return;
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+            reconnectTimer = setTimeout(subscribe, 2500);
+          }
+        });
+      channels.push(msgChannel);
 
-    // ── 3. Read receipts channel ───────────────────────────────
-    const readChannel = supabase
-      .channel(`reads:${conversationId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "message_reads",
-        },
-        (payload) => {
-          const row = payload.new as { message_id: string; user_id: string; read_at: string };
-          cbRef.current.onReadChange(row.message_id, [
-            { user_id: row.user_id, read_at: row.read_at },
-          ]);
-        }
-      )
-      .subscribe();
+      // ── 2. Reactions channel ───────────────────────────────────
+      const reactChannel = supabase
+        .channel(`reactions:${conversationId}:${gen}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "message_reactions",
+          },
+          async (payload) => {
+            const row = (payload.new ?? payload.old) as Record<string, unknown>;
+            if (!row?.message_id) return;
 
-    // ── 4. Typing presence (Broadcast) ────────────────────────
-    const typingChannel = supabase
-      .channel(`typing:${conversationId}`, { config: { broadcast: { self: false } } })
-      .on("broadcast", { event: "typing" }, (payload) => {
-        const { userId, isTyping } = payload.payload as {
-          userId: string;
-          isTyping: boolean;
-        };
-        if (userId !== myId) {
-          cbRef.current.onTyping(userId, isTyping);
-        }
-      })
-      .subscribe();
+            const { data } = await (supabase as any)
+              .from("message_reactions")
+              .select("emoji, user_id")
+              .eq("message_id", row.message_id as string);
+
+            const grouped = new Map<string, MessageReaction>();
+            for (const r of (data as any[]) ?? []) {
+              if (!grouped.has(r.emoji)) {
+                grouped.set(r.emoji, { emoji: r.emoji, users: [], count: 0 });
+              }
+              const g = grouped.get(r.emoji)!;
+              g.users.push(r.user_id);
+              g.count++;
+            }
+            cbRef.current.onReactionChange(
+              row.message_id as string,
+              Array.from(grouped.values())
+            );
+          }
+        )
+        .subscribe();
+      channels.push(reactChannel);
+
+      // ── 3. Read receipts channel ───────────────────────────────
+      const readChannel = supabase
+        .channel(`reads:${conversationId}:${gen}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "message_reads",
+          },
+          (payload) => {
+            const row = payload.new as { message_id: string; user_id: string; read_at: string };
+            cbRef.current.onReadChange(row.message_id, [
+              { user_id: row.user_id, read_at: row.read_at },
+            ]);
+          }
+        )
+        .subscribe();
+      channels.push(readChannel);
+
+      // ── 4. Typing presence (Broadcast) ────────────────────────
+      const typingChannel = supabase
+        .channel(`typing:${conversationId}:${gen}`, {
+          config: { broadcast: { self: false } },
+        })
+        .on("broadcast", { event: "typing" }, (payload) => {
+          const { userId, isTyping } = payload.payload as {
+            userId: string;
+            isTyping: boolean;
+          };
+          if (userId !== myId) {
+            cbRef.current.onTyping(userId, isTyping);
+          }
+        })
+        .subscribe();
+      channels.push(typingChannel);
+    };
+
+    subscribe();
 
     return () => {
-      supabase.removeChannel(msgChannel);
-      supabase.removeChannel(reactChannel);
-      supabase.removeChannel(readChannel);
-      supabase.removeChannel(typingChannel);
+      disposed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      removeAll();
     };
   }, [conversationId, myId]);
 

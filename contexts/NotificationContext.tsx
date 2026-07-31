@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import {
   getNotifications,
+  getUnreadNotificationCount,
   markNotificationRead,
   markAllNotificationsRead,
   markChatNotificationsRead,
@@ -52,19 +53,38 @@ function notificationConversationId(n: AppNotification): string | null {
   return typeof id === "string" ? id : null;
 }
 
+async function syncAppBadge(count: number) {
+  if (typeof navigator === "undefined") return;
+  try {
+    if (count > 0 && "setAppBadge" in navigator) {
+      await (navigator as Navigator & { setAppBadge: (n?: number) => Promise<void> }).setAppBadge(
+        count
+      );
+    } else if (count <= 0 && "clearAppBadge" in navigator) {
+      await (navigator as Navigator & { clearAppBadge: () => Promise<void> }).clearAppBadge();
+    }
+  } catch {
+    // Badging API unsupported or blocked — ignore.
+  }
+}
+
 export function NotificationProvider({ userId, children }: Props) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [liveToast, setLiveToast] = useState<LiveToast | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeChatConversationIdRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const data = await getNotifications(userId, 20);
+      const [data, count] = await Promise.all([
+        getNotifications(userId, 20),
+        getUnreadNotificationCount(userId),
+      ]);
       // Don't clutter the bell with chat messages already seen in chat
-      setNotifications(
-        data.filter((n) => !(n.type === "chat" && n.is_read))
-      );
+      setNotifications(data.filter((n) => !(n.type === "chat" && n.is_read)));
+      setUnreadCount(count);
+      void syncAppBadge(count);
     } catch {
       // silent - keep stale data
     }
@@ -73,6 +93,33 @@ export function NotificationProvider({ userId, children }: Props) {
   useEffect(() => {
     if (userId) refresh();
   }, [userId, refresh]);
+
+  // Polling fallback while the tab/PWA is visible — covers dropped realtime events.
+  useEffect(() => {
+    if (!userId) return;
+
+    const tick = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      void refresh();
+    };
+
+    const id = window.setInterval(tick, 45_000);
+    return () => window.clearInterval(id);
+  }, [userId, refresh]);
+
+  // Service worker / push can ask the open app to resync the bell.
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === "REFRESH_NOTIFICATIONS") {
+        void refresh();
+      }
+    };
+
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, [refresh]);
 
   const setActiveChatConversationId = useCallback((conversationId: string | null) => {
     activeChatConversationIdRef.current = conversationId;
@@ -121,6 +168,20 @@ export function NotificationProvider({ userId, children }: Props) {
       return [n, ...next].slice(0, 20);
     });
 
+    // Accurate count (handles chat dedup replacing a prior unread row).
+    void getUnreadNotificationCount(userId)
+      .then((count) => {
+        setUnreadCount(count);
+        void syncAppBadge(count);
+      })
+      .catch(() => {
+        setUnreadCount((prev) => {
+          const next = prev + 1;
+          void syncAppBadge(next);
+          return next;
+        });
+      });
+
     // Show a live toast for 5 seconds
     setLiveToast({
       id: n.id,
@@ -132,17 +193,53 @@ export function NotificationProvider({ userId, children }: Props) {
     playNotificationSound();
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setLiveToast(null), 5000);
-  }, []);
+  }, [userId]);
 
-  useNotificationsRealtime({ userId, onNew: handleNewNotification, enabled: !!userId });
+  const handleNotificationUpdate = useCallback((n: AppNotification) => {
+    setNotifications((prev) => {
+      if (n.type === "chat" && n.is_read) {
+        return prev.filter((x) => x.id !== n.id);
+      }
+      const exists = prev.some((x) => x.id === n.id);
+      if (!exists) {
+        return n.is_read ? prev : [n, ...prev].slice(0, 20);
+      }
+      return prev.map((x) => (x.id === n.id ? n : x));
+    });
+    // Resync accurate count after cross-tab / other-device mark-read.
+    void getUnreadNotificationCount(userId)
+      .then((count) => {
+        setUnreadCount(count);
+        void syncAppBadge(count);
+      })
+      .catch(() => {});
+  }, [userId]);
+
+  useNotificationsRealtime({
+    userId,
+    onNew: handleNewNotification,
+    onUpdate: handleNotificationUpdate,
+    onResync: refresh,
+    enabled: !!userId,
+  });
 
   const markRead = useCallback(async (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+    );
     await markNotificationRead(id).catch(() => {});
-  }, []);
+    void getUnreadNotificationCount(userId)
+      .then((count) => {
+        setUnreadCount(count);
+        void syncAppBadge(count);
+      })
+      .catch(() => {});
+  }, [userId]);
 
   const markAllRead = useCallback(async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    setUnreadCount(0);
+    void syncAppBadge(0);
     await markAllNotificationsRead(userId).catch(() => {});
   }, [userId]);
 
@@ -170,6 +267,13 @@ export function NotificationProvider({ userId, children }: Props) {
         return prev;
       });
       await markChatNotificationsRead(userId, conversationId).catch(() => {});
+      // Accurate count after server-side chat dedup / mark-read.
+      void getUnreadNotificationCount(userId)
+        .then((count) => {
+          setUnreadCount(count);
+          void syncAppBadge(count);
+        })
+        .catch(() => {});
     },
     [userId]
   );
@@ -178,8 +282,6 @@ export function NotificationProvider({ userId, children }: Props) {
     setLiveToast(null);
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
   }, []);
-
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   return (
     <NotificationContext.Provider

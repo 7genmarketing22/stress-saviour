@@ -8,6 +8,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { usePathname } from "next/navigation";
 import {
   getConversations,
   getMessages,
@@ -23,6 +24,7 @@ import {
 } from "@/lib/chat/api";
 import { uploadChatAttachment } from "@/lib/chat/storage";
 import { useChatRealtime } from "@/lib/realtime/useChatRealtime";
+import { useConversationsRealtime } from "@/lib/realtime/useConversationsRealtime";
 import type {
   ChatConversation,
   ChatMessage,
@@ -48,6 +50,8 @@ interface ChatContextValue {
   totalUnread: number;
   // Actions
   openConversation: (conversationId: string) => void;
+  /** Leave the open thread (mobile back / navigate away) so bell suppression clears. */
+  closeConversation: () => void;
   startConversation: (otherId: string) => Promise<string>;
   sendMessage: (body?: string, file?: File) => Promise<void>;
   editMessage: (msgId: string, newBody: string) => Promise<void>;
@@ -89,6 +93,7 @@ export function ChatProvider({
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const typingTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const activeConversationIdRef = useRef<string | null>(null);
+  const pathname = usePathname();
   const { markChatConversationRead, setActiveChatConversationId } = useNotifications();
 
   // ── Conversations ────────────────────────────────────────
@@ -104,9 +109,26 @@ export function ChatProvider({
     }
   }, [myId]);
 
+  /** Quiet refresh — used by realtime/visibility so the list doesn't flash. */
+  const softRefreshConversations = useCallback(async () => {
+    try {
+      const data = await getConversations(myId);
+      setConversations(data);
+    } catch {
+      // keep stale state
+    }
+  }, [myId]);
+
   useEffect(() => {
     if (myId) refreshConversations();
   }, [myId, refreshConversations]);
+
+  // Keep sidebar unread accurate on every screen (not only while a thread is open).
+  useConversationsRealtime({
+    userId: myId,
+    onChange: softRefreshConversations,
+    enabled: !!myId,
+  });
 
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread_count, 0);
 
@@ -138,6 +160,26 @@ export function ChatProvider({
     },
     [myId, markChatConversationRead, setActiveChatConversationId]
   );
+
+  const closeConversation = useCallback(() => {
+    setActiveConversationId(null);
+    activeConversationIdRef.current = null;
+    setActiveChatConversationId(null);
+    setMessages([]);
+    setReplyTo(null);
+    setTypingUsers({});
+    setHasMoreMessages(false);
+  }, [setActiveChatConversationId]);
+
+  // Leaving /chat must clear active-thread suppression so the bell works again.
+  useEffect(() => {
+    const onChatRoute =
+      typeof pathname === "string" &&
+      (pathname.includes("/chat") || pathname.endsWith("/messages"));
+    if (!onChatRoute && activeConversationIdRef.current) {
+      closeConversation();
+    }
+  }, [pathname, closeConversation]);
 
   // ── Start new conversation ───────────────────────────────
   const startConversation = useCallback(
@@ -471,6 +513,7 @@ export function ChatProvider({
         replyTo,
         totalUnread,
         openConversation,
+        closeConversation,
         startConversation,
         sendMessage,
         editMessage,
