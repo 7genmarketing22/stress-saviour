@@ -76,7 +76,8 @@ export async function sendPushToUsers(
             keys: { p256dh: row.p256dh, auth: row.auth },
           },
           JSON.stringify(payload),
-          { TTL: 300, urgency: "high" }
+          // 24h TTL so offline/sleeping phones still receive chat + booking alerts.
+          { TTL: 86_400, urgency: "high" }
         );
         result.sent += 1;
       } catch (error) {

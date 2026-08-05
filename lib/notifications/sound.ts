@@ -5,15 +5,41 @@ const BELL_SRC = "/bell.wav";
 let shared: HTMLAudioElement | null = null;
 let unlocked = false;
 let lastPlayedAt = 0;
+let audioContext: AudioContext | null = null;
 
 function getSharedAudio(): HTMLAudioElement | null {
   if (typeof window === "undefined") return null;
   if (!shared) {
     shared = new Audio(BELL_SRC);
     shared.preload = "auto";
-    shared.volume = 0.85;
+    shared.volume = 0.9;
+    // Helps some mobile browsers treat this as UI feedback rather than media.
+    try {
+      shared.setAttribute("playsinline", "true");
+    } catch {
+      // ignore
+    }
   }
   return shared;
+}
+
+async function resumeAudioContext(): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    const Ctx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+    if (!Ctx) return;
+    if (!audioContext) {
+      audioContext = new Ctx();
+    }
+    if (audioContext.state === "suspended") {
+      await audioContext.resume();
+    }
+  } catch {
+    // ignore
+  }
 }
 
 /**
@@ -24,11 +50,14 @@ export async function unlockNotificationSound(): Promise<void> {
   const el = getSharedAudio();
   if (!el) return;
   try {
+    await resumeAudioContext();
     el.muted = true;
+    el.volume = 0;
     await el.play();
     el.pause();
     el.currentTime = 0;
     el.muted = false;
+    el.volume = 0.9;
     unlocked = true;
   } catch {
     // Still attempt play later; some browsers unlock on first successful play.
@@ -45,10 +74,21 @@ export function playNotificationSound(): void {
   lastPlayedAt = now;
 
   const run = async () => {
-    // Fresh Audio() is more reliable on desktop Chrome than reusing one element.
+    try {
+      await resumeAudioContext();
+    } catch {
+      // ignore
+    }
+
+    // Fresh Audio() is more reliable on mobile after backgrounding.
     try {
       const el = new Audio(BELL_SRC);
-      el.volume = 0.85;
+      el.volume = 0.9;
+      try {
+        el.setAttribute("playsinline", "true");
+      } catch {
+        // ignore
+      }
       await el.play();
       unlocked = true;
       return;
@@ -62,6 +102,7 @@ export function playNotificationSound(): void {
       el.pause();
       el.currentTime = 0;
       el.muted = false;
+      el.volume = 0.9;
       await el.play();
       unlocked = true;
     } catch {

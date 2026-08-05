@@ -25,6 +25,18 @@ async function signOutOnServer() {
  * Uses a full page navigation so dashboard contexts/realtime channels reset instantly.
  */
 export async function logout(redirectTo = "/login") {
+  // Stop OS pushes for the signed-out account on this device (shared phones).
+  if (typeof window !== "undefined") {
+    try {
+      const { clearPushSubscriptionOnLogout } = await import(
+        "@/components/pwa/PushNotificationManager"
+      );
+      await clearPushSubscriptionOnLogout();
+    } catch {
+      // ignore — always complete sign-out
+    }
+  }
+
   const supabase = createClient();
   await supabase.auth.signOut({ scope: "global" });
   await signOutOnServer();

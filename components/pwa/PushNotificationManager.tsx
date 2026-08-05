@@ -47,7 +47,7 @@ function markStandalonePrompted(): void {
   }
 }
 
-function isStandalonePwa(): boolean {
+export function isStandalonePwa(): boolean {
   if (typeof window === "undefined") return false;
   const nav = window.navigator as Navigator & { standalone?: boolean };
   return (
@@ -76,12 +76,27 @@ function urlBase64ToUint8Array(value: string): Uint8Array {
 
 function isBraveBrowser(): boolean {
   if (typeof navigator === "undefined") return false;
-  return /Brave/i.test(navigator.userAgent) || !!(navigator as Navigator & { brave?: unknown }).brave;
+  return (
+    /Brave/i.test(navigator.userAgent) ||
+    !!(navigator as Navigator & { brave?: unknown }).brave
+  );
+}
+
+function isIosDevice(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return (
+    /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
 }
 
 function mapPushSubscribeError(err: unknown): string {
   const message = getErrorMessage(err, "Unable to enable notifications");
   const lower = message.toLowerCase();
+
+  if (isIosDevice() && !isStandalonePwa()) {
+    return "On iPhone/iPad: tap Share → Add to Home Screen, open the installed app, then enable notifications from inside that app.";
+  }
 
   if (
     lower.includes("push service error") ||
@@ -127,6 +142,9 @@ async function ensureServiceWorker(): Promise<ServiceWorkerRegistration> {
       scope: "/",
       updateViaCache: "none",
     });
+  } else {
+    // Installed PWAs cache workers aggressively — force a check for push fixes.
+    registration.update().catch(() => {});
   }
 
   await navigator.serviceWorker.ready;
@@ -139,7 +157,6 @@ async function ensureServiceWorker(): Promise<ServiceWorkerRegistration> {
         resolve();
       };
       navigator.serviceWorker.addEventListener("controllerchange", onController);
-      // Don't hang forever if the page was opened before SW existed.
       window.setTimeout(() => {
         navigator.serviceWorker.removeEventListener("controllerchange", onController);
         resolve();
@@ -165,7 +182,7 @@ function arrayBufferToBase64Url(buffer: ArrayBuffer): string {
  * Mobile Chrome sometimes returns incomplete toJSON().keys —
  * always fall back to getKey() so the API receives p256dh + auth.
  */
-function serializePushSubscription(subscription: PushSubscription): {
+export function serializePushSubscription(subscription: PushSubscription): {
   endpoint: string;
   expirationTime: number | null;
   keys: { p256dh: string; auth: string };
@@ -214,6 +231,36 @@ async function saveSubscription(subscription: PushSubscription) {
           ? "Please sign in again, then enable notifications."
           : "Unable to save push subscription";
     throw new Error(message);
+  }
+}
+
+async function saveSubscriptionPayload(payload: {
+  endpoint: string;
+  expirationTime?: number | null;
+  keys?: { p256dh?: string; auth?: string };
+}) {
+  if (
+    !payload.endpoint ||
+    !payload.keys?.p256dh ||
+    !payload.keys?.auth
+  ) {
+    throw new Error("Incomplete push subscription payload");
+  }
+  const response = await fetch("/api/push/subscription", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({
+      endpoint: payload.endpoint,
+      expirationTime: payload.expirationTime ?? null,
+      keys: {
+        p256dh: payload.keys.p256dh,
+        auth: payload.keys.auth,
+      },
+    }),
+  });
+  if (!response.ok) {
+    throw new Error("Unable to save push subscription");
   }
 }
 
@@ -296,6 +343,24 @@ async function subscribeForPush() {
   }
 }
 
+/** Remove this device's push subscription from the server (call on logout). */
+export async function clearPushSubscriptionOnLogout(): Promise<void> {
+  try {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    const registration = await navigator.serviceWorker.getRegistration("/");
+    const subscription = await registration?.pushManager.getSubscription();
+    if (!subscription) return;
+    await fetch("/api/push/subscription", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ endpoint: subscription.endpoint }),
+    }).catch(() => {});
+  } catch {
+    // ignore — logout should still proceed
+  }
+}
+
 export function PushNotificationManager() {
   const [showPrompt, setShowPrompt] = useState(false);
   const [isEnabling, setIsEnabling] = useState(false);
@@ -318,6 +383,14 @@ export function PushNotificationManager() {
     try {
       // Unlock audio during this click so in-app bell works even if push subscribe fails.
       await unlockNotificationSound();
+
+      if (isIosDevice() && !isStandalonePwa()) {
+        setError(
+          "On iPhone/iPad: tap Share → Add to Home Screen, open Stress Saviors from your home screen, then tap Enable notifications."
+        );
+        setShowPrompt(true);
+        return;
+      }
 
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
@@ -400,11 +473,18 @@ export function PushNotificationManager() {
       if (cancelled) return;
 
       if (permission === "granted") {
-        markPromptHandled();
-        subscribeForPush().catch((subscriptionError) => {
+        try {
+          await subscribeForPush();
+          markPromptHandled();
+          void unlockNotificationSound();
+        } catch (subscriptionError) {
           console.error("Unable to refresh push subscription", subscriptionError);
-        });
-        void unlockNotificationSound();
+          // Permission granted but push not wired — re-prompt so mobile users can retry.
+          if (!cancelled) {
+            setError(mapPushSubscribeError(subscriptionError));
+            setShowPrompt(true);
+          }
+        }
         return;
       }
 
@@ -429,6 +509,36 @@ export function PushNotificationManager() {
     };
   }, [supported]);
 
+  // Mobile: when app returns from background, re-save subscription (endpoints rotate).
+  useEffect(() => {
+    if (!supported || !process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) return;
+
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const resync = () => {
+      if (Notification.permission !== "granted") return;
+      if (document.visibilityState === "hidden") return;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        subscribeForPush().catch((err) => {
+          console.warn("Push subscription resync failed", err);
+        });
+        void unlockNotificationSound();
+      }, 400);
+    };
+
+    document.addEventListener("visibilitychange", resync);
+    window.addEventListener("focus", resync);
+    window.addEventListener("pageshow", resync);
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      document.removeEventListener("visibilitychange", resync);
+      window.removeEventListener("focus", resync);
+      window.removeEventListener("pageshow", resync);
+    };
+  }, [supported]);
+
   // Header / settings can request enabling push on this device.
   useEffect(() => {
     if (!supported) return;
@@ -450,13 +560,19 @@ export function PushNotificationManager() {
         playNotificationSound();
       }
       if (event.data?.type === "PUSH_SUBSCRIPTION_CHANGED") {
-        const sub = event.data.subscription;
-        if (sub) {
-          void fetch("/api/push/subscription", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(sub),
-          }).catch(() => {});
+        const sub = event.data.subscription as
+          | {
+              endpoint: string;
+              expirationTime?: number | null;
+              keys?: { p256dh?: string; auth?: string };
+            }
+          | null;
+        if (sub?.endpoint && sub.keys?.p256dh && sub.keys?.auth) {
+          void saveSubscriptionPayload(sub).catch(() => {
+            if (Notification.permission === "granted") {
+              void subscribeForPush().catch(() => {});
+            }
+          });
         } else if (Notification.permission === "granted") {
           void subscribeForPush().catch(() => {});
         }
@@ -471,14 +587,14 @@ export function PushNotificationManager() {
     if (!supported) return;
     const unlock = () => {
       void unlockNotificationSound();
-      window.removeEventListener("pointerdown", unlock);
-      window.removeEventListener("keydown", unlock);
     };
-    window.addEventListener("pointerdown", unlock, { once: true });
-    window.addEventListener("keydown", unlock, { once: true });
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
+    window.addEventListener("touchstart", unlock, { passive: true });
     return () => {
       window.removeEventListener("pointerdown", unlock);
       window.removeEventListener("keydown", unlock);
+      window.removeEventListener("touchstart", unlock);
     };
   }, [supported]);
 
@@ -494,7 +610,29 @@ export function PushNotificationManager() {
     return () => clearTimeout(timer);
   }, [justEnabled]);
 
-  if (!supported) return null;
+  if (!supported) {
+    // iOS Safari in browser tab has no PushManager until installed as PWA.
+    if (typeof window !== "undefined" && isIosDevice() && !isStandalonePwa()) {
+      return (
+        <aside
+          className="bg-background fixed right-4 bottom-4 left-4 z-[100] mx-auto max-w-md rounded-xl border p-4 shadow-xl"
+          aria-label="Install app for notifications"
+        >
+          <div className="flex gap-3">
+            <BellRing className="text-primary mt-0.5 h-6 w-6 shrink-0" />
+            <div>
+              <p className="font-semibold">Install the app for alerts</p>
+              <p className="text-muted-foreground mt-1 text-sm">
+                On iPhone/iPad, notifications only work after Add to Home Screen.
+                Open Share → Add to Home Screen, launch Stress Saviors from there, then allow notifications.
+              </p>
+            </div>
+          </div>
+        </aside>
+      );
+    }
+    return null;
+  }
 
   if (justEnabled) {
     return (
@@ -515,7 +653,8 @@ export function PushNotificationManager() {
           <div>
             <p className="font-semibold">Notifications enabled on this device</p>
             <p className="text-muted-foreground mt-1 text-sm">
-              You should hear the bell and see a test alert. Enable again on every device/account that should receive messages (patient, doctor, and admin each need their own enable).
+              You should hear the bell and see a test alert. Keep the app installed;
+              when it is closed you will get a system tray notification with the phone&apos;s alert sound/vibrate.
             </p>
           </div>
         </div>
@@ -542,7 +681,9 @@ export function PushNotificationManager() {
           <div>
             <p className="font-semibold">Notifications are blocked</p>
             <p className="text-muted-foreground mt-1 text-sm">
-              On your phone: open system Settings → Apps → Stress Saviors (or Chrome) → Notifications → Allow, then reopen this app and tap Enable.
+              On your phone: open system Settings → Apps → Stress Saviors (or Chrome) →
+              Notifications → Allow, then reopen this app and tap the bell-ring icon in the header
+              to Enable again.
             </p>
           </div>
         </div>
@@ -573,8 +714,8 @@ export function PushNotificationManager() {
           </p>
           <p className="text-muted-foreground mt-1 text-sm">
             {isStandalonePwa()
-              ? "Allow alerts on this phone for chat, appointments, and account updates — even when the app is closed."
-              : "Enable system notifications for chat, appointments, payments, and account updates. Alerts also appear under the bell in every portal."}
+              ? "Allow alerts on this phone for chat, appointments, and account updates — including when the app is closed."
+              : "Enable system notifications for chat, appointments, payments, and account updates. For the most reliable mobile alerts, install this site as an app (Add to Home Screen)."}
           </p>
           {error && <p className="text-destructive mt-2 text-sm">{error}</p>}
           <Button className="mt-3" size="sm" onClick={enable} disabled={isEnabling}>

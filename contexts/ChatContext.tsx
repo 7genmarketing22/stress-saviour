@@ -390,19 +390,24 @@ export function ChatProvider({
 
         const tabHidden =
           typeof document !== "undefined" && document.visibilityState === "hidden";
+        // Page-level Notification API only while the page is still alive.
+        // When the app is fully closed, Web Push + sw.js own the tray + ring.
         if (
           (tabHidden || !isActive) &&
           typeof window !== "undefined" &&
           "Notification" in window &&
-          Notification.permission === "granted"
+          Notification.permission === "granted" &&
+          typeof navigator !== "undefined" &&
+          !("serviceWorker" in navigator && navigator.serviceWorker.controller)
         ) {
           try {
             const preview =
               msg.body?.trim()?.slice(0, 80) ||
               (msg.attachment?.type === "image" ? "Sent an image" : "Sent a file");
+            const iconUrl = new URL("/logo-192.png", window.location.origin).href;
             const n = new Notification("New message", {
               body: preview,
-              icon: "/logo-192.png",
+              icon: iconUrl,
               tag: `chat-${msg.conversation_id}`,
               silent: false,
             });

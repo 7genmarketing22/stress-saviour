@@ -6,25 +6,27 @@ export function ServiceWorkerRegistration() {
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
 
+    let cancelled = false;
+    let onVisible: (() => void) | null = null;
+
     const register = async () => {
       try {
         const registration = await navigator.serviceWorker.register("/sw.js", {
           scope: "/",
           updateViaCache: "none",
         });
+        if (cancelled) return;
 
         // Pick up SW fixes (push handlers) without requiring a full reinstall.
         registration.update().catch(() => {});
 
-        registration.addEventListener("updatefound", () => {
-          const worker = registration.installing;
-          if (!worker) return;
-          worker.addEventListener("statechange", () => {
-            if (worker.state === "installed" && navigator.serviceWorker.controller) {
-              // Activate updated worker on next navigation; push handler is available after claim.
-            }
-          });
-        });
+        onVisible = () => {
+          if (document.visibilityState === "visible") {
+            registration.update().catch(() => {});
+          }
+        };
+        document.addEventListener("visibilitychange", onVisible);
+        window.addEventListener("pageshow", onVisible);
       } catch (error) {
         console.error("Service worker registration failed", error);
       }
@@ -32,11 +34,17 @@ export function ServiceWorkerRegistration() {
 
     if (document.readyState === "complete") {
       void register();
-      return;
+    } else {
+      window.addEventListener("load", () => void register(), { once: true });
     }
 
-    window.addEventListener("load", () => void register(), { once: true });
-    return () => window.removeEventListener("load", () => void register());
+    return () => {
+      cancelled = true;
+      if (onVisible) {
+        document.removeEventListener("visibilitychange", onVisible);
+        window.removeEventListener("pageshow", onVisible);
+      }
+    };
   }, []);
 
   return null;
