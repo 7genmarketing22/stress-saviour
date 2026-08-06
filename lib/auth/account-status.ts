@@ -54,7 +54,7 @@ export function evaluateAccountAccess(
       message:
         profile.role === "doctor"
           ? "Your doctor application is pending review. An administrator will verify your credentials before you can access the dashboard."
-          : "Your account is pending review. An administrator will approve your registration before you can access the dashboard.",
+          : "Your account is not active yet. If this continues, contact support@stresssaviors.pk.",
     };
   }
 

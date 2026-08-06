@@ -142,12 +142,19 @@ export default function RegisterForm() {
         process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
         "https://stress-saviour.vercel.app";
 
+      const postConfirmNext =
+        role === "patient"
+          ? redirect && redirect.startsWith("/") && !redirect.startsWith("//")
+            ? redirect
+            : "/patient/dashboard"
+          : "/pending-review";
+
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
         options: {
           data: metadata,
-          emailRedirectTo: `${siteUrl}/auth/callback?next=/login`,
+          emailRedirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(postConfirmNext)}`,
         },
       });
 
@@ -183,10 +190,18 @@ export default function RegisterForm() {
           // Account + doctor profile already created; taxonomy can be set later in profile.
           console.warn("Doctor taxonomy sync after signup failed", taxonomyErr);
         }
+        router.refresh();
+        router.push("/pending-review");
+        return;
       }
 
+      // Patients are auto-approved — go straight to app when session is active.
+      const patientTarget =
+        redirect && redirect.startsWith("/") && !redirect.startsWith("//")
+          ? redirect
+          : "/patient/dashboard";
       router.refresh();
-      router.push("/pending-review");
+      router.push(patientTarget);
     } catch (err) {
       setError(formatRegisterError(err));
     } finally {
@@ -195,15 +210,24 @@ export default function RegisterForm() {
   };
 
   if (success) {
+    const isDoctor = accountType === "doctor";
     return (
       <div className="rounded-2xl border border-brand-100 bg-brand-50 p-8 text-center shadow-sm">
         <h1 className="text-xl font-bold text-slate-900">
-          {needsEmailConfirm ? "Check your email" : "Application submitted"}
+          {needsEmailConfirm
+            ? "Check your email"
+            : isDoctor
+              ? "Application submitted"
+              : "Account created"}
         </h1>
         <p className="mt-3 text-sm text-slate-600">
           {needsEmailConfirm
-            ? "We sent a confirmation link to your email. After verifying, log in — your account will show as pending review until an administrator approves it."
-            : "Your registration was received. An administrator will review your account before you can access the dashboard."}
+            ? isDoctor
+              ? "We sent a confirmation link to your email. After verifying, log in — your doctor application stays in review until an administrator approves it."
+              : "We sent a confirmation link to your email. After verifying, log in to start using your patient account right away."
+            : isDoctor
+              ? "Your doctor registration was received. An administrator will verify your credentials before dashboard access is granted."
+              : "Your patient account is ready. You can log in and start booking care."}
         </p>
         <Link
           href={`/login?role=${accountType}${redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""}`}
@@ -222,8 +246,9 @@ export default function RegisterForm() {
       <div className="space-y-2 text-center lg:text-left">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Create your account</h1>
         <p className="text-sm text-slate-500">
-          Register as a {accountType === "doctor" ? "doctor" : "patient"}. Accounts are reviewed by
-          an administrator before dashboard access is granted.
+          {accountType === "doctor"
+            ? "Register as a doctor. An administrator will verify your credentials before dashboard access is granted."
+            : "Register as a patient. Your account is ready as soon as you sign up — no admin approval needed."}
         </p>
       </div>
 
